@@ -17,66 +17,89 @@ const FAQ = [
   ["Apakah ada COD?", "Ya! COD tersedia via Biteship. Biaya COD dihitung otomatis dan bisa dibebankan ke pembeli atau ditanggung penjual."],
 ] as const;
 
-// Integration logos as inline SVGs for crisp branding
+// Integration logos with official brand colors and artwork
 const INTEGRATIONS: { name: string; sub: string; logo: React.ReactNode }[] = [
   {
     name: "Midtrans",
     sub: "E-Payment · QRIS, GoPay, ShopeePay, VA",
     logo: (
-      <svg viewBox="0 0 120 32" fill="none" className="h-7 w-auto" aria-label="Midtrans">
-        <rect width="120" height="32" rx="6" fill="#003A70"/>
-        <text x="10" y="22" fontFamily="Arial,sans-serif" fontWeight="700" fontSize="14" fill="#FFFFFF">midtrans</text>
-      </svg>
+      <div className="flex h-10 w-24 items-center justify-center rounded-xl bg-[#002B49] px-2 shadow-sm">
+        {/* Midtrans official shape: stylized M dots with text */}
+        <div className="flex items-center gap-1.5">
+          <div className="flex gap-0.5">
+            <span className="h-4 w-1 rounded-full bg-[#00A4E4]" />
+            <span className="h-5 w-1 rounded-full bg-[#00A4E4]" />
+            <span className="h-3 w-1 rounded-full bg-[#00A4E4]" />
+          </div>
+          <span className="text-xs font-black tracking-tight text-white">midtrans</span>
+        </div>
+      </div>
     ),
   },
   {
     name: "Biteship",
     sub: "Kurir & COD real-time",
     logo: (
-      <svg viewBox="0 0 120 32" fill="none" className="h-7 w-auto" aria-label="Biteship">
-        <rect width="120" height="32" rx="6" fill="#2563EB"/>
-        <text x="10" y="22" fontFamily="Arial,sans-serif" fontWeight="700" fontSize="14" fill="#FFFFFF">Biteship</text>
-      </svg>
+      <div className="flex h-10 w-24 items-center justify-center rounded-xl bg-gradient-to-r from-[#175CFF] to-[#0A45D4] px-2 shadow-sm">
+        <div className="flex items-center gap-1.5">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m7.5 4.27 9 5.15" /><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+            <path d="m3.3 7 8.7 5 8.7-5" /><path d="M12 22V12" />
+          </svg>
+          <span className="text-xs font-black text-white">biteship</span>
+        </div>
+      </div>
     ),
   },
   {
     name: "RajaOngkir",
     sub: "Tarif ongkir 50+ kota & kecamatan",
     logo: (
-      <svg viewBox="0 0 140 32" fill="none" className="h-7 w-auto" aria-label="RajaOngkir">
-        <rect width="140" height="32" rx="6" fill="#E85D04"/>
-        <text x="10" y="22" fontFamily="Arial,sans-serif" fontWeight="700" fontSize="13" fill="#FFFFFF">RajaOngkir</text>
-      </svg>
+      <div className="flex h-10 w-24 items-center justify-center rounded-xl bg-gradient-to-r from-[#E85D04] to-[#D00000] px-2 shadow-sm">
+        <div className="flex items-center gap-1">
+          <span className="text-sm">🚚</span>
+          <span className="text-xs font-extrabold tracking-tight text-white">RajaOngkir</span>
+        </div>
+      </div>
     ),
   },
   {
     name: "WhatsApp Business",
     sub: "Chat, follow up & notifikasi resmi",
     logo: (
-      <svg viewBox="0 0 36 36" fill="none" className="h-9 w-9" aria-label="WhatsApp">
-        <rect width="36" height="36" rx="8" fill="#25D366"/>
-        <path d="M18 6C11.37 6 6 11.37 6 18c0 2.13.57 4.12 1.56 5.84L6 30l6.32-1.54A11.94 11.94 0 0 0 18 30c6.63 0 12-5.37 12-12S24.63 6 18 6Zm6.4 16.4c-.27.76-1.57 1.44-2.14 1.52-.55.08-1.26.11-2.03-.13a18.64 18.64 0 0 1-1.84-.68c-3.24-1.4-5.36-4.65-5.52-4.86-.16-.22-1.3-1.73-1.3-3.3 0-1.56.82-2.33 1.11-2.65.3-.3.65-.38.87-.38h.62c.2 0 .47-.07.73.56.27.65.92 2.24.99 2.4.08.16.13.35.03.57-.1.22-.16.35-.3.54-.16.19-.33.42-.47.57-.16.16-.32.33-.14.65.19.3.83 1.37 1.78 2.21 1.22 1.09 2.25 1.42 2.57 1.58.3.16.49.13.67-.08.19-.22.8-.93 1.01-1.25.22-.3.43-.25.73-.15.3.11 1.9.9 2.23 1.06.32.16.54.24.62.38.08.14.08.8-.19 1.56Z" fill="white"/>
-      </svg>
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#25D366] text-white shadow-sm shadow-[#25D366]/30">
+        <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6">
+          <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2m.01 1.67c2.2 0 4.26.86 5.82 2.42a8.225 8.225 0 0 1 2.41 5.83c0 4.54-3.7 8.24-8.24 8.24-1.48 0-2.93-.39-4.19-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.196 8.196 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.24-8.24m4.52 11.54c-.25-.13-1.47-.72-1.7-.81-.23-.08-.39-.13-.56.13-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.13-1.06-.39-2.03-1.25-.75-.67-1.26-1.5-1.41-1.75-.14-.25-.02-.39.11-.51.11-.11.25-.29.37-.44.13-.14.17-.25.25-.42.08-.17.04-.31-.02-.44-.06-.13-.56-1.34-.76-1.84-.2-.49-.4-.42-.56-.43h-.48c-.17 0-.44.06-.67.31-.23.25-.87.85-.87 2.08s.89 2.41 1.01 2.58c.13.17 1.75 2.67 4.23 3.74.59.25 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.15-1.18-.07-.12-.23-.19-.48-.31z" />
+        </svg>
+      </div>
     ),
   },
   {
     name: "Shopee Affiliate",
     sub: "Riset produk laris & tren pasar",
     logo: (
-      <svg viewBox="0 0 36 36" fill="none" className="h-9 w-9" aria-label="Shopee">
-        <rect width="36" height="36" rx="8" fill="#EE4D2D"/>
-        <text x="18" y="24" fontFamily="Arial,sans-serif" fontWeight="900" fontSize="16" fill="white" textAnchor="middle">S</text>
-      </svg>
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EE4D2D] text-white shadow-sm shadow-[#EE4D2D]/30">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <path d="M6 8V6.5C6 4.01 8.01 2 10.5 2h3C15.99 2 18 4.01 18 6.5V8" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
+          <path d="M3.5 8.5h17l-1.5 13H5L3.5 8.5Z" fill="#FFFFFF" fillOpacity="0.15" stroke="#FFFFFF" strokeWidth="1.8" />
+          <text x="12" y="17.5" textAnchor="middle" fontSize="9" fontWeight="900" fill="#FFFFFF" fontFamily="Arial, sans-serif">S</text>
+        </svg>
+      </div>
     ),
   },
   {
     name: "SerpApi · Google Trends",
     sub: "Riset tren pencarian Google",
     logo: (
-      <svg viewBox="0 0 36 36" fill="none" className="h-9 w-9" aria-label="Google">
-        <rect width="36" height="36" rx="8" fill="#fff" stroke="#e2e8f0" strokeWidth="1"/>
-        <text x="18" y="25" fontFamily="Arial,sans-serif" fontWeight="900" fontSize="18" fill="#4285F4" textAnchor="middle">G</text>
-      </svg>
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200/80 bg-white shadow-sm">
+        {/* Official Google 4-color G logo */}
+        <svg viewBox="0 0 24 24" className="h-5 w-5">
+          <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
+          <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.25 21.36 7.33 24 12 24z"/>
+          <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.97 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
+          <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.25 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+        </svg>
+      </div>
     ),
   },
 ];
