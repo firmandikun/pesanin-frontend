@@ -4,6 +4,7 @@ import {
 import Link from "next/link";
 import { ShopeeMark } from "@/components/ChannelBadge";
 import { Logo, LogoMark, Wordmark } from "@/components/Logo";
+import { HowItWorks } from "@/components/marketing/HowItWorks";
 import { Pricing } from "@/components/marketing/Pricing";
 
 const NAV = [["Fitur", "#fitur"], ["Cara Kerja", "#cara-kerja"], ["Harga", "#harga"]] as const;
@@ -16,25 +17,6 @@ const FAQ = [
   ["Metode pembayaran langganan apa saja?", "Transfer bank, virtual account, QRIS, dan e-wallet. Faktur dikirim ke email setiap periode tagihan."],
   ["Apakah ada COD?", "Ya! COD tersedia via Biteship. Biaya COD dihitung otomatis dan bisa dibebankan ke pembeli atau ditanggung penjual."],
 ] as const;
-
-// Cara Kerja 3 langkah mudah ala FinKami
-const STEPS = [
-  {
-    step: "01",
-    title: "Buat Produk & Hubungkan Toko",
-    desc: "Input produk, variasi, dan harga. Atau hubungkan toko Shopee Anda untuk tarik produk dan pesanan secara otomatis.",
-  },
-  {
-    step: "02",
-    title: "Sebar Link & Terima Pesanan",
-    desc: "Tempel link checkout di bio sosial media, landing page, atau iklan. Pembeli checkout, ongkir otomatis dihitung 7+ kurir.",
-  },
-  {
-    step: "03",
-    title: "Pantau Profit & Kirim Otomatis",
-    desc: "Data penjualan, HPP, omzet, dan resi kurir terupdate otomatis di dashboard. Follow up pembeli langsung via WhatsApp.",
-  },
-];
 
 /* ─── Mockup atoms ─────────────────────────────────────── */
 
@@ -508,29 +490,7 @@ export default function Home() {
       {/* CARA KERJA */}
       <section id="cara-kerja" className="scroll-mt-16 border-t border-slate-100 bg-[#fbfaf8] py-24">
         <div className="mx-auto max-w-6xl px-4">
-          <div className="mx-auto max-w-2xl text-center">
-            <span className="inline-block rounded-full bg-brand-100 px-3 py-1 text-xs font-bold text-brand-700">Cara Kerja</span>
-            <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-navy md:text-[40px]">Mulai dalam 3 Langkah Mudah</h2>
-            <p className="mt-4 text-lg text-slate-600">Tidak perlu setup rumit atau coding. Siap terima pesanan dalam hitungan menit.</p>
-          </div>
-          <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-3">
-            {STEPS.map((s) => (
-              <div
-                key={s.step}
-                className="relative flex flex-col justify-between rounded-3xl border border-slate-200/80 bg-white p-8 shadow-sm transition hover:border-brand-300 hover:shadow-md"
-              >
-                <div>
-                  <span className="text-4xl font-black text-brand-500/20">{s.step}</span>
-                  <h3 className="mt-4 text-xl font-bold text-navy">{s.title}</h3>
-                  <p className="mt-3 text-sm leading-relaxed text-slate-600">{s.desc}</p>
-                </div>
-                <div className="mt-6 flex items-center gap-2 text-xs font-semibold text-brand-600">
-                  <span>Langkah {s.step}</span>
-                  <ArrowRight size={14} />
-                </div>
-              </div>
-            ))}
-          </div>
+          <HowItWorks />
         </div>
       </section>
 
