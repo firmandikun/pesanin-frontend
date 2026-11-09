@@ -17,22 +17,14 @@ const FAQ = [
   ["Apakah ada COD?", "Ya! COD tersedia via Biteship. Biaya COD dihitung otomatis dan bisa dibebankan ke pembeli atau ditanggung penjual."],
 ] as const;
 
-// Integration logos with official brand colors and artwork
+// Integration logos using exact brand icon assets
 const INTEGRATIONS: { name: string; sub: string; logo: React.ReactNode }[] = [
   {
     name: "Midtrans",
     sub: "E-Payment · QRIS, GoPay, ShopeePay, VA",
     logo: (
-      <div className="flex h-10 w-24 items-center justify-center rounded-xl bg-[#002B49] px-2 shadow-sm">
-        {/* Midtrans official shape: stylized M dots with text */}
-        <div className="flex items-center gap-1.5">
-          <div className="flex gap-0.5">
-            <span className="h-4 w-1 rounded-full bg-[#00A4E4]" />
-            <span className="h-5 w-1 rounded-full bg-[#00A4E4]" />
-            <span className="h-3 w-1 rounded-full bg-[#00A4E4]" />
-          </div>
-          <span className="text-xs font-black tracking-tight text-white">midtrans</span>
-        </div>
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white p-1 border border-slate-100 shadow-sm">
+        <img src="/brands/midtrans.png" alt="Midtrans" className="h-9 w-9 object-contain" />
       </div>
     ),
   },
@@ -40,14 +32,8 @@ const INTEGRATIONS: { name: string; sub: string; logo: React.ReactNode }[] = [
     name: "Biteship",
     sub: "Kurir & COD real-time",
     logo: (
-      <div className="flex h-10 w-24 items-center justify-center rounded-xl bg-gradient-to-r from-[#175CFF] to-[#0A45D4] px-2 shadow-sm">
-        <div className="flex items-center gap-1.5">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m7.5 4.27 9 5.15" /><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
-            <path d="m3.3 7 8.7 5 8.7-5" /><path d="M12 22V12" />
-          </svg>
-          <span className="text-xs font-black text-white">biteship</span>
-        </div>
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white p-1 border border-slate-100 shadow-sm">
+        <img src="/brands/biteship.png" alt="Biteship" className="h-9 w-9 object-contain" />
       </div>
     ),
   },
@@ -55,11 +41,8 @@ const INTEGRATIONS: { name: string; sub: string; logo: React.ReactNode }[] = [
     name: "RajaOngkir",
     sub: "Tarif ongkir 50+ kota & kecamatan",
     logo: (
-      <div className="flex h-10 w-24 items-center justify-center rounded-xl bg-gradient-to-r from-[#E85D04] to-[#D00000] px-2 shadow-sm">
-        <div className="flex items-center gap-1">
-          <span className="text-sm">🚚</span>
-          <span className="text-xs font-extrabold tracking-tight text-white">RajaOngkir</span>
-        </div>
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white p-1 border border-slate-100 shadow-sm">
+        <img src="/brands/rajaongkir.png" alt="RajaOngkir" className="h-9 w-9 object-contain" />
       </div>
     ),
   },
@@ -67,23 +50,19 @@ const INTEGRATIONS: { name: string; sub: string; logo: React.ReactNode }[] = [
     name: "WhatsApp Business",
     sub: "Chat, follow up & notifikasi resmi",
     logo: (
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#25D366] text-white shadow-sm shadow-[#25D366]/30">
-        <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6">
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#25D366] text-white shadow-sm shadow-[#25D366]/30">
+        <svg viewBox="0 0 24 24" fill="currentColor" className="h-7 w-7">
           <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2m.01 1.67c2.2 0 4.26.86 5.82 2.42a8.225 8.225 0 0 1 2.41 5.83c0 4.54-3.7 8.24-8.24 8.24-1.48 0-2.93-.39-4.19-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.196 8.196 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.24-8.24m4.52 11.54c-.25-.13-1.47-.72-1.7-.81-.23-.08-.39-.13-.56.13-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.13-1.06-.39-2.03-1.25-.75-.67-1.26-1.5-1.41-1.75-.14-.25-.02-.39.11-.51.11-.11.25-.29.37-.44.13-.14.17-.25.25-.42.08-.17.04-.31-.02-.44-.06-.13-.56-1.34-.76-1.84-.2-.49-.4-.42-.56-.43h-.48c-.17 0-.44.06-.67.31-.23.25-.87.85-.87 2.08s.89 2.41 1.01 2.58c.13.17 1.75 2.67 4.23 3.74.59.25 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.15-1.18-.07-.12-.23-.19-.48-.31z" />
         </svg>
       </div>
     ),
   },
   {
-    name: "Shopee Affiliate",
-    sub: "Riset produk laris & tren pasar",
+    name: "Shopee",
+    sub: "Sinkronisasi pesanan, produk, stok & ads",
     logo: (
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EE4D2D] text-white shadow-sm shadow-[#EE4D2D]/30">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-          <path d="M6 8V6.5C6 4.01 8.01 2 10.5 2h3C15.99 2 18 4.01 18 6.5V8" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
-          <path d="M3.5 8.5h17l-1.5 13H5L3.5 8.5Z" fill="#FFFFFF" fillOpacity="0.15" stroke="#FFFFFF" strokeWidth="1.8" />
-          <text x="12" y="17.5" textAnchor="middle" fontSize="9" fontWeight="900" fill="#FFFFFF" fontFamily="Arial, sans-serif">S</text>
-        </svg>
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white p-1 border border-slate-100 shadow-sm">
+        <img src="/brands/shopee.png" alt="Shopee" className="h-9 w-9 object-contain" />
       </div>
     ),
   },
@@ -91,9 +70,8 @@ const INTEGRATIONS: { name: string; sub: string; logo: React.ReactNode }[] = [
     name: "SerpApi · Google Trends",
     sub: "Riset tren pencarian Google",
     logo: (
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200/80 bg-white shadow-sm">
-        {/* Official Google 4-color G logo */}
-        <svg viewBox="0 0 24 24" className="h-5 w-5">
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200/80 bg-white p-1 shadow-sm">
+        <svg viewBox="0 0 24 24" className="h-6 w-6">
           <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
           <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.25 21.36 7.33 24 12 24z"/>
           <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.97 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
@@ -262,8 +240,8 @@ function ConnectedChannelsMockup() {
                 dot: "bg-emerald-500",
                 badgeBg: "bg-emerald-50 text-emerald-700",
                 icon: (
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#fff1ee] text-[#ee4d2d]">
-                    <ShopeeMark size={20} />
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white p-1 border border-slate-100">
+                    <img src="/brands/shopee.png" alt="Shopee" className="h-7 w-7 object-contain" />
                   </span>
                 ),
               },
@@ -274,8 +252,8 @@ function ConnectedChannelsMockup() {
                 dot: "bg-emerald-500",
                 badgeBg: "bg-emerald-50 text-emerald-700",
                 icon: (
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#fff1ee] text-[#ee4d2d]">
-                    <ShopeeMark size={20} />
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white p-1 border border-slate-100">
+                    <img src="/brands/shopee.png" alt="Shopee" className="h-7 w-7 object-contain" />
                   </span>
                 ),
               },
