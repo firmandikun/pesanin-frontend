@@ -6,7 +6,7 @@ import { Select } from "@/components/Select";
 import { api, ApiError } from "@/lib/api";
 import { askConfirm } from "@/components/Dialogs";
 
-type State = { connected: boolean; is_production?: boolean; verified_at?: string; last_error?: string | null; settings?: { cod_type?: string } | null; keys?: Record<string, string | null>; webhook_url?: string | null; verify_token?: string | null; details?: { display_phone?: string; verified_name?: string; quality?: string } | null };
+type State = { connected: boolean; is_production?: boolean; verified_at?: string; last_error?: string | null; settings?: { cod_type?: string } | null; keys?: Record<string, string | null>; webhook_url?: string | null; verify_token?: string | null; details?: { display_phone?: string; verified_name?: string; quality?: string } | null; from_env?: boolean };
 type All = { rajaongkir: State; biteship: State; midtrans: State; shopee_affiliate: State; serpapi: State; whatsapp_cloud: State };
 
 /** Pengaturan → Integrasi: the seller connects their own Biteship (couriers, COD) and Midtrans (online payment) accounts. */
@@ -51,7 +51,7 @@ function Header({ icon: Icon, title, desc, state, link }: { icon: typeof Truck; 
       <div className="min-w-0 flex-1">
         <h2 className="flex flex-wrap items-center gap-2 text-lg font-bold text-navy">{title}
           {state.connected
-            ? <span className="flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700"><CheckCircle2 size={13} />Terhubung · {state.is_production ? "Production" : "Sandbox/Test"}</span>
+            ? <span className="flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700"><CheckCircle2 size={13} />Terhubung · {state.is_production ? "Production" : "Sandbox/Test"}{state.from_env ? " (.env)" : ""}</span>
             : <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">Belum terhubung</span>}
         </h2>
         <p className="text-sm text-slate-500">{desc}</p>
@@ -285,6 +285,7 @@ function Biteship({ state, onChange }: { state: State; onChange: () => void }) {
 function Midtrans({ state, onChange }: { state: State; onChange: () => void }) {
   const [server, setServer] = useState("");
   const [client, setClient] = useState("");
+  const [signature, setSignature] = useState("");
   const [prod, setProd] = useState(!!state.is_production);
   const { busy, msg, save, disconnect } = useSave("midtrans", onChange);
   return (
@@ -296,19 +297,27 @@ function Midtrans({ state, onChange }: { state: State; onChange: () => void }) {
           <button key={String(v)} onClick={() => setProd(v)} className={`h-9 rounded-lg px-3.5 text-sm font-semibold ${prod === v ? "bg-navy text-white" : "bg-slate-100 text-slate-600"}`}>{v ? "Production" : "Sandbox"}</button>
         ))}
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-3">
         <label className="block text-sm"><span className="mb-1 block font-medium text-slate-700">Server key</span>
           <input className="input h-10 font-mono" placeholder={state.keys?.server_key ?? (prod ? "Mid-server-…" : "SB-Mid-server-…")} value={server} onChange={(e) => setServer(e.target.value)} autoComplete="off" />
         </label>
         <label className="block text-sm"><span className="mb-1 block font-medium text-slate-700">Client key <span className="font-normal text-slate-400">(opsional)</span></span>
-          <input className="input h-10 font-mono" placeholder={state.keys?.client_key ?? (prod ? "Mid-client-…" : "SB-Mid-client-…")} value={client} onChange={(e) => setClient(e.target.value)} autoComplete="off" />
+          <input className="input h-10 font-mono" placeholder={state.keys?.client_key ?? (prod ? "Mid-client-…" : "Mid-client-…")} value={client} onChange={(e) => setClient(e.target.value)} autoComplete="off" />
+        </label>
+        <label className="block text-sm"><span className="mb-1 block font-medium text-slate-700">Signature secret <span className="font-normal text-slate-400">(opsional)</span></span>
+          <input className="input h-10 font-mono" placeholder={state.keys?.signature_key ?? (prod ? "Mid-server-…" : "Mid-server-…")} value={signature} onChange={(e) => setSignature(e.target.value)} autoComplete="off" />
         </label>
       </div>
       <p className="text-xs text-slate-400">Dashboard Midtrans → Settings → Access Keys. Notifikasi pembayaran diatur otomatis oleh Pesanin, tidak perlu mengisi Notification URL.</p>
+      {state.from_env && (
+        <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-800">
+          Midtrans aktif menggunakan konfigurasi langsung dari file <code className="font-mono font-semibold">.env</code> backend.
+        </p>
+      )}
       <Msg msg={msg} />
       <div className="flex justify-end gap-2">
         {state.connected && <button onClick={disconnect} className="flex h-10 items-center gap-1.5 rounded-lg bg-slate-100 px-4 text-sm font-semibold text-slate-600"><Unplug size={15} />Putuskan</button>}
-        <button disabled={busy || (!state.connected && !server)} onClick={() => save({ server_key: server || undefined, client_key: client || undefined, is_production: prod }, () => { setServer(""); setClient(""); })} className="flex h-10 items-center gap-2 rounded-lg bg-brand-600 px-5 text-sm font-semibold text-white disabled:opacity-50">
+        <button disabled={busy || (!state.connected && !server)} onClick={() => save({ server_key: server || undefined, client_key: client || undefined, signature_key: signature || undefined, is_production: prod }, () => { setServer(""); setClient(""); setSignature(""); })} className="flex h-10 items-center gap-2 rounded-lg bg-brand-600 px-5 text-sm font-semibold text-white disabled:opacity-50">
           {busy && <Loader2 size={15} className="animate-spin" />}{state.connected ? "Simpan & tes ulang" : "Hubungkan"}
         </button>
       </div>
