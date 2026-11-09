@@ -15,20 +15,25 @@ export function Pricing() {
           Bulanan
         </span>
 
-        {/* Switch pill */}
+        {/* Switch pill with proper dimensions and padding */}
         <button
+          type="button"
           onClick={() => setYearly((v) => !v)}
           aria-label="Ganti periode tagihan"
-          className={`relative h-7 w-12 rounded-full transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${yearly ? "bg-brand-500" : "bg-slate-300"}`}
+          className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+            yearly ? "bg-brand-500" : "bg-slate-300"
+          }`}
         >
           <span
-            className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-300 ${yearly ? "translate-x-5" : "translate-x-0.5"}`}
+            className={`pointer-events-none inline-block h-7 w-7 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+              yearly ? "translate-x-6" : "translate-x-0"
+            }`}
           />
         </button>
 
         <span className={`flex items-center gap-2 text-sm font-semibold transition ${yearly ? "text-navy" : "text-slate-400"}`}>
           Tahunan
-          <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold transition ${yearly ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+          <span className={`rounded-full px-2.5 py-1 text-xs font-bold transition ${yearly ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
             Hemat 2 bulan
           </span>
         </span>

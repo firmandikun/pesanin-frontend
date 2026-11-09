@@ -522,6 +522,44 @@ export default function Home() {
         </div>
       </footer>
 
+      {/* Floating WhatsApp Widget (Bottom Right) */}
+      <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3">
+        {/* Chat bubble tooltip */}
+        <a
+          href="https://wa.me/6281234567890?text=Halo%20tim%20Pesanin,%20saya%20mau%20tanya%20tentang%20fitur%20dan%20paket"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group hidden items-center gap-2 rounded-2xl border border-slate-100 bg-white/95 px-4 py-3 shadow-xl backdrop-blur transition-all duration-200 hover:-translate-y-0.5 hover:shadow-2xl sm:flex"
+        >
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          </span>
+          <div className="text-left">
+            <p className="text-xs font-bold text-navy group-hover:text-brand-600 transition">Perlu bantuan/konsultasi?</p>
+            <p className="text-[11px] text-slate-500">Kontak kami saja!</p>
+          </div>
+        </a>
+
+        {/* WhatsApp Button with badge */}
+        <a
+          href="https://wa.me/6281234567890?text=Halo%20tim%20Pesanin,%20saya%20mau%20tanya%20tentang%20fitur%20dan%20paket"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Hubungi kami via WhatsApp"
+          className="group relative flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl shadow-emerald-500/30 transition-transform duration-200 hover:scale-105 active:scale-95"
+        >
+          {/* Notification count badge */}
+          <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[11px] font-bold text-white shadow ring-2 ring-white">
+            1
+          </span>
+          {/* WhatsApp icon */}
+          <svg viewBox="0 0 32 32" fill="currentColor" className="h-7 w-7">
+            <path d="M16 2C8.28 2 2 8.28 2 16c0 2.54.68 4.92 1.87 6.98L2 30l7.25-1.83A13.9 13.9 0 0 0 16 30c7.72 0 14-6.28 14-14S23.72 2 16 2zm7.68 19.46c-.32.9-1.85 1.72-2.54 1.83-.65.1-1.49.14-2.4-.15a22.04 22.04 0 0 1-2.17-.82c-3.83-1.65-6.33-5.48-6.52-5.74-.19-.26-1.54-2.05-1.54-3.9 0-1.85.97-2.76 1.32-3.13.35-.36.77-.45 1.03-.45h.73c.24 0 .56-.09.87.66.32.77 1.09 2.65 1.18 2.84.1.2.16.42.04.67-.12.26-.19.42-.36.64-.19.22-.39.5-.56.67-.19.19-.38.39-.16.77.22.36.98 1.62 2.1 2.62 1.45 1.29 2.66 1.68 3.04 1.87.36.19.58.15.8-.09.22-.26.95-1.1 1.2-1.48.26-.36.51-.3.86-.18.36.13 2.25 1.06 2.64 1.26.38.19.64.29.74.45.1.16.1.95-.22 1.85z" />
+          </svg>
+        </a>
+      </div>
+
     </div>
   );
 }
