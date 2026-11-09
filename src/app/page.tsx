@@ -1,104 +1,13 @@
 import {
-  ArrowRight, BarChart3, Bell, CheckCircle2, ChevronDown, CreditCard,
-  LayoutTemplate, Link2, MessageCircle, PackageCheck, RefreshCcw,
-  ShieldCheck, ShoppingBag, Sparkles, Tag, Truck, Users, Zap,
-  Globe, TrendingUp, Rocket, Star, Award, Boxes,
+  ArrowRight, Bell, CheckCircle2, ChevronDown, MessageCircle, TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
 import { Logo, LogoMark, Wordmark } from "@/components/Logo";
 import { Pricing } from "@/components/marketing/Pricing";
 
-const NAV = [["Fitur", "#fitur"], ["Cara Kerja", "#cara-kerja"], ["Integrasi", "#integrasi"], ["Harga", "#harga"], ["FAQ", "#faq"]] as const;
-
-const STEPS = [
-  [ShoppingBag, "Buat produk", "Isi nama, harga, variasi, dan berat. Form checkout langsung jadi tanpa coding satu baris pun."],
-  [Link2, "Bagikan link", "Tempel link di bio, iklan, atau landing page. Pembeli isi alamat, ongkir muncul otomatis dari 7+ kurir."],
-  [PackageCheck, "Kelola & kirim", "Pesanan masuk rapi di dashboard, follow up WhatsApp sekali klik, cetak label & input resi massal."],
-] as const;
-
-const FEATURES = [
-  {
-    icon: Truck, title: "Ongkir otomatis 7+ kurir",
-    desc: "Tarif JNE, SiCepat, J&T, SPX, SAP dihitung real-time dari gudangmu. Diskon atau subsidi ongkir per produk.",
-    color: "bg-sky-500", badge: "Shipping",
-  },
-  {
-    icon: CreditCard, title: "E-Payment Midtrans",
-    desc: "QRIS, GoPay, ShopeePay, OVO, Virtual Account, Mandiri Bill — semua aktif tanpa konfigurasi tambahan.",
-    color: "bg-violet-500", badge: "Payment",
-  },
-  {
-    icon: MessageCircle, title: "Chat & Follow Up WhatsApp",
-    desc: "Template dari Welcome sampai resi kirim. Rotator CS dengan jadwal shift. Satu klik pesan terisi otomatis.",
-    color: "bg-emerald-500", badge: "Chat",
-  },
-  {
-    icon: LayoutTemplate, title: "Landing Page Builder",
-    desc: "Halaman jualan drag-and-drop dengan form checkout tertanam. Siap dipasang iklan Meta & TikTok.",
-    color: "bg-orange-500", badge: "Builder",
-  },
-  {
-    icon: RefreshCcw, title: "Abandoned Checkout",
-    desc: "Calon pembeli yang belum selesai order tetap tercatat. Follow up otomatis via WhatsApp bisa diaktifkan.",
-    color: "bg-rose-500", badge: "Automation",
-  },
-  {
-    icon: TrendingUp, title: "Market Research",
-    desc: "Google Trends & data Shopee Affiliate langsung di dashboard. Riset produk laris tanpa buka tab baru.",
-    color: "bg-amber-500", badge: "Research",
-  },
-  {
-    icon: Tag, title: "Kupon & Order Bump",
-    desc: "Tawarkan produk tambahan saat checkout dan kupon diskon. Rata-rata nilai order naik 20–35%.",
-    color: "bg-pink-500", badge: "Sales",
-  },
-  {
-    icon: BarChart3, title: "Laporan & Pixel Tracking",
-    desc: "Penjualan per hari, kota, kurir, dan UTM. Pixel Meta, TikTok, Google terpasang dalam hitungan menit.",
-    color: "bg-indigo-500", badge: "Analytics",
-  },
-  {
-    icon: Globe, title: "Custom Domain",
-    desc: "Arahkan domain-mu ke Pesanin, SSL dipasang otomatis. Tokomu tampil profesional di domainmu sendiri.",
-    color: "bg-teal-500", badge: "Domain",
-  },
-  {
-    icon: Users, title: "Affiliate & Referral",
-    desc: "Aktifkan program afiliasi untuk produk-mu. Lacak referral, komisi, dan payout langsung dari dashboard.",
-    color: "bg-cyan-500", badge: "Affiliate",
-  },
-  {
-    icon: Boxes, title: "Variasi & Stok Produk",
-    desc: "Kelola ukuran, warna, dan variasi lain. Stok terpotong otomatis setiap ada pesanan masuk.",
-    color: "bg-lime-600", badge: "Inventory",
-  },
-  {
-    icon: Bell, title: "Notifikasi Push & WA",
-    desc: "Notifikasi pesanan baru langsung ke HP-mu via Push Notification dan WhatsApp tanpa reload dashboard.",
-    color: "bg-brand-600", badge: "Notif",
-  },
-] as const;
-
-const INTEGRATIONS = [
-  { name: "Midtrans", desc: "E-Payment", bg: "bg-blue-600", emoji: "💳" },
-  { name: "Biteship", desc: "Kurir & COD", bg: "bg-sky-500", emoji: "📦" },
-  { name: "RajaOngkir", desc: "Tarif Ongkir", bg: "bg-orange-500", emoji: "🚚" },
-  { name: "WhatsApp", desc: "Chat & Notifikasi", bg: "bg-emerald-500", emoji: "💬" },
-  { name: "Shopee", desc: "Market Research", bg: "bg-orange-600", emoji: "🛍️" },
-  { name: "Meta Pixel", desc: "Tracking Iklan", bg: "bg-blue-500", emoji: "🎯" },
-  { name: "TikTok Pixel", desc: "Tracking TikTok", bg: "bg-slate-900", emoji: "📱" },
-  { name: "Google Ads", desc: "Konversi Google", bg: "bg-red-500", emoji: "🔍" },
-] as const;
-
-const STATS = [
-  ["10.000+", "Seller aktif"],
-  ["Rp 50M+", "Transaksi diproses"],
-  ["500K+", "Pesanan berhasil"],
-  ["99.9%", "Uptime sistem"],
-] as const;
+const NAV = [["Fitur", "#fitur"], ["Cara Kerja", "#cara-kerja"], ["Integrasi", "#integrasi"], ["Harga", "#harga"]] as const;
 
 const FAQ = [
-  ["Apakah benar ada paket gratis?", "Ya. Paket Gratis bisa dipakai selamanya untuk 3 produk dan 100 pesanan per bulan, tanpa kartu kredit."],
   ["Bisa ganti paket kapan saja?", "Bisa. Upgrade langsung aktif dan sisa masa paket lama dihitung proporsional. Downgrade berlaku di periode tagihan berikutnya."],
   ["Bagaimana kalau kuota pesanan habis?", "Form tetap menerima pesanan, kami hanya mengingatkan untuk upgrade. Pesanan pembeli tidak akan ditolak."],
   ["Apakah Pesanin memotong uang penjualan saya?", "Tidak. Pembayaran transfer langsung masuk ke rekeningmu. Untuk e-payment, hanya ada biaya dari mitra payment gateway."],
@@ -107,11 +16,76 @@ const FAQ = [
   ["Apakah ada COD?", "Ya! COD tersedia via Biteship. Biaya COD dihitung otomatis dan bisa dibebankan ke pembeli atau ditanggung penjual."],
 ] as const;
 
-function HeroMockup() {
+// Integration logos as inline SVGs for crisp branding
+const INTEGRATIONS: { name: string; sub: string; logo: React.ReactNode }[] = [
+  {
+    name: "Midtrans",
+    sub: "E-Payment · QRIS, GoPay, ShopeePay, VA",
+    logo: (
+      <svg viewBox="0 0 120 32" fill="none" className="h-7 w-auto" aria-label="Midtrans">
+        <rect width="120" height="32" rx="6" fill="#003A70"/>
+        <text x="10" y="22" fontFamily="Arial,sans-serif" fontWeight="700" fontSize="14" fill="#FFFFFF">midtrans</text>
+      </svg>
+    ),
+  },
+  {
+    name: "Biteship",
+    sub: "Kurir & COD real-time",
+    logo: (
+      <svg viewBox="0 0 120 32" fill="none" className="h-7 w-auto" aria-label="Biteship">
+        <rect width="120" height="32" rx="6" fill="#2563EB"/>
+        <text x="10" y="22" fontFamily="Arial,sans-serif" fontWeight="700" fontSize="14" fill="#FFFFFF">Biteship</text>
+      </svg>
+    ),
+  },
+  {
+    name: "RajaOngkir",
+    sub: "Tarif ongkir 50+ kota & kecamatan",
+    logo: (
+      <svg viewBox="0 0 140 32" fill="none" className="h-7 w-auto" aria-label="RajaOngkir">
+        <rect width="140" height="32" rx="6" fill="#E85D04"/>
+        <text x="10" y="22" fontFamily="Arial,sans-serif" fontWeight="700" fontSize="13" fill="#FFFFFF">RajaOngkir</text>
+      </svg>
+    ),
+  },
+  {
+    name: "WhatsApp Business",
+    sub: "Chat, follow up & notifikasi resmi",
+    logo: (
+      <svg viewBox="0 0 36 36" fill="none" className="h-9 w-9" aria-label="WhatsApp">
+        <rect width="36" height="36" rx="8" fill="#25D366"/>
+        <path d="M18 6C11.37 6 6 11.37 6 18c0 2.13.57 4.12 1.56 5.84L6 30l6.32-1.54A11.94 11.94 0 0 0 18 30c6.63 0 12-5.37 12-12S24.63 6 18 6Zm6.4 16.4c-.27.76-1.57 1.44-2.14 1.52-.55.08-1.26.11-2.03-.13a18.64 18.64 0 0 1-1.84-.68c-3.24-1.4-5.36-4.65-5.52-4.86-.16-.22-1.3-1.73-1.3-3.3 0-1.56.82-2.33 1.11-2.65.3-.3.65-.38.87-.38h.62c.2 0 .47-.07.73.56.27.65.92 2.24.99 2.4.08.16.13.35.03.57-.1.22-.16.35-.3.54-.16.19-.33.42-.47.57-.16.16-.32.33-.14.65.19.3.83 1.37 1.78 2.21 1.22 1.09 2.25 1.42 2.57 1.58.3.16.49.13.67-.08.19-.22.8-.93 1.01-1.25.22-.3.43-.25.73-.15.3.11 1.9.9 2.23 1.06.32.16.54.24.62.38.08.14.08.8-.19 1.56Z" fill="white"/>
+      </svg>
+    ),
+  },
+  {
+    name: "Shopee Affiliate",
+    sub: "Riset produk laris & tren pasar",
+    logo: (
+      <svg viewBox="0 0 36 36" fill="none" className="h-9 w-9" aria-label="Shopee">
+        <rect width="36" height="36" rx="8" fill="#EE4D2D"/>
+        <text x="18" y="24" fontFamily="Arial,sans-serif" fontWeight="900" fontSize="16" fill="white" textAnchor="middle">S</text>
+      </svg>
+    ),
+  },
+  {
+    name: "SerpApi · Google Trends",
+    sub: "Riset tren pencarian Google",
+    logo: (
+      <svg viewBox="0 0 36 36" fill="none" className="h-9 w-9" aria-label="Google">
+        <rect width="36" height="36" rx="8" fill="#fff" stroke="#e2e8f0" strokeWidth="1"/>
+        <text x="18" y="25" fontFamily="Arial,sans-serif" fontWeight="900" fontSize="18" fill="#4285F4" textAnchor="middle">G</text>
+      </svg>
+    ),
+  },
+];
+
+/* ─── Mockup atoms ─────────────────────────────────────── */
+
+function CheckoutMockup() {
   return (
-    <div className="relative mx-auto w-full max-w-[460px]">
-      {/* Checkout card */}
-      <div className="rounded-[28px] bg-white p-5 shadow-2xl shadow-navy/10 ring-1 ring-slate-100">
+    <div className="relative mx-auto w-full max-w-[420px]">
+      <div className="rounded-[24px] bg-white p-5 shadow-2xl shadow-navy/8 ring-1 ring-slate-100/80">
         <div className="flex items-center gap-3">
           <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-2xl">🍋</span>
           <div className="flex-1">
@@ -119,178 +93,349 @@ function HeroMockup() {
             <p className="text-sm text-slate-500">100 ml · <s>Rp189.000</s> <b className="text-brand-600">Rp149.000</b></p>
           </div>
         </div>
-        <div className="mt-4 space-y-2.5">
-          {["Nama lengkap", "No. WhatsApp"].map((l, i) => (
-            <div key={l} className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
-              <span className="block text-[11px] text-slate-400">{l}</span>
-              <span className="font-medium text-navy">{i ? "0812 3456 7890" : "Rina Kartika"}</span>
-            </div>
+        <div className="mt-4 space-y-2">
+          {["Nama lengkap · Rina Kartika", "No. WhatsApp · 0812 3456 7890", "Kecamatan · Coblong, Kota Bandung"].map((l) => (
+            <div key={l} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5 text-sm font-medium text-navy">{l}</div>
           ))}
-          <div className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
-            <span className="block text-[11px] text-slate-400">Kecamatan</span>
-            <span className="font-medium text-navy">Coblong, Kota Bandung</span>
-          </div>
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+        <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
           <div className="rounded-xl border-2 border-brand-500 bg-brand-50 px-3 py-2"><b className="block text-navy">JNE REG</b><span className="text-slate-500">Rp12.000 · 2-3 hari</span></div>
           <div className="rounded-xl border border-slate-200 px-3 py-2"><b className="block text-navy">SiCepat</b><span className="text-slate-500">Rp11.000 · 2-4 hari</span></div>
         </div>
-        <div className="mt-4 flex items-center justify-between border-t border-dashed border-slate-200 pt-4">
+        <div className="mt-3 flex items-center justify-between border-t border-dashed border-slate-200 pt-3">
           <span className="text-sm text-slate-500">Total</span>
           <span className="text-xl font-extrabold text-navy">Rp161.000</span>
         </div>
         <div className="mt-3 flex h-11 items-center justify-center rounded-xl bg-brand-500 text-sm font-bold text-white">Pesan Sekarang</div>
       </div>
-
-      {/* Floating notifications */}
-      <div className="absolute -left-16 top-[44%] hidden w-56 animate-[float_6s_ease-in-out_infinite] rounded-2xl bg-white p-3 shadow-xl ring-1 ring-slate-100 sm:block">
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600"><Bell size={17} /></span>
-          <div className="text-xs"><b className="block text-sm text-navy">Pesanan baru!</b><span className="text-slate-500">Rina · Rp161.000</span></div>
-        </div>
+      {/* Floating pill */}
+      <div className="absolute -right-10 -top-6 hidden animate-[float_6s_ease-in-out_infinite] rounded-2xl bg-navy px-4 py-2.5 text-xs font-semibold text-white shadow-xl sm:block">
+        <div className="flex items-center gap-2"><Bell size={14} /><span>Pesanan baru · Rina · Rp161k</span></div>
       </div>
-      <div className="absolute -right-14 -top-7 hidden w-60 animate-[float_7s_ease-in-out_1s_infinite] rounded-2xl bg-navy p-3 text-white shadow-xl sm:block">
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#25d366] text-white"><MessageCircle size={17} /></span>
-          <div className="text-xs"><b className="block text-sm">Follow up terkirim</b><span className="text-navy-200">&quot;Halo kak Rina, pesanan…&quot;</span></div>
-        </div>
+      <div className="absolute -bottom-5 -left-10 hidden animate-[float_7s_ease-in-out_1.5s_infinite] rounded-2xl bg-white px-4 py-2.5 text-xs font-semibold text-navy shadow-xl ring-1 ring-slate-100 sm:block">
+        <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-400" />Ongkir dihitung otomatis</div>
       </div>
+    </div>
+  );
+}
 
-      {/* Stats badge */}
-      <div className="absolute -bottom-6 left-1/2 hidden w-52 -translate-x-1/2 animate-[float_8s_ease-in-out_2s_infinite] rounded-2xl bg-white p-3 shadow-xl ring-1 ring-slate-100 sm:block">
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-100 text-brand-600"><TrendingUp size={17} /></span>
-          <div className="text-xs"><b className="block text-sm text-navy">Penjualan naik!</b><span className="text-slate-500">+42% bulan ini 🚀</span></div>
+function DashboardMockup() {
+  return (
+    <div className="rounded-[20px] bg-white p-5 shadow-xl shadow-navy/8 ring-1 ring-slate-100">
+      <div className="mb-4 flex items-center justify-between">
+        <span className="text-sm font-bold text-navy">Dashboard Pesanan</span>
+        <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">Live</span>
+      </div>
+      {[
+        { name: "Rina Kartika", product: "Toner Lemon", status: "Dikemas", amount: "Rp161.000", dot: "bg-amber-400" },
+        { name: "Budi Santoso", product: "Serum Vitamin C", status: "Dikirim", amount: "Rp220.000", dot: "bg-sky-400" },
+        { name: "Dewi Lestari", product: "Masker Clay", status: "Selesai", amount: "Rp95.000", dot: "bg-emerald-400" },
+        { name: "Agus Prayogo", product: "Toner Lemon", status: "Baru", amount: "Rp149.000", dot: "bg-brand-400" },
+      ].map((o) => (
+        <div key={o.name} className="flex items-center gap-3 border-t border-slate-100 py-3">
+          <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${o.dot}`} />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-navy">{o.name}</p>
+            <p className="truncate text-xs text-slate-500">{o.product}</p>
+          </div>
+          <span className="shrink-0 rounded-full border border-slate-200 px-2.5 py-0.5 text-xs text-slate-600">{o.status}</span>
+          <span className="shrink-0 text-sm font-bold text-navy">{o.amount}</span>
+        </div>
+      ))}
+      <div className="mt-2 flex gap-2">
+        <div className="flex-1 rounded-xl bg-slate-50 px-3 py-2.5 text-center">
+          <p className="text-xs text-slate-500">Hari ini</p>
+          <p className="mt-0.5 text-lg font-extrabold text-navy">24</p>
+          <p className="text-xs text-slate-500">pesanan</p>
+        </div>
+        <div className="flex-1 rounded-xl bg-brand-50 px-3 py-2.5 text-center">
+          <p className="text-xs text-slate-500">Omzet</p>
+          <p className="mt-0.5 text-lg font-extrabold text-brand-600">Rp3,8 jt</p>
+          <p className="text-xs text-slate-500">hari ini</p>
+        </div>
+        <div className="flex-1 rounded-xl bg-slate-50 px-3 py-2.5 text-center">
+          <p className="text-xs text-slate-500">Konversi</p>
+          <p className="mt-0.5 text-lg font-extrabold text-navy">68%</p>
+          <p className="text-xs text-slate-500">rate</p>
         </div>
       </div>
     </div>
   );
 }
 
+function WaMockup() {
+  return (
+    <div className="rounded-[20px] bg-white p-5 shadow-xl shadow-navy/8 ring-1 ring-slate-100">
+      <div className="mb-4 flex items-center gap-2.5">
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#25d366] text-white"><MessageCircle size={18} /></span>
+        <div>
+          <p className="text-sm font-bold text-navy">WhatsApp Template</p>
+          <p className="text-xs text-slate-500">Follow up otomatis</p>
+        </div>
+      </div>
+      {[
+        { label: "Welcome", msg: "Halo kak Rina! Pesananmu sudah kami terima ya. Mohon tunggu konfirmasi 🙏" },
+        { label: "Resi kirim", msg: "Paket kak Rina sudah dikirim via JNE REG. Resi: JX1234567890 📦" },
+        { label: "Follow up", msg: "Halo kak, bagaimana produknya? Yuk review dan dapatkan diskon 10% 🌟" },
+      ].map((t) => (
+        <div key={t.label} className="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
+          <span className="mb-1.5 inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">{t.label}</span>
+          <p className="text-sm leading-relaxed text-slate-700">{t.msg}</p>
+        </div>
+      ))}
+      <div className="mt-3 flex h-9 items-center justify-center rounded-xl bg-[#25d366] text-sm font-bold text-white">Kirim Template</div>
+    </div>
+  );
+}
+
+function LandingMockup() {
+  return (
+    <div className="overflow-hidden rounded-[20px] bg-navy shadow-xl shadow-navy/20 ring-1 ring-white/5">
+      <div className="bg-white/5 px-4 py-2 text-xs text-navy-200">pesanin.id/p/toner-lemon-promo</div>
+      <div className="p-5">
+        <div className="mb-4 rounded-2xl bg-white/8 p-4">
+          <p className="text-xs font-semibold text-brand-400">PROMO TERBATAS</p>
+          <p className="mt-1 text-lg font-extrabold text-white leading-tight">Toner Lemon Brightening<br/><span className="text-brand-400">Diskon 20% hari ini!</span></p>
+          <p className="mt-2 text-xs text-navy-200">Cocok untuk semua jenis kulit · 100 ml</p>
+        </div>
+        <div className="space-y-2">
+          {["Block: Judul & Gambar", "Block: Deskripsi produk", "Block: Testimoni pelanggan", "Block: Form checkout tertanam"].map((b, i) => (
+            <div key={b} className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium ${i === 3 ? "bg-brand-500 text-white" : "bg-white/8 text-navy-200"}`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${i === 3 ? "bg-white" : "bg-white/30"}`} />
+              {b}
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 flex items-center gap-2">
+          <div className="flex-1 rounded-xl bg-brand-500 py-2 text-center text-xs font-bold text-white">Pesan Sekarang</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AnalyticsMockup() {
+  return (
+    <div className="rounded-[20px] bg-white p-5 shadow-xl shadow-navy/8 ring-1 ring-slate-100">
+      <div className="mb-4 flex items-center justify-between">
+        <span className="text-sm font-bold text-navy">Laporan Penjualan</span>
+        <span className="text-xs text-slate-400">30 hari terakhir</span>
+      </div>
+      <div className="grid grid-cols-3 gap-2 mb-4">
+        {[["Omzet", "Rp 24,8 jt", "text-navy"], ["Pesanan", "342", "text-navy"], ["Konversi", "71%", "text-emerald-600"]].map(([l, v, cls]) => (
+          <div key={l} className="rounded-xl bg-slate-50 px-3 py-3 text-center">
+            <p className="text-[10px] text-slate-500">{l}</p>
+            <p className={`mt-0.5 text-base font-extrabold ${cls}`}>{v}</p>
+          </div>
+        ))}
+      </div>
+      {/* Bar chart */}
+      <div className="flex items-end gap-1 h-16">
+        {[40, 65, 50, 80, 55, 90, 70, 85, 60, 95, 75, 88, 65, 100].map((h, i) => (
+          <div key={i} className="flex-1 rounded-t-sm" style={{ height: `${h}%`, background: i === 13 ? "#f56a1b" : "#e2e8f0" }} />
+        ))}
+      </div>
+      <div className="mt-3 space-y-2">
+        {[["Kota terbaik", "Bandung · 92 pesanan"], ["Kurir favorit", "JNE · 48%"], ["Produk top", "Toner Lemon · 124x"]].map(([l, v]) => (
+          <div key={l} className="flex items-center justify-between text-xs">
+            <span className="text-slate-500">{l}</span>
+            <span className="font-semibold text-navy">{v}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Feature sections ─────────────────────────────────── */
+
+type FeatureSectionProps = {
+  tag: string;
+  title: string;
+  desc: string;
+  bullets: string[];
+  mockup: React.ReactNode;
+  flip?: boolean;
+};
+
+function FeatureSection({ tag, title, desc, bullets, mockup, flip }: FeatureSectionProps) {
+  return (
+    <div className={`mx-auto grid max-w-6xl items-center gap-12 px-4 py-20 md:py-28 lg:grid-cols-2 ${flip ? "lg:[&>:first-child]:order-last" : ""}`}>
+      <div>
+        <span className="inline-block rounded-full bg-brand-100 px-3 py-1 text-xs font-bold text-brand-700">{tag}</span>
+        <h2 className="mt-4 text-3xl font-extrabold leading-tight tracking-tight text-navy md:text-[36px]">{title}</h2>
+        <p className="mt-4 text-lg leading-relaxed text-slate-600">{desc}</p>
+        <ul className="mt-6 space-y-3">
+          {bullets.map((b) => (
+            <li key={b} className="flex items-start gap-3 text-slate-700">
+              <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-emerald-500" />
+              <span>{b}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div>{mockup}</div>
+    </div>
+  );
+}
+
+/* ─── Page ─────────────────────────────────────────────── */
+
 export default function Home() {
   return (
-    <div className="bg-[#fbfaf8] text-slate-700">
+    <div className="bg-white text-slate-700">
+
       {/* NAV */}
-      <header className="sticky top-0 z-30 border-b border-slate-200/60 bg-[#fbfaf8]/80 backdrop-blur-lg">
+      <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/90 backdrop-blur-lg">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <Link href="/" aria-label="Pesanin"><Logo /></Link>
           <nav className="hidden items-center gap-7 text-sm font-medium text-slate-600 md:flex">
             {NAV.map(([l, h]) => <a key={h} href={h} className="transition hover:text-navy">{l}</a>)}
           </nav>
           <div className="flex items-center gap-2">
-            <Link href="/login" className="hidden h-10 items-center rounded-xl px-4 text-sm font-semibold text-navy transition hover:bg-navy-50 sm:flex">Masuk</Link>
-            <Link href="/register" className="flex h-10 items-center gap-1.5 rounded-xl bg-navy px-4 text-sm font-semibold text-white transition hover:bg-navy-700">Daftar Gratis<ArrowRight size={16} /></Link>
+            <Link href="/login" className="hidden h-10 items-center rounded-xl px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 sm:flex">Masuk</Link>
+            <Link href="/register" className="flex h-10 items-center gap-1.5 rounded-xl bg-brand-500 px-5 text-sm font-bold text-white shadow-sm shadow-brand-500/30 transition hover:bg-brand-600">
+              Coba Gratis <ArrowRight size={15} />
+            </Link>
           </div>
         </div>
       </header>
 
       {/* HERO */}
-      <section className="relative overflow-hidden">
-        {/* Background gradient blobs */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-brand-100/50 blur-3xl" />
-          <div className="absolute -right-32 top-10 h-96 w-96 rounded-full bg-sky-100/50 blur-3xl" />
+      <section className="relative overflow-hidden border-b border-slate-100 bg-[#fbfaf8]">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute left-1/2 top-0 h-[500px] w-[700px] -translate-x-1/2 rounded-full bg-brand-100/40 blur-3xl" />
         </div>
-
-        <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-4 pb-24 pt-14 md:pt-24 lg:grid-cols-[1.1fr_1fr]">
+        <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-4 pb-20 pt-16 lg:grid-cols-[1fr_1fr]">
           <div>
-            <a href="#fitur" className="inline-flex items-center gap-2 rounded-full bg-white py-1 pl-1 pr-3 text-xs font-semibold text-navy ring-1 ring-slate-200">
-              <span className="rounded-full bg-brand-500 px-2 py-0.5 text-white">Baru</span>Landing page builder sudah hadir<ArrowRight size={13} />
-            </a>
-            <h1 className="mt-6 text-[40px] font-extrabold leading-[1.05] tracking-[-0.035em] text-navy md:text-[62px]">
-              Terima pesanan<br /><span className="relative whitespace-nowrap text-brand-500">rapi<svg viewBox="0 0 120 12" className="absolute -bottom-2 left-0 w-full" aria-hidden><path d="M2 9c30-6 80-8 116-3" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" opacity=".35" /></svg></span>, tanpa ribet.
+            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Landing page builder sudah hadir
+            </div>
+            <h1 className="mt-6 text-[42px] font-extrabold leading-[1.08] tracking-[-0.03em] text-navy md:text-[58px]">
+              Checkout rapi,<br />
+              <span className="text-brand-500">pesanan terkelola</span>,<br />
+              tanpa ribet.
             </h1>
-            <p className="mt-6 max-w-xl text-lg leading-relaxed text-slate-600">
-              Pesanin mengubah chat &quot;kak, mau order&quot; jadi checkout yang rapi: ongkir otomatis, COD, e-payment Midtrans, follow up WhatsApp, dan landing page dalam satu dashboard.
+            <p className="mt-5 max-w-lg text-lg leading-relaxed text-slate-600">
+              Pesanin adalah platform checkout & manajemen pesanan untuk seller online Indonesia. Ongkir otomatis, COD, e-payment, WhatsApp, dan landing page — semua dalam satu dashboard.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/register" className="flex h-12 items-center gap-2 rounded-xl bg-brand-500 px-7 font-bold text-white shadow-lg shadow-brand-500/30 transition hover:-translate-y-0.5 hover:bg-brand-600">Mulai Gratis<ArrowRight size={18} /></Link>
-              <Link href="/c/toner-lemon" className="flex h-12 items-center gap-2 rounded-xl bg-white px-6 font-semibold text-navy ring-1 ring-slate-200 transition hover:bg-navy-50">Lihat Contoh Checkout</Link>
+              <Link href="/register" className="flex h-12 items-center gap-2 rounded-xl bg-brand-500 px-7 font-bold text-white shadow-lg shadow-brand-500/25 transition hover:-translate-y-0.5 hover:bg-brand-600">
+                Coba Gratis Sekarang <ArrowRight size={18} />
+              </Link>
+              <Link href="/c/toner-lemon" className="flex h-12 items-center gap-2 rounded-xl border border-slate-200 bg-white px-6 font-semibold text-navy transition hover:border-slate-300 hover:bg-slate-50">
+                Lihat Contoh Checkout
+              </Link>
             </div>
-            <div className="mt-7 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-500">
-              {["Gratis selamanya", "Tanpa kartu kredit", "Siap dalam 5 menit"].map((t) => (
-                <span key={t} className="flex items-center gap-1.5"><CheckCircle2 size={16} className="text-emerald-500" />{t}</span>
-              ))}
-            </div>
+            <p className="mt-5 text-sm text-slate-500">Tanpa kartu kredit · Siap dalam 5 menit · Paket berbayar mulai Rp49.000/bln</p>
           </div>
-          <HeroMockup />
+          <CheckoutMockup />
         </div>
       </section>
 
       {/* STATS */}
-      <section className="border-y border-slate-200/60 bg-white">
-        <div className="mx-auto grid max-w-6xl grid-cols-2 gap-px bg-slate-200/60 md:grid-cols-4">
-          {STATS.map(([val, label]) => (
-            <div key={label} className="flex flex-col items-center bg-white px-6 py-8 text-center">
-              <span className="text-3xl font-extrabold tracking-tight text-navy md:text-[36px]">{val}</span>
-              <span className="mt-1 text-sm text-slate-500">{label}</span>
+      <section className="border-b border-slate-100 bg-white">
+        <div className="mx-auto grid max-w-6xl grid-cols-2 divide-x divide-y divide-slate-100 md:grid-cols-4 md:divide-y-0">
+          {[["10.000+", "Seller aktif"], ["500K+", "Pesanan berhasil"], ["Rp 50M+", "Transaksi diproses"], ["99.9%", "Uptime sistem"]].map(([v, l]) => (
+            <div key={l} className="flex flex-col items-center justify-center px-6 py-8 text-center">
+              <span className="text-[32px] font-extrabold tracking-tight text-navy">{v}</span>
+              <span className="mt-1 text-sm text-slate-500">{l}</span>
             </div>
           ))}
         </div>
       </section>
 
-      {/* CATEGORY STRIP */}
-      <section className="bg-[#fbfaf8]">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-8 gap-y-3 px-4 py-5 text-sm font-semibold text-slate-400">
-          <span className="text-slate-500">Cocok untuk jualan</span>
-          {["Skincare", "Fashion", "Makanan & minuman", "Herbal", "Produk digital", "Kelas online", "Elektronik"].map((c) => (
-            <span key={c} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-500">{c}</span>
-          ))}
-        </div>
-      </section>
+      {/* FEATURES */}
+      <section id="fitur" className="scroll-mt-16 divide-y divide-slate-100">
 
-      {/* HOW IT WORKS */}
-      <section id="cara-kerja" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-24">
-        <p className="text-center text-sm font-bold uppercase tracking-[0.15em] text-brand-600">Cara kerja</p>
-        <h2 className="mx-auto mt-3 max-w-2xl text-center text-3xl font-extrabold tracking-tight text-navy md:text-[40px] md:leading-tight">Dari link ke paket terkirim, cuma tiga langkah</h2>
-        <div className="mt-14 grid gap-5 md:grid-cols-3">
-          {STEPS.map(([Icon, t, d], i) => (
-            <div key={t} className="surface surface-hover relative p-7">
-              <span className="absolute right-6 top-5 text-5xl font-extrabold text-slate-100">0{i + 1}</span>
-              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-navy text-white"><Icon size={22} /></span>
-              <h3 className="mt-5 text-lg font-bold text-navy">{t}</h3>
-              <p className="mt-2 leading-relaxed text-slate-600">{d}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+        <FeatureSection
+          tag="Checkout"
+          title="Form checkout yang rapi dan cepat — siap pakai tanpa coding"
+          desc="Pembeli isi nama, nomor WA, dan kecamatan. Ongkir dari 7+ kurir muncul otomatis. Tidak perlu WA-an dulu buat tanya ongkir."
+          bullets={[
+            "Tarif real-time JNE, SiCepat, J&T, SPX, SAP, AnterAja, POS",
+            "Variasi produk (ukuran, warna) & order bump di checkout",
+            "Data pembeli lama terisi otomatis saat order berikutnya",
+            "COD tersedia — biaya COD dihitung otomatis",
+          ]}
+          mockup={<CheckoutMockup />}
+        />
 
-      {/* FEATURES BENTO */}
-      <section id="fitur" className="scroll-mt-16 bg-navy py-24 text-white">
-        <div className="mx-auto max-w-6xl px-4">
-          <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
-            <div>
-              <p className="text-sm font-bold uppercase tracking-[0.15em] text-brand-400">Fitur</p>
-              <h2 className="mt-3 max-w-xl text-3xl font-extrabold tracking-tight md:text-[40px] md:leading-tight">Semua yang dibutuhkan seller online, sudah di sini</h2>
-            </div>
-            <p className="max-w-sm text-navy-200">Tidak perlu gonta-ganti aplikasi untuk ongkir, rekap order, follow up, dan riset produk.</p>
-          </div>
-          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {FEATURES.map(({ icon: Icon, title, desc, color, badge }, i) => (
-              <div key={title} className={`group relative rounded-2xl p-6 ring-1 transition duration-200 hover:-translate-y-0.5 ${i === 0 ? "bg-brand-500 ring-brand-400 sm:col-span-2" : "bg-white/[.04] ring-white/10 hover:bg-white/[.07]"}`}>
-                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${i === 0 ? "bg-white/20 text-white" : "bg-white/10 text-brand-300"}`}>{badge}</span>
-                <span className={`mt-3 flex h-11 w-11 items-center justify-center rounded-xl ${i === 0 ? "bg-white text-brand-600" : `${color} text-white`}`}><Icon size={21} /></span>
-                <h3 className="mt-4 font-bold">{title}</h3>
-                <p className={`mt-2 text-sm leading-relaxed ${i === 0 ? "text-white/90" : "text-navy-200"}`}>{desc}</p>
-              </div>
-            ))}
-          </div>
+        <div className="bg-[#fbfaf8]">
+          <FeatureSection
+            tag="Dashboard"
+            title="Semua pesanan rapi di satu tempat — tidak ada yang terlewat"
+            desc="Dari pesanan baru sampai paket terkirim, semua terpantau. Filter, cari, dan kelola order massal tanpa ribet."
+            bullets={[
+              "Status pesanan real-time: baru, dikemas, dikirim, selesai",
+              "Input resi massal — cetak label pengiriman sekaligus",
+              "Batalkan, refund, atau buat pesanan manual dari dashboard",
+              "Notifikasi push & WhatsApp saat ada pesanan baru",
+            ]}
+            mockup={<DashboardMockup />}
+            flip
+          />
         </div>
+
+        <FeatureSection
+          tag="WhatsApp"
+          title="Follow up pembeli otomatis via WhatsApp — satu klik, terisi sendiri"
+          desc="Template pesan dari konfirmasi order, pengiriman resi, sampai follow up review. Kirim ke banyak pembeli sekaligus tanpa ketik ulang."
+          bullets={[
+            "Template welcome, resi kirim, dan follow up review",
+            "WhatsApp Rotator — bagi chat ke beberapa CS dengan jadwal shift",
+            "Pesan terisi otomatis: nama, produk, nomor resi, total bayar",
+            "Blast pesan ke segmen pembeli tertentu",
+          ]}
+          mockup={<WaMockup />}
+        />
+
+        <div className="bg-[#fbfaf8]">
+          <FeatureSection
+            tag="Landing Page"
+            title="Buat halaman jualan dengan landing page builder — tanpa developer"
+            desc="Drag dan drop block konten, pasang form checkout, dan langsung sebar ke iklan. Domain sendiri bisa dipasang."
+            bullets={[
+              "Block builder: judul, gambar, testimoni, timer, kupon",
+              "Form checkout tertanam langsung di landing page",
+              "Custom domain dengan SSL otomatis",
+              "Siap dipasang Pixel Meta, TikTok, dan Google",
+            ]}
+            mockup={<LandingMockup />}
+            flip
+          />
+        </div>
+
+        <FeatureSection
+          tag="Laporan & Analitik"
+          title="Pantau performa penjualan dengan laporan yang mudah dibaca"
+          desc="Lihat tren penjualan per hari, kota, kurir, dan UTM. Data pixel iklan terhubung langsung untuk tracking ROAS."
+          bullets={[
+            "Grafik omzet harian & bulanan dengan breakdown per produk",
+            "Laporan kota & kecamatan — tahu di mana pembeli terbanyak",
+            "Tracking pixel Meta, TikTok & Google Ads terintegrasi",
+            "Market research: tren Google & data Shopee Affiliate",
+          ]}
+          mockup={<AnalyticsMockup />}
+        />
+
       </section>
 
       {/* INTEGRATIONS */}
-      <section id="integrasi" className="scroll-mt-16 border-b border-slate-200/60 bg-white py-24">
+      <section id="integrasi" className="scroll-mt-16 border-t border-slate-100 bg-[#fbfaf8] py-24">
         <div className="mx-auto max-w-6xl px-4">
-          <p className="text-center text-sm font-bold uppercase tracking-[0.15em] text-brand-600">Integrasi</p>
-          <h2 className="mx-auto mt-3 max-w-2xl text-center text-3xl font-extrabold tracking-tight text-navy md:text-[40px] md:leading-tight">Terhubung dengan layanan terpercaya</h2>
-          <p className="mx-auto mt-4 max-w-xl text-center text-slate-600">Semua integrasi sudah dikonfigurasi — kamu cukup masukkan API key dan langsung jalan.</p>
-          <div className="mt-14 grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {INTEGRATIONS.map(({ name, desc, bg, emoji }) => (
-              <div key={name} className="surface surface-hover flex flex-col items-center gap-3 px-4 py-6 text-center">
-                <span className={`flex h-14 w-14 items-center justify-center rounded-2xl text-2xl ${bg} shadow-md`}>{emoji}</span>
-                <div>
+          <div className="mx-auto max-w-2xl text-center">
+            <span className="inline-block rounded-full bg-brand-100 px-3 py-1 text-xs font-bold text-brand-700">Integrasi</span>
+            <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-navy md:text-[40px]">Terhubung dengan layanan yang kamu sudah pakai</h2>
+            <p className="mt-4 text-lg text-slate-600">Midtrans, Biteship, WhatsApp, dan lebih banyak lagi — masukkan API key dan langsung jalan.</p>
+          </div>
+          <div className="mt-14 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {INTEGRATIONS.map(({ name, sub, logo }) => (
+              <div key={name} className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 transition hover:border-brand-200 hover:shadow-sm">
+                <div className="shrink-0">{logo}</div>
+                <div className="min-w-0">
                   <p className="font-bold text-navy">{name}</p>
-                  <p className="mt-0.5 text-xs text-slate-500">{desc}</p>
+                  <p className="text-xs text-slate-500 leading-relaxed">{sub}</p>
                 </div>
               </div>
             ))}
@@ -298,104 +443,85 @@ export default function Home() {
         </div>
       </section>
 
-      {/* BENEFITS */}
-      <section className="mx-auto grid max-w-6xl gap-6 px-4 py-20 md:grid-cols-3">
-        {[
-          [Zap, "Checkout cepat di HP", "Form satu halaman yang ringan, data pembeli lama terisi otomatis saat order lagi."],
-          [ShieldCheck, "Uang langsung ke rekeningmu", "Pesanin tidak menahan dana penjualan. Transfer masuk langsung ke rekening toko."],
-          [Sparkles, "Tampil profesional", "Domain sendiri, logo toko, dan halaman sukses yang bisa diatur per metode bayar."],
-          [Rocket, "Auto-ship & notifikasi", "Pesanan COD otomatis diteruskan ke kurir. Notifikasi WA & Push saat ada order masuk."],
-          [Award, "Afiliasi & kupon", "Aktifkan program afiliasi dan kupon diskon untuk mengundang lebih banyak pembeli."],
-          [Star, "Dukungan seller lokal", "Dibuat khusus untuk seller Indonesia — bahasa, kurir, bank, dan e-wallet lokal semua ada."],
-        ].map(([Icon, t, d]) => {
-          const I = Icon as typeof Zap;
-          return (
-            <div key={t as string} className="flex gap-4">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-600"><I size={21} /></span>
-              <div><h3 className="font-bold text-navy">{t as string}</h3><p className="mt-1 text-sm leading-relaxed text-slate-600">{d as string}</p></div>
-            </div>
-          );
-        })}
-      </section>
-
       {/* PRICING */}
-      <section id="harga" className="scroll-mt-16 border-t border-slate-200/60 bg-[#f6f5f2] py-24">
+      <section id="harga" className="scroll-mt-16 border-t border-slate-100 bg-white py-24">
         <div className="mx-auto max-w-6xl px-4">
-          <p className="text-center text-sm font-bold uppercase tracking-[0.15em] text-brand-600">Harga</p>
-          <h2 className="mx-auto mt-3 max-w-2xl text-center text-3xl font-extrabold tracking-tight text-navy md:text-[40px] md:leading-tight">Mulai gratis, upgrade saat pesanan makin ramai</h2>
-          <p className="mx-auto mb-10 mt-4 max-w-xl text-center text-slate-600">Semua paket sudah termasuk ongkir otomatis, COD, dan dashboard pesanan. Tanpa biaya setup.</p>
-          <Pricing />
+          <div className="mx-auto max-w-2xl text-center">
+            <span className="inline-block rounded-full bg-brand-100 px-3 py-1 text-xs font-bold text-brand-700">Harga</span>
+            <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-navy md:text-[40px]">Pilih paket yang sesuai</h2>
+            <p className="mt-4 text-lg text-slate-600">Semua paket sudah termasuk ongkir otomatis, COD, dan dashboard pesanan. Tanpa biaya setup.</p>
+          </div>
+          <div className="mt-12">
+            <Pricing />
+          </div>
         </div>
       </section>
 
       {/* FAQ */}
-      <section id="faq" className="mx-auto max-w-3xl scroll-mt-16 px-4 py-24">
-        <p className="text-center text-sm font-bold uppercase tracking-[0.15em] text-brand-600">FAQ</p>
-        <h2 className="mt-3 text-center text-3xl font-extrabold tracking-tight text-navy md:text-[40px]">Pertanyaan umum</h2>
-        <div className="mt-10 space-y-3">
-          {FAQ.map(([q, a]) => (
-            <details key={q} className="group surface px-6 py-1">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 font-semibold text-navy">
-                {q}<ChevronDown size={18} className="shrink-0 text-slate-400 transition-transform duration-300 group-open:rotate-180" />
-              </summary>
-              <p className="pb-5 leading-relaxed text-slate-600">{a}</p>
-            </details>
-          ))}
+      <section className="border-t border-slate-100 bg-[#fbfaf8] py-24">
+        <div className="mx-auto max-w-3xl px-4">
+          <div className="mb-10 text-center">
+            <span className="inline-block rounded-full bg-brand-100 px-3 py-1 text-xs font-bold text-brand-700">FAQ</span>
+            <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-navy md:text-[40px]">Pertanyaan umum</h2>
+          </div>
+          <div className="space-y-2">
+            {FAQ.map(([q, a]) => (
+              <details key={q} className="group rounded-2xl border border-slate-200 bg-white px-6 py-1 transition hover:border-slate-300">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 font-semibold text-navy">
+                  {q}<ChevronDown size={18} className="shrink-0 text-slate-400 transition-transform duration-300 group-open:rotate-180" />
+                </summary>
+                <p className="pb-5 leading-relaxed text-slate-600">{a}</p>
+              </details>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* CTA */}
-      <section className="mx-auto max-w-6xl px-4 pb-24">
-        <div className="relative overflow-hidden rounded-[32px] bg-navy px-6 py-20 text-center text-white md:px-16">
-          {/* BG decoration */}
-          <div className="pointer-events-none absolute inset-0 overflow-hidden">
-            <div className="absolute -left-20 -top-20 h-72 w-72 rounded-full bg-brand-500/20 blur-3xl" />
-            <div className="absolute -bottom-20 -right-20 h-72 w-72 rounded-full bg-sky-500/15 blur-3xl" />
+      <section className="border-t border-slate-100 bg-navy py-24">
+        <div className="mx-auto max-w-2xl px-4 text-center">
+          <LogoMark size={44} className="mx-auto" />
+          <h2 className="mx-auto mt-6 text-3xl font-extrabold tracking-tight text-white md:text-[44px] md:leading-tight">
+            Siap terima pesanan lebih rapi?
+          </h2>
+          <p className="mt-4 text-lg text-navy-200">Daftar sekarang, buat produk pertamamu, dan bagikan link checkout hari ini.</p>
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            <Link href="/register" className="inline-flex h-12 items-center gap-2 rounded-xl bg-brand-500 px-8 font-bold text-white shadow-lg shadow-brand-500/25 transition hover:-translate-y-0.5 hover:bg-brand-400">
+              Mulai Sekarang <ArrowRight size={18} />
+            </Link>
+            <Link href="/c/toner-lemon" className="inline-flex h-12 items-center gap-2 rounded-xl bg-white/10 px-7 font-semibold text-white transition hover:bg-white/20">
+              Lihat Demo Checkout
+            </Link>
           </div>
-          <div className="relative">
-            <LogoMark size={48} className="mx-auto" />
-            <h2 className="mx-auto mt-6 max-w-2xl text-3xl font-extrabold tracking-tight md:text-[44px] md:leading-tight">Pesanan berikutnya, biar Pesanin yang rapikan.</h2>
-            <p className="mt-4 text-navy-200">Daftar gratis, buat produk pertamamu, dan bagikan link checkout hari ini.</p>
-            <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <Link href="/register" className="inline-flex h-12 items-center gap-2 rounded-xl bg-brand-500 px-7 font-bold text-white shadow-lg shadow-brand-500/30 transition hover:-translate-y-0.5 hover:bg-brand-400">Mulai Gratis Sekarang<ArrowRight size={18} /></Link>
-              <Link href="/c/toner-lemon" className="inline-flex h-12 items-center gap-2 rounded-xl bg-white/10 px-7 font-semibold text-white transition hover:bg-white/20">Lihat Contoh Checkout</Link>
-            </div>
-            <div className="mt-6 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-navy-200">
-              {["Gratis selamanya", "Tanpa kartu kredit", "Setup dalam 5 menit"].map((t) => (
-                <span key={t} className="flex items-center gap-1.5"><CheckCircle2 size={15} className="text-emerald-400" />{t}</span>
-              ))}
-            </div>
-          </div>
+          <p className="mt-5 text-sm text-navy-200">Tanpa kartu kredit · Paket berbayar mulai Rp49.000/bln</p>
         </div>
       </section>
 
       {/* FOOTER */}
-      <footer className="border-t border-slate-200/70 bg-white">
+      <footer className="border-t border-white/5 bg-navy">
         <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 md:grid-cols-[1.5fr_1fr_1fr_1fr]">
           <div>
-            <Logo />
-            <p className="mt-4 max-w-xs text-sm leading-relaxed text-slate-500">Form order, checkout, dan manajemen pesanan untuk seller online Indonesia. Ongkir otomatis, COD, e-payment, dan WA dalam satu dashboard.</p>
-            <div className="mt-5 flex gap-2">
-              {["Midtrans", "Biteship", "WhatsApp"].map((b) => (
-                <span key={b} className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-500">{b}</span>
-              ))}
-            </div>
+            <Logo light />
+            <p className="mt-4 max-w-xs text-sm leading-relaxed text-navy-200">Platform checkout & manajemen pesanan untuk seller online Indonesia. Ongkir otomatis, COD, e-payment, dan WhatsApp dalam satu dashboard.</p>
           </div>
           {[
             ["Produk", [["Fitur", "#fitur"], ["Integrasi", "#integrasi"], ["Harga", "#harga"], ["Contoh checkout", "/c/toner-lemon"]]],
-            ["Akun", [["Masuk", "/login"], ["Daftar gratis", "/register"]]],
+            ["Akun", [["Masuk", "/login"], ["Daftar", "/register"]]],
             ["Bantuan", [["FAQ", "#faq"], ["Cara kerja", "#cara-kerja"]]],
           ].map(([h, links]) => (
             <div key={h as string}>
-              <h4 className="text-sm font-bold text-navy">{h as string}</h4>
-              <ul className="mt-4 space-y-2.5 text-sm text-slate-500">
-                {(links as string[][]).map(([l, href]) => <li key={l}><Link href={href} className="transition hover:text-brand-600">{l}</Link></li>)}
+              <h4 className="text-sm font-bold text-white">{h as string}</h4>
+              <ul className="mt-4 space-y-2.5 text-sm text-navy-200">
+                {(links as string[][]).map(([l, href]) => <li key={l}><Link href={href} className="transition hover:text-white">{l}</Link></li>)}
               </ul>
             </div>
           ))}
         </div>
-        <div className="border-t border-slate-100 py-5 text-center text-xs text-slate-400">© {new Date().getFullYear()} <Wordmark className="text-xs" /> · Terima pesanan rapi, tanpa ribet.</div>
+        <div className="border-t border-white/5 py-5 text-center text-xs text-navy-200">
+          © {new Date().getFullYear()} <Wordmark light className="text-xs opacity-70" /> · Terima pesanan rapi, tanpa ribet.
+        </div>
       </footer>
+
     </div>
   );
 }
