@@ -6,7 +6,7 @@ import { ShopeeMark } from "@/components/ChannelBadge";
 import { Logo, LogoMark, Wordmark } from "@/components/Logo";
 import { Pricing } from "@/components/marketing/Pricing";
 
-const NAV = [["Fitur", "#fitur"], ["Cara Kerja", "#cara-kerja"], ["Integrasi", "#integrasi"], ["Harga", "#harga"]] as const;
+const NAV = [["Fitur", "#fitur"], ["Cara Kerja", "#cara-kerja"], ["Harga", "#harga"]] as const;
 
 const FAQ = [
   ["Bisa ganti paket kapan saja?", "Bisa. Upgrade langsung aktif dan sisa masa paket lama dihitung proporsional. Downgrade berlaku di periode tagihan berikutnya."],
@@ -17,90 +17,22 @@ const FAQ = [
   ["Apakah ada COD?", "Ya! COD tersedia via Biteship. Biaya COD dihitung otomatis dan bisa dibebankan ke pembeli atau ditanggung penjual."],
 ] as const;
 
-// Integration logos with official brand colors and artwork
-const INTEGRATIONS: { name: string; sub: string; logo: React.ReactNode }[] = [
+// Cara Kerja 3 langkah mudah ala FinKami
+const STEPS = [
   {
-    name: "Midtrans",
-    sub: "E-Payment · QRIS, GoPay, ShopeePay, VA",
-    logo: (
-      <div className="flex h-10 w-24 items-center justify-center rounded-xl bg-[#002B49] px-2 shadow-sm">
-        {/* Midtrans official shape: stylized M dots with text */}
-        <div className="flex items-center gap-1.5">
-          <div className="flex gap-0.5">
-            <span className="h-4 w-1 rounded-full bg-[#00A4E4]" />
-            <span className="h-5 w-1 rounded-full bg-[#00A4E4]" />
-            <span className="h-3 w-1 rounded-full bg-[#00A4E4]" />
-          </div>
-          <span className="text-xs font-black tracking-tight text-white">midtrans</span>
-        </div>
-      </div>
-    ),
+    step: "01",
+    title: "Buat Produk & Hubungkan Toko",
+    desc: "Input produk, variasi, dan harga. Atau hubungkan toko Shopee Anda untuk tarik produk dan pesanan secara otomatis.",
   },
   {
-    name: "Biteship",
-    sub: "Kurir & COD real-time",
-    logo: (
-      <div className="flex h-10 w-24 items-center justify-center rounded-xl bg-gradient-to-r from-[#175CFF] to-[#0A45D4] px-2 shadow-sm">
-        <div className="flex items-center gap-1.5">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m7.5 4.27 9 5.15" /><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
-            <path d="m3.3 7 8.7 5 8.7-5" /><path d="M12 22V12" />
-          </svg>
-          <span className="text-xs font-black text-white">biteship</span>
-        </div>
-      </div>
-    ),
+    step: "02",
+    title: "Sebar Link & Terima Pesanan",
+    desc: "Tempel link checkout di bio sosial media, landing page, atau iklan. Pembeli checkout, ongkir otomatis dihitung 7+ kurir.",
   },
   {
-    name: "RajaOngkir",
-    sub: "Tarif ongkir 50+ kota & kecamatan",
-    logo: (
-      <div className="flex h-10 w-24 items-center justify-center rounded-xl bg-gradient-to-r from-[#E85D04] to-[#D00000] px-2 shadow-sm">
-        <div className="flex items-center gap-1">
-          <span className="text-sm">🚚</span>
-          <span className="text-xs font-extrabold tracking-tight text-white">RajaOngkir</span>
-        </div>
-      </div>
-    ),
-  },
-  {
-    name: "WhatsApp Business",
-    sub: "Chat, follow up & notifikasi resmi",
-    logo: (
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#25D366] text-white shadow-sm shadow-[#25D366]/30">
-        <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6">
-          <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2m.01 1.67c2.2 0 4.26.86 5.82 2.42a8.225 8.225 0 0 1 2.41 5.83c0 4.54-3.7 8.24-8.24 8.24-1.48 0-2.93-.39-4.19-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.196 8.196 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.24-8.24m4.52 11.54c-.25-.13-1.47-.72-1.7-.81-.23-.08-.39-.13-.56.13-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.13-1.06-.39-2.03-1.25-.75-.67-1.26-1.5-1.41-1.75-.14-.25-.02-.39.11-.51.11-.11.25-.29.37-.44.13-.14.17-.25.25-.42.08-.17.04-.31-.02-.44-.06-.13-.56-1.34-.76-1.84-.2-.49-.4-.42-.56-.43h-.48c-.17 0-.44.06-.67.31-.23.25-.87.85-.87 2.08s.89 2.41 1.01 2.58c.13.17 1.75 2.67 4.23 3.74.59.25 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.15-1.18-.07-.12-.23-.19-.48-.31z" />
-        </svg>
-      </div>
-    ),
-  },
-  {
-    name: "Shopee Affiliate",
-    sub: "Riset produk laris & tren pasar",
-    logo: (
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EE4D2D] text-white shadow-sm shadow-[#EE4D2D]/30">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-          <path d="M6 8V6.5C6 4.01 8.01 2 10.5 2h3C15.99 2 18 4.01 18 6.5V8" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
-          <path d="M3.5 8.5h17l-1.5 13H5L3.5 8.5Z" fill="#FFFFFF" fillOpacity="0.15" stroke="#FFFFFF" strokeWidth="1.8" />
-          <text x="12" y="17.5" textAnchor="middle" fontSize="9" fontWeight="900" fill="#FFFFFF" fontFamily="Arial, sans-serif">S</text>
-        </svg>
-      </div>
-    ),
-  },
-  {
-    name: "SerpApi · Google Trends",
-    sub: "Riset tren pencarian Google",
-    logo: (
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200/80 bg-white shadow-sm">
-        {/* Official Google 4-color G logo */}
-        <svg viewBox="0 0 24 24" className="h-5 w-5">
-          <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
-          <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.25 21.36 7.33 24 12 24z"/>
-          <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.97 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
-          <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.25 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
-        </svg>
-      </div>
-    ),
+    step: "03",
+    title: "Pantau Profit & Kirim Otomatis",
+    desc: "Data penjualan, HPP, omzet, dan resi kurir terupdate otomatis di dashboard. Follow up pembeli langsung via WhatsApp.",
   },
 ];
 
@@ -573,21 +505,28 @@ export default function Home() {
 
       </section>
 
-      {/* INTEGRATIONS */}
-      <section id="integrasi" className="scroll-mt-16 border-t border-slate-100 bg-[#fbfaf8] py-24">
+      {/* CARA KERJA */}
+      <section id="cara-kerja" className="scroll-mt-16 border-t border-slate-100 bg-[#fbfaf8] py-24">
         <div className="mx-auto max-w-6xl px-4">
           <div className="mx-auto max-w-2xl text-center">
-            <span className="inline-block rounded-full bg-brand-100 px-3 py-1 text-xs font-bold text-brand-700">Integrasi</span>
-            <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-navy md:text-[40px]">Terhubung dengan layanan yang kamu sudah pakai</h2>
-            <p className="mt-4 text-lg text-slate-600">Midtrans, Biteship, WhatsApp, dan lebih banyak lagi — masukkan API key dan langsung jalan.</p>
+            <span className="inline-block rounded-full bg-brand-100 px-3 py-1 text-xs font-bold text-brand-700">Cara Kerja</span>
+            <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-navy md:text-[40px]">Mulai dalam 3 Langkah Mudah</h2>
+            <p className="mt-4 text-lg text-slate-600">Tidak perlu setup rumit atau coding. Siap terima pesanan dalam hitungan menit.</p>
           </div>
-          <div className="mt-14 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {INTEGRATIONS.map(({ name, sub, logo }) => (
-              <div key={name} className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 transition hover:border-brand-200 hover:shadow-sm">
-                <div className="shrink-0">{logo}</div>
-                <div className="min-w-0">
-                  <p className="font-bold text-navy">{name}</p>
-                  <p className="text-xs text-slate-500 leading-relaxed">{sub}</p>
+          <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-3">
+            {STEPS.map((s) => (
+              <div
+                key={s.step}
+                className="relative flex flex-col justify-between rounded-3xl border border-slate-200/80 bg-white p-8 shadow-sm transition hover:border-brand-300 hover:shadow-md"
+              >
+                <div>
+                  <span className="text-4xl font-black text-brand-500/20">{s.step}</span>
+                  <h3 className="mt-4 text-xl font-bold text-navy">{s.title}</h3>
+                  <p className="mt-3 text-sm leading-relaxed text-slate-600">{s.desc}</p>
+                </div>
+                <div className="mt-6 flex items-center gap-2 text-xs font-semibold text-brand-600">
+                  <span>Langkah {s.step}</span>
+                  <ArrowRight size={14} />
                 </div>
               </div>
             ))}
@@ -657,7 +596,7 @@ export default function Home() {
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-navy-200">Platform checkout & manajemen pesanan untuk seller online Indonesia. Ongkir otomatis, COD, e-payment, dan WhatsApp dalam satu dashboard.</p>
           </div>
           {[
-            ["Produk", [["Fitur", "#fitur"], ["Integrasi", "#integrasi"], ["Harga", "#harga"], ["Contoh checkout", "/c/toner-lemon"]]],
+            ["Produk", [["Fitur", "#fitur"], ["Cara Kerja", "#cara-kerja"], ["Harga", "#harga"], ["Contoh checkout", "/c/toner-lemon"]]],
             ["Akun", [["Masuk", "/login"], ["Daftar", "/register"]]],
             ["Bantuan", [["FAQ", "#faq"], ["Cara kerja", "#cara-kerja"]]],
           ].map(([h, links]) => (
