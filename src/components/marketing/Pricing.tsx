@@ -6,73 +6,154 @@ import { COMPARE, PLANS, YEARLY_MONTHS_PAID, rupiah } from "@/lib/plans";
 
 export function Pricing() {
   const [yearly, setYearly] = useState(false);
+
   return (
     <div>
-      <div className="mx-auto mb-10 flex w-max items-center gap-1 rounded-full bg-white p-1">
-        {[false, true].map((y) => (
-          <button key={String(y)} onClick={() => setYearly(y)}
-            className={`flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition-all duration-200 ${yearly === y ? "bg-navy text-white" : "text-slate-600 hover:text-navy"}`}>
-            {y ? "Tahunan" : "Bulanan"}
-            {y && <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${yearly ? "bg-brand-500 text-white" : "bg-brand-100 text-brand-700"}`}>Gratis 2 bulan</span>}
-          </button>
-        ))}
+      {/* ── Toggle bulanan / tahunan ── */}
+      <div className="mb-12 flex items-center justify-center gap-4">
+        <span className={`text-sm font-semibold transition ${!yearly ? "text-navy" : "text-slate-400"}`}>
+          Bulanan
+        </span>
+
+        {/* Switch pill */}
+        <button
+          onClick={() => setYearly((v) => !v)}
+          aria-label="Ganti periode tagihan"
+          className={`relative h-7 w-12 rounded-full transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${yearly ? "bg-brand-500" : "bg-slate-300"}`}
+        >
+          <span
+            className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-300 ${yearly ? "translate-x-5" : "translate-x-0.5"}`}
+          />
+        </button>
+
+        <span className={`flex items-center gap-2 text-sm font-semibold transition ${yearly ? "text-navy" : "text-slate-400"}`}>
+          Tahunan
+          <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold transition ${yearly ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+            Hemat 2 bulan
+          </span>
+        </span>
       </div>
 
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+      {/* ── Cards ── */}
+      <div className="grid gap-5 sm:grid-cols-3">
         {PLANS.map((p) => {
-          const perMonth = yearly ? (p.monthly * YEARLY_MONTHS_PAID) / 12 : p.monthly;
+          const perMonth = yearly
+            ? (p.monthly * YEARLY_MONTHS_PAID) / 12
+            : p.monthly;
+          const annualTotal = p.monthly * YEARLY_MONTHS_PAID;
+
           return (
-            <div key={p.id} className={`relative flex flex-col rounded-3xl p-6 transition-colors duration-200 ${p.highlight ? "bg-navy text-white" : "bg-white"}`}>
-              {p.highlight && <span className="absolute -top-3 left-6 flex items-center gap-1 rounded-full bg-brand-500 px-3 py-1 text-xs font-bold text-white"><Sparkles size={13} />Paling populer</span>}
-              <h3 className="text-lg font-bold">{p.name}</h3>
-              <p className={`mt-1 min-h-10 text-sm ${p.highlight ? "text-navy-200" : "text-slate-500"}`}>{p.tagline}</p>
-              <div className="mt-5 flex items-end gap-1">
-                <span className="text-[34px] font-extrabold leading-none tracking-tight">{p.monthly ? rupiah(perMonth) : "Rp0"}</span>
-                <span className={`pb-1 text-sm ${p.highlight ? "text-navy-200" : "text-slate-500"}`}>/bulan</span>
+            <div
+              key={p.id}
+              className={`relative flex flex-col overflow-hidden rounded-3xl border transition-shadow duration-200 ${
+                p.highlight
+                  ? "border-brand-500 bg-white shadow-xl shadow-brand-500/15"
+                  : "border-slate-200 bg-white hover:shadow-md"
+              }`}
+            >
+              {/* Popular badge */}
+              {p.highlight && (
+                <div className="flex items-center justify-center gap-1.5 bg-brand-500 py-2 text-xs font-bold text-white">
+                  <Sparkles size={12} />
+                  Paling Populer
+                </div>
+              )}
+
+              <div className="flex flex-1 flex-col p-7">
+                {/* Name + tagline */}
+                <h3 className="text-xl font-extrabold text-navy">{p.name}</h3>
+                <p className="mt-1 text-sm text-slate-500">{p.orders}</p>
+
+                {/* Price */}
+                <div className="mt-6">
+                  <div className="flex items-end gap-1">
+                    <span className="text-[38px] font-extrabold leading-none tracking-tight text-navy">
+                      {rupiah(Math.round(perMonth))}
+                    </span>
+                    <span className="mb-1 text-sm text-slate-500">/bulan</span>
+                  </div>
+                  <p className="mt-1.5 text-xs text-slate-400">
+                    {yearly
+                      ? `Ditagih ${rupiah(annualTotal)} per tahun`
+                      : "Ditagih bulanan, batalkan kapan saja"}
+                  </p>
+                  {yearly && (
+                    <p className="mt-0.5 text-xs font-semibold text-brand-600">
+                      Setara dengan {rupiah(Math.round(perMonth / p.monthly * 100 * 100) / 100 * 10 || Math.round(annualTotal / (p.orders.replace(/[^0-9]/g, "") ? 1 : 1))) ? `Rp${Math.round(annualTotal / 1000 / (yearly ? 10 : 12) * 10) / 10}rb` : ""} per pesanan
+                    </p>
+                  )}
+                </div>
+
+                {/* CTA */}
+                <Link
+                  href={`/register?plan=${p.id}${yearly ? "&billing=yearly" : ""}`}
+                  className={`mt-7 flex h-12 items-center justify-center rounded-xl text-sm font-bold transition ${
+                    p.highlight
+                      ? "bg-brand-500 text-white hover:bg-brand-600"
+                      : "border border-slate-200 text-navy hover:border-brand-400 hover:text-brand-600"
+                  }`}
+                >
+                  {p.cta}
+                </Link>
+
+                {/* Feature list */}
+                <ul className="mt-6 space-y-2.5 text-sm">
+                  {p.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2.5">
+                      <Check
+                        size={16}
+                        strokeWidth={3}
+                        className={`mt-0.5 shrink-0 ${p.highlight ? "text-brand-500" : "text-emerald-500"}`}
+                      />
+                      <span className="text-slate-700">{f}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <p className={`mt-2 h-5 text-xs ${p.highlight ? "text-navy-200" : "text-slate-500"}`}>
-                {p.monthly === 0 ? "Gratis selamanya" : yearly ? `Ditagih ${rupiah(p.monthly * YEARLY_MONTHS_PAID)} per tahun` : "Ditagih bulanan, batalkan kapan saja"}
-              </p>
-              <div className={`mt-5 rounded-xl px-3 py-2 text-sm font-semibold ${p.highlight ? "bg-white/10 text-white" : "bg-brand-50 text-brand-700"}`}>{p.orders}</div>
-              <ul className="mt-5 flex-1 space-y-3 text-sm">
-                {p.features.map((f) => (
-                  <li key={f} className="flex gap-2.5">
-                    <span className={`mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full ${p.highlight ? "bg-brand-500 text-white" : "bg-emerald-100 text-emerald-600"}`}><Check size={12} strokeWidth={3} /></span>
-                    <span className={p.highlight ? "text-navy-100" : "text-slate-600"}>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <Link href={`/register?plan=${p.id}${yearly ? "&billing=yearly" : ""}`}
-                className={`mt-7 flex h-11 items-center justify-center rounded-xl text-sm font-bold transition ${p.highlight ? "bg-brand-500 text-white hover:bg-brand-400" : p.monthly === 0 ? "bg-navy-50 text-navy hover:bg-navy-100" : "border border-slate-200 text-navy hover:border-brand-500 hover:text-brand-600"}`}>
-                {p.cta}
-              </Link>
             </div>
           );
         })}
       </div>
-      <p className="mt-6 text-center text-xs text-slate-500">Harga belum termasuk PPN 11%. Biaya payment gateway & ongkir dibayar sesuai tarif mitra.</p>
 
-      <details className="group mx-auto mt-10 max-w-5xl overflow-hidden rounded-2xl bg-white">
-        <summary className="flex cursor-pointer list-none items-center justify-between px-6 py-4 font-semibold text-navy">
+      <p className="mt-8 text-center text-xs text-slate-400">
+        Harga belum termasuk PPN 11%. Biaya payment gateway & ongkir dibayar sesuai tarif mitra.
+      </p>
+
+      {/* ── Comparison table ── */}
+      <details className="group mx-auto mt-10 max-w-4xl overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <summary className="flex cursor-pointer list-none items-center justify-between px-6 py-5 font-semibold text-navy">
           Bandingkan semua fitur
-          <span className="text-sm font-medium text-brand-600 group-open:hidden">Lihat tabel</span>
-          <span className="hidden text-sm font-medium text-brand-600 group-open:inline">Tutup</span>
+          <span className="text-sm font-medium text-brand-600 group-open:hidden">Lihat tabel →</span>
+          <span className="hidden text-sm font-medium text-brand-600 group-open:inline">Tutup ↑</span>
         </summary>
         <div className="overflow-x-auto border-t border-slate-100">
-          <table className="w-full min-w-[640px] text-sm">
+          <table className="w-full min-w-[500px] text-sm">
             <thead>
-              <tr className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-                <th className="px-6 py-3 font-semibold">Fitur</th>
-                {PLANS.map((p) => <th key={p.id} className={`px-4 py-3 text-center font-semibold ${p.highlight ? "text-brand-600" : ""}`}>{p.name}</th>)}
+              <tr className="border-b border-slate-100 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <th className="px-6 py-3">Fitur</th>
+                {PLANS.map((p) => (
+                  <th key={p.id} className={`px-5 py-3 text-center ${p.highlight ? "text-brand-600" : ""}`}>
+                    {p.name}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {COMPARE.map(([label, vals]) => (
-                <tr key={label} className="border-t border-slate-100">
+                <tr key={label} className="border-t border-slate-100 hover:bg-slate-50/60">
                   <td className="px-6 py-3 text-slate-700">{label}</td>
                   {vals.map((v, i) => (
-                    <td key={i} className={`px-4 py-3 text-center ${PLANS[i].highlight ? "bg-brand-50/40" : ""}`}>
-                      {v === true ? <Check size={17} className="mx-auto text-emerald-500" strokeWidth={2.6} /> : v === false ? <Minus size={17} className="mx-auto text-slate-300" /> : <span className="font-medium text-navy">{v}</span>}
+                    <td
+                      key={i}
+                      className={`px-5 py-3 text-center ${PLANS[i]?.highlight ? "bg-brand-50/30" : ""}`}
+                    >
+                      {v === true ? (
+                        <Check size={17} className="mx-auto text-emerald-500" strokeWidth={2.6} />
+                      ) : v === false ? (
+                        <Minus size={17} className="mx-auto text-slate-300" />
+                      ) : (
+                        <span className="font-semibold text-navy">{v}</span>
+                      )}
                     </td>
                   ))}
                 </tr>
