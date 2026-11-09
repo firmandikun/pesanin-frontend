@@ -1,5 +1,5 @@
 "use client";
-import { Check, Minus, Sparkles } from "lucide-react";
+import { Check, Minus, Star } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { COMPARE, PLANS, YEARLY_MONTHS_PAID, rupiah } from "@/lib/plans";
@@ -59,7 +59,7 @@ export function Pricing() {
               {/* Popular badge */}
               {p.highlight && (
                 <div className="flex items-center justify-center gap-1.5 bg-brand-500 py-2 text-xs font-bold text-white">
-                  <Sparkles size={12} />
+                  <Star size={12} className="fill-white" />
                   Paling Populer
                 </div>
               )}
