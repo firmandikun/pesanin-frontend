@@ -214,6 +214,114 @@ function LandingMockup() {
   );
 }
 
+function ConnectedChannelsMockup() {
+  return (
+    <div className="relative mx-auto w-full max-w-[500px]">
+      {/* Browser window wrapper with 3 colored dots */}
+      <div className="overflow-hidden rounded-[24px] border border-slate-200/80 bg-white shadow-2xl shadow-navy/8">
+        {/* Browser header */}
+        <div className="flex items-center gap-1.5 border-b border-slate-100 bg-slate-50/80 px-4 py-3">
+          <span className="h-2.5 w-2.5 rounded-full bg-rose-400" />
+          <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+          <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+          <span className="ml-2 text-xs font-semibold text-slate-500">Layanan Terhubung</span>
+        </div>
+
+        <div className="p-5">
+          {/* List of integrated services */}
+          <div className="space-y-3">
+            {[
+              {
+                name: "Midtrans Payment Gateway",
+                sub: "Terakhir sync: 1 menit lalu",
+                status: "Terhubung",
+                dot: "bg-emerald-500",
+                badgeBg: "bg-emerald-50 text-emerald-700",
+                icon: (
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-xs font-black text-blue-700">
+                    MID
+                  </span>
+                ),
+              },
+              {
+                name: "Biteship Kurir & COD",
+                sub: "Auto pickup & tracking resi aktif",
+                status: "Terhubung",
+                dot: "bg-emerald-500",
+                badgeBg: "bg-emerald-50 text-emerald-700",
+                icon: (
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-50 text-xs font-black text-sky-700">
+                    BTE
+                  </span>
+                ),
+              },
+              {
+                name: "WhatsApp Cloud API",
+                sub: "Auto follow up & notifikasi aktif",
+                status: "Terhubung",
+                dot: "bg-emerald-500",
+                badgeBg: "bg-emerald-50 text-emerald-700",
+                icon: (
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-xs font-black text-emerald-700">
+                    WA
+                  </span>
+                ),
+              },
+            ].map((s) => (
+              <div
+                key={s.name}
+                className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white p-3.5 shadow-sm transition hover:border-slate-200"
+              >
+                <div className="flex items-center gap-3">
+                  {s.icon}
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-bold text-navy">{s.name}</p>
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${s.badgeBg}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
+                        {s.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400">{s.sub}</p>
+                  </div>
+                </div>
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                  <CheckCircle2 size={16} />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Sync summary stats card */}
+          <div className="mt-5 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-xs font-bold text-navy">Statistik Sinkronisasi</span>
+              <span className="text-xs text-slate-400">Real-time</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p className="text-[11px] text-slate-500">Pesanan Diproses</p>
+                <p className="mt-0.5 text-base font-extrabold text-navy">8.642</p>
+                <p className="text-[10px] text-emerald-600">100% tersinkron</p>
+              </div>
+              <div className="border-x border-slate-200/80">
+                <p className="text-[11px] text-slate-500">Omzet E-Payment</p>
+                <p className="mt-0.5 text-base font-extrabold text-brand-600">Rp 156,8 jt</p>
+                <p className="text-[10px] text-slate-400">Midtrans</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-slate-500">Pencairan COD</p>
+                <p className="mt-0.5 text-base font-extrabold text-navy">Rp 89,2 jt</p>
+                <p className="text-[10px] text-slate-400">Biteship</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AnalyticsMockup() {
   return (
     <div className="rounded-[20px] bg-white p-5 shadow-xl shadow-navy/8 ring-1 ring-slate-100">
@@ -418,6 +526,22 @@ export default function Home() {
           ]}
           mockup={<AnalyticsMockup />}
         />
+
+        <div className="bg-[#fbfaf8]">
+          <FeatureSection
+            tag="Sinkronisasi Otomatis"
+            title="Kelola Layanan E-Commerce Anda dalam Satu Dashboard"
+            desc="Cukup hubungkan akun Midtrans, Biteship, dan WhatsApp. Pembayaran, penjemputan paket kurir, dan follow up pembeli otomatis tersinkronisasi — tidak perlu cross-cek manual lagi!"
+            bullets={[
+              "E-Payment otomatis sinkron via webhook Midtrans (QRIS, VA, E-Wallet)",
+              "Kurir & COD terhubung ke Biteship — resi dan pickup terupdate otomatis",
+              "Notifikasi & chat terintegrasi langsung dengan WhatsApp Cloud API",
+              "Semua status pesanan dan saldo pencairan termonitor secara real-time",
+            ]}
+            mockup={<ConnectedChannelsMockup />}
+            flip
+          />
+        </div>
 
       </section>
 
