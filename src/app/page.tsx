@@ -176,8 +176,8 @@ function ConnectedChannelsMockup() {
                 dot: "bg-emerald-500",
                 badgeBg: "bg-emerald-50 text-emerald-700",
                 icon: (
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#fff1ee] text-[#ee4d2d]">
-                    <ShopeeMark size={20} />
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white p-1 border border-slate-100">
+                    <img src="/brands/shopee.png" alt="Shopee" className="h-7 w-7 object-contain" />
                   </span>
                 ),
               },
@@ -188,8 +188,8 @@ function ConnectedChannelsMockup() {
                 dot: "bg-emerald-500",
                 badgeBg: "bg-emerald-50 text-emerald-700",
                 icon: (
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#fff1ee] text-[#ee4d2d]">
-                    <ShopeeMark size={20} />
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white p-1 border border-slate-100">
+                    <img src="/brands/shopee.png" alt="Shopee" className="h-7 w-7 object-contain" />
                   </span>
                 ),
               },
