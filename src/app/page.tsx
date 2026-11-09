@@ -2,6 +2,7 @@ import {
   ArrowRight, Bell, CheckCircle2, ChevronDown, MessageCircle, TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
+import { ShopeeMark } from "@/components/ChannelBadge";
 import { Logo, LogoMark, Wordmark } from "@/components/Logo";
 import { Pricing } from "@/components/marketing/Pricing";
 
@@ -224,46 +225,48 @@ function ConnectedChannelsMockup() {
           <span className="h-2.5 w-2.5 rounded-full bg-rose-400" />
           <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
           <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-          <span className="ml-2 text-xs font-semibold text-slate-500">Layanan Terhubung</span>
+          <span className="ml-2 text-xs font-semibold text-slate-500">Toko Terhubung</span>
         </div>
 
         <div className="p-5">
-          {/* List of integrated services */}
+          {/* List of integrated marketplace shops */}
           <div className="space-y-3">
             {[
               {
-                name: "Midtrans Payment Gateway",
-                sub: "Terakhir sync: 1 menit lalu",
+                name: "Fashion Store Official",
+                sub: "Terakhir sync: 2 menit lalu",
                 status: "Terhubung",
                 dot: "bg-emerald-500",
                 badgeBg: "bg-emerald-50 text-emerald-700",
                 icon: (
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-xs font-black text-blue-700">
-                    MID
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#fff1ee] text-[#ee4d2d]">
+                    <ShopeeMark size={20} />
                   </span>
                 ),
               },
               {
-                name: "Biteship Kurir & COD",
-                sub: "Auto pickup & tracking resi aktif",
+                name: "Beauty Care Store",
+                sub: "Terakhir sync: 5 menit lalu",
                 status: "Terhubung",
                 dot: "bg-emerald-500",
                 badgeBg: "bg-emerald-50 text-emerald-700",
                 icon: (
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-50 text-xs font-black text-sky-700">
-                    BTE
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#fff1ee] text-[#ee4d2d]">
+                    <ShopeeMark size={20} />
                   </span>
                 ),
               },
               {
-                name: "WhatsApp Cloud API",
-                sub: "Auto follow up & notifikasi aktif",
+                name: "Electronics ID Official",
+                sub: "Auto-sync stok & pesanan aktif",
                 status: "Terhubung",
                 dot: "bg-emerald-500",
                 badgeBg: "bg-emerald-50 text-emerald-700",
                 icon: (
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-xs font-black text-emerald-700">
-                    WA
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-800">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.29 0 .57.04.84.11V9.41a6.33 6.33 0 0 0-.84-.05A6.34 6.34 0 0 0 3 15.7a6.34 6.34 0 0 0 10.82 4.48 6.3 6.3 0 0 0 1.86-4.51v-6.6a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-.86-.5z"/>
+                    </svg>
                   </span>
                 ),
               },
@@ -296,23 +299,23 @@ function ConnectedChannelsMockup() {
           <div className="mt-5 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
             <div className="mb-3 flex items-center justify-between">
               <span className="text-xs font-bold text-navy">Statistik Sinkronisasi</span>
-              <span className="text-xs text-slate-400">Real-time</span>
+              <span className="text-xs text-slate-400">Auto-sync 30 detik</span>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center">
               <div>
-                <p className="text-[11px] text-slate-500">Pesanan Diproses</p>
+                <p className="text-[11px] text-slate-500">Pesanan Masuk</p>
                 <p className="mt-0.5 text-base font-extrabold text-navy">8.642</p>
-                <p className="text-[10px] text-emerald-600">100% tersinkron</p>
+                <p className="text-[10px] text-emerald-600">Otomatis sync</p>
               </div>
               <div className="border-x border-slate-200/80">
-                <p className="text-[11px] text-slate-500">Omzet E-Payment</p>
+                <p className="text-[11px] text-slate-500">Omzet Marketplace</p>
                 <p className="mt-0.5 text-base font-extrabold text-brand-600">Rp 156,8 jt</p>
-                <p className="text-[10px] text-slate-400">Midtrans</p>
+                <p className="text-[10px] text-slate-400">Bulan ini</p>
               </div>
               <div>
-                <p className="text-[11px] text-slate-500">Pencairan COD</p>
+                <p className="text-[11px] text-slate-500">HPP & Modal</p>
                 <p className="mt-0.5 text-base font-extrabold text-navy">Rp 89,2 jt</p>
-                <p className="text-[10px] text-slate-400">Biteship</p>
+                <p className="text-[10px] text-slate-400">Laba bersih Rp67,6jt</p>
               </div>
             </div>
           </div>
@@ -529,14 +532,16 @@ export default function Home() {
 
         <div className="bg-[#fbfaf8]">
           <FeatureSection
-            tag="Sinkronisasi Otomatis"
-            title="Kelola Layanan E-Commerce Anda dalam Satu Dashboard"
-            desc="Cukup hubungkan akun Midtrans, Biteship, dan WhatsApp. Pembayaran, penjemputan paket kurir, dan follow up pembeli otomatis tersinkronisasi — tidak perlu cross-cek manual lagi!"
+            tag="Integrasi Marketplace"
+            title="Sinkronisasi & Kelola Marketplace Anda"
+            desc="Cukup hubungkan toko marketplace Anda seperti Shopee dan TikTok Shop. Data pesanan, produk, sinkronisasi stok, dan biaya iklan (Ads) otomatis terpusat — tidak perlu cross-cek manual lagi!"
             bullets={[
-              "E-Payment otomatis sinkron via webhook Midtrans (QRIS, VA, E-Wallet)",
-              "Kurir & COD terhubung ke Biteship — resi dan pickup terupdate otomatis",
-              "Notifikasi & chat terintegrasi langsung dengan WhatsApp Cloud API",
-              "Semua status pesanan dan saldo pencairan termonitor secara real-time",
+              "Multi-Toko: Kelola banyak toko Shopee & marketplace dalam satu dashboard",
+              "Sinkronisasi Pesanan: Tarik pesanan baru tiap 30 detik secara otomatis",
+              "Sinkronisasi Produk & Stok: Kelola listing, variasi, dan ubah stok serentak",
+              "Manajemen Iklan (Ads): Pantau biaya iklan Shopee Ads dan performa kampanye",
+              "Publish Produk Massal: Upload dan terbitkan produk ke toko marketplace",
+              "Hitung HPP & Laba Bersih: Masukkan modal per SKU untuk tahu keuntungan riil",
             ]}
             mockup={<ConnectedChannelsMockup />}
             flip
