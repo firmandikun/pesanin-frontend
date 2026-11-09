@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+@theme {
+  /* Pesanin — oranye hangat (aksi utama) + navy (struktur & teks) */
+  --color-brand-50: #fff5ed;
+  --color-brand-100: #ffe8d6;
+  --color-brand-200: #fecdab;
+  --color-brand-300: #fdab76;
+  --color-brand-400: #fb8640;
+  --color-brand-500: #f56a1b;
+  --color-brand-600: #e05510;
+  --color-brand-700: #b9410f;
+  --color-brand-800: #933614;
+  --color-brand-900: #772f13;
+  --color-navy-50: #f2f5fb;
+  --color-navy-100: #e3e9f5;
+  --color-navy-200: #c5d1e8;
+  --color-navy-400: #6b80ab;
+  --color-navy-600: #2b3f6c;
+  --color-navy-700: #1d2f57;
+  --color-navy-800: #142446;
+  --color-navy: #0e1b38;
+  --color-ink: #0e1b38;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+body { @apply bg-[#f6f7fa] text-slate-700 antialiased; }
+::selection { @apply bg-brand-100; }
+
+@utility card { @apply rounded-2xl bg-white; }
+/* Body surface: flat white rounded card (no border, no shadow) used by every page section. */
+@utility surface { @apply rounded-2xl bg-white; }
+/* Clickable surface: background tints on hover. */
+@utility surface-hover { @apply transition-colors duration-200 ease-out hover:bg-slate-50; }
+@utility input { @apply h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-ink outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:ring-4 focus:ring-brand-100 disabled:bg-slate-50; }
+@utility textarea { @apply w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-ink outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:ring-4 focus:ring-brand-100; }
+@utility label { @apply mb-1.5 block text-[13px] font-semibold text-slate-700; }
+@utility btn { @apply inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition active:scale-[.98] disabled:pointer-events-none disabled:opacity-50; }
+@utility btn-sm { @apply h-8 rounded-lg px-3 text-xs; }
+@utility btn-primary { @apply btn bg-brand-600 text-white shadow-sm shadow-brand-600/20 hover:bg-brand-700; }
+@utility btn-outline { @apply btn border border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50; }
+@utility btn-ghost { @apply btn text-slate-600 hover:bg-slate-100; }
+@utility btn-danger { @apply btn bg-rose-600 text-white hover:bg-rose-700; }
+@utility btn-success { @apply btn bg-emerald-600 text-white shadow-sm shadow-emerald-600/20 hover:bg-emerald-700; }
+@utility badge { @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold; }
+@utility th { @apply whitespace-nowrap px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500; }
+@utility td { @apply whitespace-nowrap px-4 py-3 text-sm; }
+@utility page-title { @apply text-2xl font-bold tracking-tight text-ink; }
+
+/* Dark builder panel (landing page builder) */
+.dark-panel .input, .dark-panel .textarea, .dark-panel select { background: #26262b; border-color: #3a3a41; color: #f1f1f4; }
+.dark-panel .input::placeholder, .dark-panel .textarea::placeholder { color: #8a8a94; }
+.dark-panel .label { color: #d6d6dc; }
+.dark-panel .btn-outline { background: #26262b; border-color: #3a3a41; color: #e5e5ea; }
+.dark-panel .btn-ghost { color: #c9c9d1; }
+.dark-panel .btn-ghost:hover { background: #2f2f35; }
+.dark-panel p.text-xs { color: #9a9aa4; }
+
+/* react-day-picker theme */
+.fk-dp { --rdp-accent-color: var(--color-brand-600); --rdp-accent-background-color: var(--color-brand-50); --rdp-day-height: 38px; --rdp-day-width: 38px; --rdp-day_button-height: 36px; --rdp-day_button-width: 36px; --rdp-day_button-border-radius: 10px; --rdp-range_middle-background-color: var(--color-brand-50); --rdp-range_middle-color: var(--color-brand-700); --rdp-today-color: var(--color-brand-600); font-size: 14px; }
+.fk-dp .rdp-months { gap: 1.5rem; }
+.fk-dp .rdp-month_caption { font-weight: 600; color: #0f172a; text-transform: capitalize; }
+.fk-dp .rdp-weekday { font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; }
+.fk-dp .rdp-day_button { transition: background .12s; }
+.fk-dp .rdp-day:not(.rdp-selected):not(.rdp-disabled) .rdp-day_button:hover { background: #f1f5f9; }
+.fk-dp .rdp-range_start .rdp-day_button, .fk-dp .rdp-range_end .rdp-day_button, .fk-dp .rdp-selected:not(.rdp-range_middle) .rdp-day_button { background: var(--color-brand-600); color: #fff; border-color: transparent; }
+.fk-dp .rdp-chevron { fill: var(--color-brand-600); }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+html { scroll-behavior: smooth; }
+@media print {
+  body:has(#invoice-print) * { visibility: hidden; }
+  #invoice-print, #invoice-print * { visibility: visible; }
+  #invoice-print { position: fixed; inset: 0; padding: 40px; background: #fff; }
+}
+@media print {
+  @page { size: 100mm 150mm; margin: 0; }
+  .no-print { display: none !important; }
+  .label-sheet { break-after: page; border-color: #000; }
+}
+
+/* Checkboxes & radios follow the Pesanin brand colour instead of the browser's blue. */
+input[type="checkbox"], input[type="radio"] { accent-color: var(--color-brand-600); }
