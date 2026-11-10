@@ -23,8 +23,8 @@ const NAV_ALL: NavItem[] = [
   { label: "Info Terbaru", icon: Megaphone, href: "#whats-new" },
   { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
   { label: "Produk", icon: Package, href: "/products" },
-  { label: "Pesanan Non-Marketplace", icon: ClipboardCheck, children: [
-    { label: "Website & Input Manual", href: "/orders" },
+  { label: "Pesanan Media Sosial", icon: ClipboardCheck, children: [
+    { label: "Semua Pesanan Medsos", href: "/orders" },
     { label: "Checkout Ditinggalkan", href: "/orders?view=abandoned" },
     { label: "Diarsipkan", href: "/orders?view=archived" },
     { label: "Konfirmasi Pembayaran", href: "/others/payments" },
@@ -52,9 +52,9 @@ const NAV_ALL: NavItem[] = [
     { label: "Riset Produk", href: "/reports/research" },
     { label: "Riset Pasar", href: "/reports/market" },
   ] },
-  { label: "Operasional Non-Marketplace", icon: Wallet, children: [
-    { label: "Inventori Web", href: "/others/inventory" },
-    { label: "Transaksi Web & Manual", href: "/others/transactions" },
+  { label: "Operasional Media Sosial", icon: Wallet, children: [
+    { label: "Inventori Medsos", href: "/others/inventory" },
+    { label: "Transaksi Medsos", href: "/others/transactions" },
     { label: "Saldo", href: "/settings/balance" },
   ] },
   { label: "Promosi", icon: Gift, children: [

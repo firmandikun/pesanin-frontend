@@ -27,7 +27,7 @@ const canBiteship = (o: Order) => !!o.courier_code?.includes(":") && !o.shipping
   && !["cancelled", "refunded"].includes(o.status) && (o.payment_method === "cod" || o.payment_status === "paid");
 const labelUrl = (ids: number[]) => `/orders/labels?ids=${ids.join(",")}&auto=1`;
 
-const TITLES: Record<string, string> = { all: "Pesanan Website & Manual", abandoned: "Checkout Ditinggalkan", archived: "Pesanan Diarsipkan" };
+const TITLES: Record<string, string> = { all: "Pesanan Media Sosial", abandoned: "Checkout Ditinggalkan", archived: "Pesanan Diarsipkan" };
 const COURIERS = ["JNE", "SiCepat", "SAP", "iDexpress", "J&T", "Lion Parcel", "SPX Express"];
 
 /** Which follow-up template fits the order's current state. */
@@ -110,7 +110,7 @@ function Orders() {
       </div>
 
       {view === "all" && <div className="rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-800">
-        Halaman ini khusus pesanan dari checkout website dan input manual. Pesanan marketplace dikelola terpisah di menu Marketplace → Pesanan & Pengiriman.
+        Halaman ini khusus pesanan dari media sosial yang masuk melalui checkout Pesanin atau input manual. Pesanan marketplace dikelola terpisah di menu Marketplace → Pesanan & Pengiriman.
       </div>}
 
       {s && view !== "abandoned" && (
@@ -129,7 +129,7 @@ function Orders() {
         </div>
         {view === "all" && type === "physical" && (
           <div className="flex flex-wrap items-center gap-2 px-4 pt-4">
-            {[["", "Semua"], ["website", "Checkout Web"], ["manual", "Input manual"]].map(([v, l]) => (
+            {[["", "Semua Medsos"], ["website", "Checkout Medsos"], ["manual", "Input manual"]].map(([v, l]) => (
               <button key={v} onClick={() => setFilters({ ...filters, channel: v, marketplace_shop_id: "", traffic: "" })}
                 className={`flex h-9 items-center gap-1.5 rounded-lg px-3.5 text-sm font-medium transition ${filters.channel === v ? "bg-navy text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
                 {l}
