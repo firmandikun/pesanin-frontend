@@ -12,8 +12,7 @@ export default function SalesReport() {
   useEffect(() => {
     setD(null);
     const query = new URLSearchParams(range);
-    Promise.all([api(`/reports/sales?${query}`), api(`/reports/profit?${query}`)])
-      .then(([sales, profit]) => setD({ ...sales, sources: profit.by_channel ?? [] }));
+    api(`/reports/sales?${query}`).then(setD);
   }, [range]);
 
   const fmt = (n: number) => (metric === "orders" ? String(n) : rupiah(n));
@@ -47,15 +46,14 @@ export default function SalesReport() {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] text-sm">
-                <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500"><tr>{["Jenis", "Sumber / Toko", "Pesanan", "Item", "Omzet", "Pendapatan", "Laba bersih"].map((h) => <th key={h} className="px-4 py-3 font-semibold">{h}</th>)}</tr></thead>
+                <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500"><tr>{["Jenis", "Sumber / Toko", "Pesanan", "Item", "Omzet", "Pendapatan dibayar"].map((h) => <th key={h} className="px-4 py-3 font-semibold">{h}</th>)}</tr></thead>
                 <tbody className="divide-y divide-slate-100">{d.sources.map((s: any) => {
-                  const marketplace = String(s.key).startsWith("shopee:");
+                  const marketplace = s.type === "marketplace";
                   return <tr key={s.key}>
                     <td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${marketplace ? "bg-orange-50 text-orange-700" : "bg-blue-50 text-blue-700"}`}>{marketplace ? "Marketplace" : "Media sosial"}</span></td>
                     <td className="px-4 py-3 font-medium text-navy">{String(s.label).replace("Contoh: ", "")}</td>
                     <td className="px-4 py-3">{s.orders}</td><td className="px-4 py-3">{s.items}</td>
-                    <td className="px-4 py-3">{rupiah(s.gmv)}</td><td className="px-4 py-3">{rupiah(s.revenue)}</td>
-                    <td className={`px-4 py-3 font-semibold ${s.net_profit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>{rupiah(s.net_profit)}</td>
+                    <td className="px-4 py-3">{rupiah(s.gross)}</td><td className="px-4 py-3 font-semibold text-emerald-600">{rupiah(s.net)}</td>
                   </tr>;
                 })}</tbody>
               </table>
