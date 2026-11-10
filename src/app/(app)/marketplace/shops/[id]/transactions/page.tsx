@@ -1,11 +1,11 @@
 "use client";
 
 import { AlertTriangle, ChevronDown, ChevronRight, Download, RefreshCcw, Search, Store } from "lucide-react";
-import Link from "next/link";
 import { Fragment, use, useCallback, useEffect, useMemo, useState } from "react";
 import { DateRangePicker } from "@/components/DatePicker";
 import { ShopeeMark } from "@/components/ChannelBadge";
 import { PageHead, Pager, Panel } from "@/components/kit";
+import { ShopWorkspaceNav } from "@/components/marketplace/ShopWorkspaceNav";
 import { api, isoDate, Paginated, rupiah } from "@/lib/api";
 
 type Shop = { id: number; shop_id: number; shop_name: string; region: string; status: string };
@@ -28,16 +28,6 @@ const tones: Record<string, string> = {
 };
 const labels = Object.fromEntries(FILTERS);
 
-function WorkspaceNav({ shop }: { shop: Shop }) {
-  return <Panel className="overflow-x-auto p-2"><nav className="flex min-w-max gap-1">
-    {[
-      ["Dashboard", `/marketplace/shops/${shop.id}`], ["Transaksi", `/marketplace/shops/${shop.id}/transactions`],
-      ["Pesanan & pengiriman", `/marketplace/orders?shop_id=${shop.id}`], ["Inventori", `/marketplace/products?shop_id=${shop.id}`],
-      ["Iklan", `/marketplace/ads?shop=${shop.id}`], ["Laporan keuangan", `/marketplace/shops/${shop.id}/finance`],
-    ].map(([label, href], i) => <Link key={label} href={href} className={`rounded-lg px-3.5 py-2.5 text-sm font-semibold ${i === 1 ? "bg-navy text-white" : "text-slate-600 hover:bg-slate-50"}`}>{label}</Link>)}
-  </nav></Panel>;
-}
-
 export default function Transactions({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params); const shopId = Number(id);
   const [shop, setShop] = useState<Shop | null>(null);
@@ -57,7 +47,8 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
       <button onClick={load} className="flex h-10 items-center gap-2 rounded-lg bg-navy px-4 text-sm font-semibold text-white"><RefreshCcw size={16} />Muat ulang</button>
     </PageHead>
     <div className="flex items-center gap-3 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800"><ShopeeMark size={28} /><span><b className="block">Terhubung ke {shop.shop_name}</b><span className="text-xs">Transaksi keuangan dipisahkan dari halaman pengaturan pengiriman.</span></span><DateRangePicker value={range} onChange={(v) => { setRange(v); setPage(1); }} /></div>
-    <WorkspaceNav shop={shop} />
+    <ShopWorkspaceNav shopId={shop.id} active="finance" />
+    <div className="flex gap-2"><span className="rounded-lg bg-navy px-4 py-2 text-sm font-semibold text-white">Transaksi</span><a href={`/marketplace/shops/${shop.id}/finance`} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-600">Laba Rugi & Arus Kas</a></div>
     {s && <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{[
       ["Omzet", s.gmv, "text-navy"], ["Potongan", s.fees, "text-rose-600"], ["Pendapatan bersih", s.net_revenue, "text-blue-600"],
       ["Total HPP", s.cogs, "text-orange-600"], ["Laba", s.profit, s.profit >= 0 ? "text-emerald-600" : "text-rose-600"],

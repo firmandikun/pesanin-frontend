@@ -27,7 +27,7 @@ const canBiteship = (o: Order) => !!o.courier_code?.includes(":") && !o.shipping
   && !["cancelled", "refunded"].includes(o.status) && (o.payment_method === "cod" || o.payment_status === "paid");
 const labelUrl = (ids: number[]) => `/orders/labels?ids=${ids.join(",")}&auto=1`;
 
-const TITLES: Record<string, string> = { all: "Pesanan Web", abandoned: "Checkout Ditinggalkan", archived: "Pesanan Diarsipkan" };
+const TITLES: Record<string, string> = { all: "Pesanan Website & Manual", abandoned: "Checkout Ditinggalkan", archived: "Pesanan Diarsipkan" };
 const COURIERS = ["JNE", "SiCepat", "SAP", "iDexpress", "J&T", "Lion Parcel", "SPX Express"];
 
 /** Which follow-up template fits the order's current state. */
@@ -108,6 +108,10 @@ function Orders() {
         <DateRangePicker value={{ from: filters.from, to: filters.to }} onChange={(r) => { setFilters({ ...filters, from: r.from, to: r.to }); setPage(1); }} />
         {view === "all" && <button className="btn-primary" onClick={() => setCreating(true)}><Plus size={16} />Input Order</button>}
       </div>
+
+      {view === "all" && <div className="rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-800">
+        Halaman ini khusus pesanan dari checkout website dan input manual. Pesanan marketplace dikelola terpisah di menu Marketplace → Pesanan & Pengiriman.
+      </div>}
 
       {s && view !== "abandoned" && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

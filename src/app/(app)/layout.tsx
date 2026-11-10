@@ -23,8 +23,8 @@ const NAV_ALL: NavItem[] = [
   { label: "Info Terbaru", icon: Megaphone, href: "#whats-new" },
   { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
   { label: "Produk", icon: Package, href: "/products" },
-  { label: "Pesanan Web", icon: ClipboardCheck, children: [
-    { label: "Semua Pesanan", href: "/orders" },
+  { label: "Pesanan Non-Marketplace", icon: ClipboardCheck, children: [
+    { label: "Website & Input Manual", href: "/orders" },
     { label: "Checkout Ditinggalkan", href: "/orders?view=abandoned" },
     { label: "Diarsipkan", href: "/orders?view=archived" },
     { label: "Konfirmasi Pembayaran", href: "/others/payments" },
@@ -38,12 +38,11 @@ const NAV_ALL: NavItem[] = [
     { label: "Team Members", href: "/others/team-members" },
   ] },
   { label: "Marketplace", icon: Store, badge: "Baru", children: [
-    { label: "Toko Shopee", href: "/marketplace/shops" },
-    { label: "Produk Shopee", href: "/marketplace/products" },
-    { label: "Pesanan Shopee", href: "/marketplace/orders" },
-    { label: "Iklan Shopee", href: "/marketplace/ads" },
+    { label: "Daftar Toko", href: "/marketplace/shops" },
+    { label: "Semua Produk", href: "/marketplace/products" },
+    { label: "Pesanan & Pengiriman", href: "/marketplace/orders" },
   ] },
-  { label: "Laporan", icon: BarChart3, children: [
+  { label: "Laporan Bisnis", icon: BarChart3, children: [
     { label: "Laporan Penjualan", href: "/reports/sales" },
     { label: "Statistik Penjualan", href: "/reports/statistics" },
     { label: "Laba Bersih", href: "/reports/profit" },
@@ -53,9 +52,9 @@ const NAV_ALL: NavItem[] = [
     { label: "Riset Produk", href: "/reports/research" },
     { label: "Riset Pasar", href: "/reports/market" },
   ] },
-  { label: "Stok & Keuangan", icon: Wallet, children: [
-    { label: "Inventori", href: "/others/inventory" },
-    { label: "Transaksi", href: "/others/transactions" },
+  { label: "Operasional Non-Marketplace", icon: Wallet, children: [
+    { label: "Inventori Web", href: "/others/inventory" },
+    { label: "Transaksi Web & Manual", href: "/others/transactions" },
     { label: "Saldo", href: "/settings/balance" },
   ] },
   { label: "Promosi", icon: Gift, children: [

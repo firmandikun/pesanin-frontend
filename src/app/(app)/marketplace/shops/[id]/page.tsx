@@ -1,14 +1,14 @@
 "use client";
 
 import {
-  AlertTriangle, ArrowRight, BarChart3, Boxes, CheckCircle2, ChevronRight, CircleDollarSign,
-  LayoutDashboard, Loader2, Megaphone, Package, ReceiptText, RefreshCcw, ShoppingBag,
-  Store, TrendingUp, WalletCards,
+  AlertTriangle, ArrowRight, CheckCircle2, ChevronRight, CircleDollarSign,
+  Loader2, Megaphone, Package, RefreshCcw, ShoppingBag, Store, TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { ShopeeMark } from "@/components/ChannelBadge";
 import { PageHead, Panel } from "@/components/kit";
+import { ShopWorkspaceNav } from "@/components/marketplace/ShopWorkspaceNav";
 import { api, isoDate, Order, Paginated, rupiah } from "@/lib/api";
 
 type Shop = {
@@ -36,28 +36,6 @@ const ago = (value: string | null) => {
   if (minutes < 1440) return `${Math.round(minutes / 60)} jam lalu`;
   return `${Math.round(minutes / 1440)} hari lalu`;
 };
-
-function StoreNav({ shop }: { shop: Shop }) {
-  const items = [
-    [LayoutDashboard, "Dashboard toko", `/marketplace/shops/${shop.id}`],
-    [ReceiptText, "Transaksi", `/marketplace/shops/${shop.id}/transactions`],
-    [ShoppingBag, "Pesanan", `/marketplace/orders?shop_id=${shop.id}`],
-    [Boxes, "Inventori", `/marketplace/products?shop_id=${shop.id}`],
-    [Megaphone, "Iklan", `/marketplace/ads?shop=${shop.id}`],
-    [TrendingUp, "Laporan keuangan", `/marketplace/shops/${shop.id}/finance`],
-  ] as const;
-  return (
-    <Panel className="overflow-x-auto p-2">
-      <nav className="flex min-w-max gap-1">
-        {items.map(([Icon, label, href], i) => (
-          <Link key={label} href={href} className={`flex h-10 items-center gap-2 rounded-lg px-3.5 text-sm font-semibold ${i === 0 ? "bg-navy text-white" : "text-slate-600 hover:bg-slate-50 hover:text-navy"}`}>
-            <Icon size={16} />{label}
-          </Link>
-        ))}
-      </nav>
-    </Panel>
-  );
-}
 
 export default function ShopDashboard({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -103,13 +81,10 @@ export default function ShopDashboard({ params }: { params: Promise<{ id: string
     ["Potongan marketplace", -profit.fees, "bg-orange-400"], ["Biaya iklan", -profit.ads, "bg-violet-400"],
     ["Laba bersih", profit.net_profit, "bg-green-500"],
   ] as const : [];
-  const featureCards = [
-    [ReceiptText, "Transaksi", "Tinjau pendapatan, potongan, HPP, dan laba", `/marketplace/shops/${shop.id}/transactions`, "bg-sky-50 text-sky-600"],
-    [Boxes, "Inventori", "Pantau stok, SKU, variasi, dan HPP produk", `/marketplace/products?shop_id=${shop.id}`, "bg-indigo-50 text-indigo-600"],
-    [CircleDollarSign, "Pengeluaran", "UI pencatatan biaya operasional toko", `/reports/ads?shop_id=${shop.id}`, "bg-rose-50 text-rose-600"],
-    [WalletCards, "Laporan keuangan", "Laba rugi, arus kas, dan profitabilitas produk", `/marketplace/shops/${shop.id}/finance`, "bg-emerald-50 text-emerald-600"],
-    [Megaphone, "Iklan Shopee", "Belanja iklan, performa, ROAS, dan kampanye", `/marketplace/ads?shop=${shop.id}`, "bg-orange-50 text-orange-600"],
-    [BarChart3, "Analitik", "Produk terlaris, margin, dan tren penjualan", `/reports/profit?channel=shopee&shop_id=${shop.id}`, "bg-violet-50 text-violet-600"],
+  const quickActions = [
+    [ShoppingBag, "Atur pengiriman", "Proses pesanan yang perlu dikirim", `/marketplace/orders?shop_id=${shop.id}`, "bg-blue-50 text-blue-600"],
+    [Package, "Lengkapi HPP", "Pastikan perhitungan laba akurat", `/marketplace/products?shop_id=${shop.id}&cost=empty`, "bg-amber-50 text-amber-600"],
+    [CircleDollarSign, "Tinjau laba", "Buka transaksi dan rincian keuangan", `/marketplace/shops/${shop.id}/transactions`, "bg-emerald-50 text-emerald-600"],
   ] as const;
 
   return (
@@ -126,7 +101,7 @@ export default function ShopDashboard({ params }: { params: Promise<{ id: string
         <span className={`rounded-full px-3 py-1 text-xs font-semibold ${shop.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>{shop.status === "active" ? "Terhubung" : "Perlu dihubungkan ulang"}</span>
         <span className="text-xs text-slate-500">Sinkron terakhir: <b className="text-slate-700">{ago(shop.orders_synced_at)}</b></span>
       </Panel>
-      <StoreNav shop={shop} />
+      <ShopWorkspaceNav shopId={shop.id} active="overview" />
 
       {notice && <div className="flex items-center gap-2 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700"><CheckCircle2 size={16} />{notice}</div>}
       {shop.last_error && <div className="flex items-start gap-2 rounded-xl bg-rose-50 p-3 text-sm text-rose-700"><AlertTriangle size={16} className="mt-0.5" />{shop.last_error}</div>}
@@ -148,7 +123,7 @@ export default function ShopDashboard({ params }: { params: Promise<{ id: string
       </Panel>}
 
       <div className="grid gap-5 xl:grid-cols-[1.35fr_.65fr]">
-        <Panel className="overflow-hidden"><div className="flex items-center justify-between border-b border-slate-100 px-5 py-4"><div><h2 className="font-bold text-navy">Transaksi terbaru</h2><p className="text-xs text-slate-500">Pesanan terkini dari toko ini</p></div><Link href={`/marketplace/orders?shop_id=${shop.id}`} className="text-sm font-semibold text-brand-600">Lihat semua</Link></div>
+        <Panel className="overflow-hidden"><div className="flex items-center justify-between border-b border-slate-100 px-5 py-4"><div><h2 className="font-bold text-navy">Pesanan terbaru</h2><p className="text-xs text-slate-500">Pesanan dan status pengiriman terkini dari toko ini</p></div><Link href={`/marketplace/orders?shop_id=${shop.id}`} className="text-sm font-semibold text-brand-600">Lihat semua</Link></div>
           <div className="divide-y divide-slate-100">{orders.length ? orders.map((o) => { const [label, tone] = statusLabel[o.external_status ?? ""] ?? [o.external_status ?? "-", "bg-slate-100 text-slate-600"]; return <div key={o.id} className="grid grid-cols-[1fr_auto] gap-3 px-5 py-3.5"><div className="min-w-0"><p className="truncate font-mono text-xs font-semibold text-navy">{o.external_order_sn}</p><p className="truncate text-xs text-slate-500">{o.items?.[0]?.name ?? o.customer_name} · {o.quantity} item</p></div><div className="text-right"><p className="text-sm font-bold text-navy">{rupiah(o.total)}</p><span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${tone}`}>{label}</span></div></div>; }) : <p className="py-12 text-center text-sm text-slate-500">Belum ada transaksi pada toko ini.</p>}</div>
         </Panel>
         <Panel className="p-5"><h2 className="font-bold text-navy">Perlu perhatian</h2><div className="mt-4 space-y-3">
@@ -158,7 +133,7 @@ export default function ShopDashboard({ params }: { params: Promise<{ id: string
         </div></Panel>
       </div>
 
-      <div><h2 className="mb-3 text-lg font-bold text-navy">Kelola toko</h2><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{featureCards.map(([Icon, title, sub, href, tone]) => <Link key={title} href={href} className="group flex items-center gap-3 rounded-xl bg-white p-4 transition hover:-translate-y-0.5 hover:shadow-md"><span className={`flex h-11 w-11 items-center justify-center rounded-xl ${tone}`}><Icon size={20} /></span><span className="min-w-0 flex-1"><b className="block text-navy">{title}</b><span className="block text-xs text-slate-500">{sub}</span></span><ChevronRight size={17} className="text-slate-300 group-hover:text-brand-600" /></Link>)}</div></div>
+      <div><h2 className="mb-3 text-lg font-bold text-navy">Aksi cepat</h2><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{quickActions.map(([Icon, title, sub, href, tone]) => <Link key={title} href={href} className="group flex items-center gap-3 rounded-xl bg-white p-4 transition hover:-translate-y-0.5 hover:shadow-md"><span className={`flex h-11 w-11 items-center justify-center rounded-xl ${tone}`}><Icon size={20} /></span><span className="min-w-0 flex-1"><b className="block text-navy">{title}</b><span className="block text-xs text-slate-500">{sub}</span></span><ChevronRight size={17} className="text-slate-300 group-hover:text-brand-600" /></Link>)}</div></div>
     </div>
   );
 }

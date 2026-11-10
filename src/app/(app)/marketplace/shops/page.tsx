@@ -193,7 +193,7 @@ function Shops() {
                     </td>
                     <td className="px-3 py-3"><span className={`whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] font-semibold ${s.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>{s.status === "active" ? "Aktif" : "Perlu hubungkan ulang"}</span></td>
                     <td className="px-3 py-3 text-right"><Link href={`/marketplace/products?shop_id=${s.id}`} className="font-semibold text-navy hover:text-brand-600">{s.listings_count.toLocaleString("id-ID")}</Link></td>
-                    <td className="px-3 py-3 text-right"><Link href="/marketplace/orders" className="font-semibold text-navy hover:text-brand-600">{s.orders_count.toLocaleString("id-ID")}</Link></td>
+                    <td className="px-3 py-3 text-right"><Link href={`/marketplace/orders?shop_id=${s.id}`} className="font-semibold text-navy hover:text-brand-600">{s.orders_count.toLocaleString("id-ID")}</Link></td>
                     <td className="whitespace-nowrap px-3 py-3 text-slate-600">{ago(s.orders_synced_at)}</td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-1.5">
