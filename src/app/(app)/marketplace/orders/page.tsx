@@ -46,6 +46,12 @@ export default function ShopeeOrders() {
   const [shipIds, setShipIds] = useState<number[] | null>(null);
   const [track, setTrack] = useState<Order | null>(null);
 
+  // Dashboard toko links here with the shop preselected.
+  useEffect(() => {
+    const selectedShop = new URLSearchParams(window.location.search).get("shop_id");
+    if (selectedShop) setShopId(selectedShop);
+  }, []);
+
   const base = useCallback((extra: Record<string, string>) => new URLSearchParams({ channel: "shopee", ...(shopId ? { marketplace_shop_id: shopId } : {}), ...extra }).toString(), [shopId]);
   const load = useCallback(() => {
     api<{ orders: Paginated<Order> }>(`/orders?${base({ shopee_state: state, search, page: String(page), per_page: String(perPage) })}`).then((d) => setData(d.orders));

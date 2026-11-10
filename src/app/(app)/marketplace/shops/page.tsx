@@ -200,7 +200,7 @@ function Shops() {
                         {s.status === "active"
                           ? <button onClick={() => sync(s)} disabled={!!busy} title="Sinkronkan produk, pesanan & iklan" className="flex h-8 items-center gap-1.5 rounded-lg bg-navy px-3 text-xs font-semibold text-white hover:bg-navy-700 disabled:opacity-50">{busy === `sync-${s.id}` ? <Loader2 size={14} className="animate-spin" /> : <RefreshCcw size={14} />}Sinkronkan</button>
                           : <button onClick={connect} className="flex h-8 items-center gap-1.5 rounded-lg bg-[#ee4d2d] px-3 text-xs font-semibold text-white"><Link2 size={14} />Hubungkan ulang</button>}
-                        <Link href={`/reports/profit?channel=shopee&shop_id=${s.id}`} className="flex h-8 items-center gap-1.5 rounded-lg bg-slate-100 px-3 text-xs font-semibold text-navy hover:bg-slate-200"><Store size={14} />Laba</Link>
+                        <Link href={`/marketplace/shops/${s.id}`} className="flex h-8 items-center gap-1.5 rounded-lg bg-slate-100 px-3 text-xs font-semibold text-navy hover:bg-slate-200"><Store size={14} />Dashboard</Link>
                         <button onClick={() => disconnect(s)} disabled={!!busy} title={s.is_demo ? "Hapus toko contoh" : "Putuskan toko"} aria-label={s.is_demo ? "Hapus" : "Putuskan"} className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600">
                           {s.is_demo ? <Trash2 size={15} /> : <Unplug size={15} />}
                         </button>
