@@ -40,10 +40,11 @@ const ago = (value: string | null) => {
 function StoreNav({ shop }: { shop: Shop }) {
   const items = [
     [LayoutDashboard, "Dashboard toko", `/marketplace/shops/${shop.id}`],
-    [ReceiptText, "Transaksi", `/marketplace/orders?shop_id=${shop.id}`],
+    [ReceiptText, "Transaksi", `/marketplace/shops/${shop.id}/transactions`],
+    [ShoppingBag, "Pesanan", `/marketplace/orders?shop_id=${shop.id}`],
     [Boxes, "Inventori", `/marketplace/products?shop_id=${shop.id}`],
     [Megaphone, "Iklan", `/marketplace/ads?shop=${shop.id}`],
-    [TrendingUp, "Laba & analitik", `/reports/profit?channel=shopee&shop_id=${shop.id}`],
+    [TrendingUp, "Laporan keuangan", `/marketplace/shops/${shop.id}/finance`],
   ] as const;
   return (
     <Panel className="overflow-x-auto p-2">
@@ -103,10 +104,10 @@ export default function ShopDashboard({ params }: { params: Promise<{ id: string
     ["Laba bersih", profit.net_profit, "bg-green-500"],
   ] as const : [];
   const featureCards = [
-    [ReceiptText, "Transaksi", "Kelola pesanan, pengiriman, retur, dan resi", `/marketplace/orders?shop_id=${shop.id}`, "bg-sky-50 text-sky-600"],
+    [ReceiptText, "Transaksi", "Tinjau pendapatan, potongan, HPP, dan laba", `/marketplace/shops/${shop.id}/transactions`, "bg-sky-50 text-sky-600"],
     [Boxes, "Inventori", "Pantau stok, SKU, variasi, dan HPP produk", `/marketplace/products?shop_id=${shop.id}`, "bg-indigo-50 text-indigo-600"],
     [CircleDollarSign, "Pengeluaran", "UI pencatatan biaya operasional toko", `/reports/ads?shop_id=${shop.id}`, "bg-rose-50 text-rose-600"],
-    [WalletCards, "Pemasukan", "Ringkasan dana cair dan pendapatan bersih", `/reports/profit?channel=shopee&shop_id=${shop.id}`, "bg-emerald-50 text-emerald-600"],
+    [WalletCards, "Laporan keuangan", "Laba rugi, arus kas, dan profitabilitas produk", `/marketplace/shops/${shop.id}/finance`, "bg-emerald-50 text-emerald-600"],
     [Megaphone, "Iklan Shopee", "Belanja iklan, performa, ROAS, dan kampanye", `/marketplace/ads?shop=${shop.id}`, "bg-orange-50 text-orange-600"],
     [BarChart3, "Analitik", "Produk terlaris, margin, dan tren penjualan", `/reports/profit?channel=shopee&shop_id=${shop.id}`, "bg-violet-50 text-violet-600"],
   ] as const;
