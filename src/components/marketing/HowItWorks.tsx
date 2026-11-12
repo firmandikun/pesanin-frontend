@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import {
-  CheckCircle2, Copy, Globe, MessageCircle, Package, RefreshCcw, Store, TrendingUp, Truck,
+  CheckCircle2, Copy, FileSpreadsheet, FileText, Globe, MessageCircle, RefreshCcw, Store, TrendingUp, Truck,
 } from "lucide-react";
 import { ShopeeMark } from "@/components/ChannelBadge";
 
@@ -141,17 +141,17 @@ function MockConnectStores() {
       {[
         { n: "Fashion Store Official", s: "Shopee · Auto-sync aktif", icon: <ShopeeMark size={22} /> },
         { n: "Beauty Care Store", s: "Shopee · Auto-sync aktif", icon: <ShopeeMark size={22} /> },
-        { n: "TikTok Shop Beauty", s: "TikTok Shop · Auto-sync aktif", icon: <TikTokMark size={22} /> },
+        { n: "TikTok Shop", s: "Integrasi segera hadir", icon: <TikTokMark size={22} />, soon: true },
       ].map((x) => (
-        <Card key={x.n} className="flex items-center gap-2.5">
+        <Card key={x.n} className={`flex items-center gap-2.5 ${"soon" in x ? "opacity-70" : ""}`}>
           {x.icon}
           <div className="flex-1">
             <p className="text-xs font-bold text-navy">{x.n}</p>
             <p className="text-[10px] text-slate-400">{x.s}</p>
           </div>
-          <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Terhubung
-          </span>
+          {"soon" in x
+            ? <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">Segera</span>
+            : <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Terhubung</span>}
         </Card>
       ))}
       <Card className="bg-slate-50/80">
@@ -168,89 +168,47 @@ function MockConnectStores() {
   );
 }
 
-function MockSyncStock() {
+function MockAnalytics() {
+  const bars: [number, number][] = [[45, 18], [60, 24], [52, 20], [75, 31], [66, 27], [88, 36], [80, 33]];
   return (
     <div className="space-y-2.5">
+      <div className="grid grid-cols-2 gap-2.5">
+        <Card><p className="text-[10px] text-slate-500">Total Omzet</p><p className="text-sm font-extrabold text-navy">Rp45,2jt</p><p className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600"><TrendingUp size={10} /> +12,5%</p></Card>
+        <Card><p className="text-[10px] text-slate-500">Laba Bersih</p><p className="text-sm font-extrabold text-navy">Rp18,8jt</p><p className="text-[10px] font-semibold text-emerald-600">Margin 41,6%</p></Card>
+      </div>
       <Card>
-        <div className="flex items-center justify-between">
-          <p className="text-[11px] font-bold text-navy">Produk & Stok</p>
-          <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-            <RefreshCcw size={10} /> Sync 30 detik
-          </span>
+        <div className="flex items-center justify-between"><p className="text-[11px] font-bold text-navy">Tren Omzet Harian</p><span className="text-[10px] text-slate-400">7 hari terakhir</span></div>
+        <div className="mt-2 flex h-16 items-end gap-1.5">
+          {bars.map(([o, l], i) => <div key={i} className="flex h-full flex-1 items-end gap-0.5"><div className="flex-1 rounded-t bg-brand-400" style={{ height: `${o}%` }} /><div className="flex-1 rounded-t bg-emerald-400" style={{ height: `${l}%` }} /></div>)}
         </div>
-        <div className="mt-2 space-y-1.5">
-          {[
-            ["Kaos Oversize Hitam", "SKU-KO-01", 124],
-            ["Kemeja Linen Putih", "SKU-KL-02", 38],
-            ["Celana Cargo Army", "SKU-CC-03", 7],
-          ].map(([n, sku, st]) => (
-            <div key={n as string} className="flex items-center justify-between rounded-lg bg-slate-50 px-2.5 py-1.5">
-              <div className="flex items-center gap-2">
-                <Package size={14} className="text-slate-400" />
-                <div>
-                  <p className="text-xs font-bold text-navy">{n}</p>
-                  <p className="text-[10px] text-slate-400">{sku}</p>
-                </div>
-              </div>
-              <span className={`text-xs font-bold ${(st as number) < 10 ? "text-rose-600" : "text-navy"}`}>{st} pcs</span>
-            </div>
-          ))}
-        </div>
+        <div className="mt-1.5 flex justify-center gap-3 text-[10px] text-slate-500"><span className="flex items-center gap-1"><i className="h-1.5 w-1.5 rounded-full bg-brand-400" />Omzet</span><span className="flex items-center gap-1"><i className="h-1.5 w-1.5 rounded-full bg-emerald-400" />Laba</span></div>
       </Card>
       <Card>
-        <p className="text-[11px] font-bold text-navy">Pesanan baru tersinkron</p>
-        <div className="mt-2 flex items-center justify-between rounded-lg border border-slate-100 px-2.5 py-1.5">
-          <div className="flex items-center gap-2">
-            <ShopeeMark size={16} />
-            <span className="text-xs font-semibold text-navy">#2411SHP0921</span>
-          </div>
-          <span className="text-[10px] font-semibold text-blue-700">Perlu dikirim</span>
-        </div>
-        <div className="mt-1.5 flex items-center justify-between rounded-lg border border-slate-100 px-2.5 py-1.5">
-          <div className="flex items-center gap-2">
-            <TikTokMark size={16} />
-            <span className="text-xs font-semibold text-navy">#5781TTS0412</span>
-          </div>
-          <span className="text-[10px] font-semibold text-blue-700">Perlu dikirim</span>
-        </div>
+        <p className="text-[11px] font-bold text-navy">Performa per Toko</p>
+        {[["Fashion Store Official", 65], ["Beauty Care Store", 35]].map(([n, v]) => (
+          <div key={n as string} className="mt-1.5 flex items-center gap-2 text-[10px]"><ShopeeMark size={12} /><span className="w-28 truncate text-slate-600">{n}</span><div className="h-1.5 flex-1 rounded-full bg-slate-100"><div className="h-full rounded-full bg-brand-500" style={{ width: `${v}%` }} /></div><b className="text-navy">{v}%</b></div>
+        ))}
       </Card>
     </div>
   );
 }
 
-function MockProfit() {
+function MockReportExport() {
   return (
     <div className="space-y-2.5">
-      <div className="grid grid-cols-2 gap-2.5">
-        <Card>
-          <p className="text-[10px] text-slate-500">Total Omzet</p>
-          <p className="text-sm font-extrabold text-navy">Rp45,2jt</p>
-          <p className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600"><TrendingUp size={10} /> +12,5%</p>
-        </Card>
-        <Card>
-          <p className="text-[10px] text-slate-500">Laba Bersih</p>
-          <p className="text-sm font-extrabold text-navy">Rp18,8jt</p>
-          <p className="text-[10px] font-semibold text-emerald-600">Margin 41,6%</p>
-        </Card>
-      </div>
       <Card>
-        <p className="text-[11px] font-bold text-navy">Rincian Laba</p>
-        <div className="mt-2 space-y-1.5 text-[11px]">
-          {[
-            ["Pendapatan", "Rp45.200.000", "text-navy"],
-            ["HPP produk", "−Rp19.800.000", "text-rose-600"],
-            ["Biaya admin marketplace", "−Rp3.950.000", "text-rose-600"],
-            ["Biaya iklan (Ads)", "−Rp2.650.000", "text-rose-600"],
-          ].map(([l, v, c]) => (
-            <div key={l} className="flex items-center justify-between">
-              <span className="text-slate-500">{l}</span>
-              <span className={`font-semibold ${c}`}>{v}</span>
-            </div>
-          ))}
+        <div className="flex items-center justify-between"><p className="text-[11px] font-bold text-navy">Laporan Laba Rugi · November</p><span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">Sudah cair</span></div>
+        <div className="mt-2 space-y-1.5">
+          <div className="flex justify-between rounded-lg border-l-2 border-emerald-500 bg-slate-50 px-2.5 py-1.5 text-[11px]"><span className="text-slate-500">Pendapatan</span><b className="text-navy">Rp53.420.000</b></div>
+          <div className="flex justify-between rounded-lg border-l-2 border-rose-500 bg-slate-50 px-2.5 py-1.5 text-[11px]"><span className="text-slate-500">Potongan, HPP, iklan & biaya</span><b className="text-rose-600">−Rp30.450.000</b></div>
+          <div className="flex justify-between rounded-lg bg-brand-500 px-2.5 py-2 text-white"><span className="text-[11px] font-semibold">Laba Bersih</span><span className="text-xs font-extrabold">Rp22.970.000 · 43%</span></div>
         </div>
-        <div className="mt-2.5 flex items-center justify-between rounded-lg bg-brand-500 px-2.5 py-2 text-white">
-          <span className="text-[11px] font-semibold">Laba Bersih</span>
-          <span className="text-xs font-extrabold">Rp18.800.000</span>
+      </Card>
+      <Card>
+        <p className="text-[11px] font-bold text-navy">Ekspor Laporan</p>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <span className="flex items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 py-2 text-[11px] font-semibold text-emerald-700"><FileSpreadsheet size={13} />Excel</span>
+          <span className="flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 py-2 text-[11px] font-semibold text-rose-700"><FileText size={13} />PDF</span>
         </div>
       </Card>
     </div>
@@ -259,55 +217,57 @@ function MockProfit() {
 
 /* ─── Data ────────────────────────────────────────────── */
 
-type Flow = "direct" | "marketplace";
+type Flow = "marketplace" | "social";
+type Step = { title: string; desc: string; bullets: string[]; mockup: React.ReactNode };
 
-const FLOWS: Record<Flow, {
-  tab: string;
-  icon: typeof Globe;
-  subtitle: string;
-  steps: { title: string; desc: string; mockup: React.ReactNode }[];
-}> = {
-  direct: {
-    tab: "Jualan di Medsos & Website",
+const FLOWS: Record<Flow, { tab: string; icon: typeof Globe; subtitle: string; steps: Step[] }> = {
+  marketplace: {
+    tab: "Marketplace",
+    icon: Store,
+    subtitle: "Untuk toko Shopee: pesanan, potongan, dan laba terhitung otomatis dari API resmi.",
+    steps: [
+      {
+        title: "Hubungkan Toko Marketplace",
+        desc: "Login ke Shopee lewat Pesanin (otorisasi resmi). Pesanan, produk, stok, chat, dan biaya iklan langsung tersinkron, tanpa cek manual lagi.",
+        bullets: ["Integrasi API resmi Shopee, multi toko", "Pesanan & penghasilan sinkron tiap 30 detik", "Shopee Ads tersinkron harian (+PPN)"],
+        mockup: <MockConnectStores />,
+      },
+      {
+        title: "Input HPP & Lihat Analitik",
+        desc: "Isi modal per produk atau SKU sekali. Pesanin membaca potongan Shopee per pesanan dan menampilkan laba bersih, tren, dan performa tiap toko.",
+        bullets: ["Input HPP per produk/SKU, massal", "Rincian potongan: admin, layanan, Rp1.250, ongkir", "Omzet, laba, margin & ROAS real-time"],
+        mockup: <MockAnalytics />,
+      },
+      {
+        title: "Lacak Penghasilan & Ekspor Laporan",
+        desc: "Pantau dana estimasi sampai sudah cair, catat pengeluaran, lalu ekspor laporan laba rugi dan arus kas untuk pembukuan.",
+        bullets: ["Status Estimasi → Sudah cair otomatis", "Laba rugi, arus kas & pengeluaran", "Ekspor Excel & cetak PDF"],
+        mockup: <MockReportExport />,
+      },
+    ],
+  },
+  social: {
+    tab: "Media Sosial",
     icon: Globe,
-    subtitle: "Untuk seller yang jualan lewat Instagram, TikTok, WhatsApp, iklan, atau landing page sendiri.",
+    subtitle: "Untuk jualan lewat Instagram, TikTok, WhatsApp, Facebook, iklan, atau landing page sendiri.",
     steps: [
       {
         title: "Buat Produk & Link Checkout",
-        desc: "Input produk, variasi, dan harga — form checkout langsung jadi. Tempel link di bio IG/TikTok, WhatsApp, iklan, atau landing page builder.",
+        desc: "Input produk, variasi, dan harga, form checkout langsung jadi. Tempel link di bio IG/TikTok, WhatsApp, iklan, atau landing page.",
+        bullets: ["Link checkout & landing page builder", "Variasi, kupon & order bump", "Pixel Meta, TikTok & Google"],
         mockup: <MockLinkCheckout />,
       },
       {
         title: "Pembeli Checkout Sendiri",
-        desc: "Pembeli isi alamat, ongkir 7+ kurir muncul otomatis. Bayar via COD, transfer, QRIS, atau virtual account — tanpa perlu chat tanya ongkir.",
+        desc: "Pembeli isi alamat, ongkir dari 7+ kurir muncul otomatis. Bayar COD, transfer, QRIS, atau virtual account tanpa perlu chat tanya ongkir.",
+        bullets: ["Ongkir JNE, J&T, SiCepat, SPX & lainnya", "COD, transfer & e-payment", "Data pembeli lama terisi otomatis"],
         mockup: <MockCheckoutOngkir />,
       },
       {
-        title: "Kelola Pesanan & Follow Up WA",
-        desc: "Pesanan masuk rapi di dashboard. Input resi massal, kirim notifikasi & follow up WhatsApp sekali klik, pantau omzet dan pixel iklan.",
+        title: "Proses Pesanan & Follow Up",
+        desc: "Pesanan lunas langsung dipesankan kurir dan resi terbit sendiri. Kirim update ke pembeli lewat WhatsApp dan pantau laba di laporan yang sama.",
+        bullets: ["Resi Biteship otomatis saat lunas", "Inbox & template WhatsApp", "Produk digital terkirim otomatis"],
         mockup: <MockOrdersWa />,
-      },
-    ],
-  },
-  marketplace: {
-    tab: "Jualan di Marketplace",
-    icon: Store,
-    subtitle: "Untuk seller yang punya toko di Shopee & TikTok Shop dan ingin semua data terpusat otomatis.",
-    steps: [
-      {
-        title: "Hubungkan Toko Marketplace",
-        desc: "Hubungkan satu atau banyak toko Shopee & TikTok Shop lewat otorisasi resmi. Tidak perlu input ulang data — semua tersinkron otomatis.",
-        mockup: <MockConnectStores />,
-      },
-      {
-        title: "Sync Produk, Stok & Pesanan",
-        desc: "Pesanan baru ditarik tiap 30 detik. Kelola listing, variasi, dan stok dari satu dashboard — publish produk massal ke semua toko.",
-        mockup: <MockSyncStock />,
-      },
-      {
-        title: "Input HPP & Pantau Laba Bersih",
-        desc: "Masukkan modal per SKU, Pesanin menghitung laba bersih riil setelah dipotong biaya admin marketplace dan biaya iklan Shopee Ads.",
-        mockup: <MockProfit />,
       },
     ],
   },
@@ -316,36 +276,22 @@ const FLOWS: Record<Flow, {
 /* ─── Section ─────────────────────────────────────────── */
 
 export function HowItWorks() {
-  const [flow, setFlow] = useState<Flow>("direct");
+  const [flow, setFlow] = useState<Flow>("marketplace");
   const current = FLOWS[flow];
 
   return (
     <div>
       <div className="mx-auto max-w-2xl text-center">
-        <span className="inline-block rounded-full bg-brand-100 px-3 py-1 text-xs font-bold text-brand-700">Cara Kerja</span>
-        <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-navy md:text-[40px]">
-          Cara Kerja <span className="text-brand-500">Pesanin</span>
-        </h2>
-        <p className="mt-4 text-lg text-slate-600">
-          Jualan di medsos, website, atau marketplace? Pilih alurmu — siap terima pesanan dalam 3 langkah.
-        </p>
-
-        <div role="tablist" className="mt-8 inline-flex rounded-2xl border border-slate-200/80 bg-white p-1.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+        <h2 className="text-3xl font-extrabold tracking-tight text-navy md:text-[42px]">Cara Kerja <span className="text-brand-500">Pesanin</span></h2>
+        <p className="mt-4 text-lg text-slate-600">3 langkah sederhana, untuk jualan di marketplace maupun media sosial.</p>
+        <div role="tablist" className="mt-8 inline-flex rounded-2xl border border-slate-200/80 bg-white p-1.5 shadow-sm">
           {(Object.keys(FLOWS) as Flow[]).map((k) => {
             const Icon = FLOWS[k].icon;
             const active = flow === k;
             return (
-              <button
-                key={k}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => setFlow(k)}
-                className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition sm:px-5 sm:text-sm ${
-                  active ? "bg-brand-500 text-white shadow-sm shadow-brand-500/25" : "text-slate-600 hover:bg-slate-50 hover:text-navy"
-                }`}
-              >
-                <Icon size={16} /> {FLOWS[k].tab}
+              <button key={k} type="button" role="tab" aria-selected={active} onClick={() => setFlow(k)}
+                className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold transition ${active ? "bg-brand-500 text-white shadow-sm shadow-brand-500/25" : "text-slate-600 hover:bg-slate-50 hover:text-navy"}`}>
+                <Icon size={16} />{FLOWS[k].tab}
               </button>
             );
           })}
@@ -355,17 +301,15 @@ export function HowItWorks() {
 
       <div key={flow} className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
         {current.steps.map((s, i) => (
-          <div
-            key={s.title}
-            className="flex flex-col overflow-hidden rounded-3xl border border-slate-100/90 bg-white shadow-[0_2px_8px_-2px_rgba(0,0,0,0.04),0_1px_3px_-1px_rgba(0,0,0,0.02)] transition hover:-translate-y-1 hover:border-slate-200 hover:shadow-[0_8px_16px_-4px_rgba(0,0,0,0.06)]"
-          >
-            <div className="border-b border-slate-100/80 bg-slate-50/70 p-5">{s.mockup}</div>
+          <div key={s.title} className="flex flex-col overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
+            <div className="border-b border-slate-100 bg-slate-50/70 p-5">{s.mockup}</div>
             <div className="flex flex-1 flex-col p-6">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-sm font-extrabold text-brand-600">
-                {i + 1}
-              </span>
-              <h3 className="mt-3 text-xl font-bold text-navy">{s.title}</h3>
+              <span className="text-xs font-bold uppercase tracking-wide text-brand-600">Langkah {i + 1}</span>
+              <h3 className="mt-1.5 text-xl font-bold text-navy">{s.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-slate-600">{s.desc}</p>
+              <ul className="mt-auto space-y-2 pt-5 text-sm">
+                {s.bullets.map((b) => <li key={b} className="flex items-start gap-2 text-slate-700"><CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-500" />{b}</li>)}
+              </ul>
             </div>
           </div>
         ))}
@@ -373,9 +317,8 @@ export function HowItWorks() {
 
       <p className="mt-8 flex items-center justify-center gap-2 text-center text-sm text-slate-500">
         <CheckCircle2 size={16} className="text-emerald-500" />
-        Bisa dipakai keduanya sekaligus — pesanan medsos, website & marketplace tampil dalam satu dashboard.
+        Bisa dipakai keduanya sekaligus: pesanan marketplace & media sosial tampil di satu dashboard dan satu laporan laba.
       </p>
     </div>
   );
 }
-

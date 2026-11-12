@@ -9,7 +9,7 @@ import { PageHead, Panel } from "@/components/kit";
 import { Select } from "@/components/Select";
 import { api, isoDate, rupiah } from "@/lib/api";
 
-type Money = { orders: number; items: number; gmv: number; revenue: number; fees: number; cogs: number; ads: number; gross_profit: number; net_profit: number; margin: number; roas: number | null };
+type Money = { orders: number; items: number; gmv: number; revenue: number; fees: number; cogs: number; ads: number; opex: number; gross_profit: number; net_profit: number; margin: number; roas: number | null };
 type Data = {
   summary: Money & { pending_fee_orders: number; missing_cost_orders: number };
   by_channel: (Money & { key: string; label: string })[];
@@ -56,9 +56,10 @@ function Profit() {
   const s = d?.summary;
   const steps = s ? [
     ["Pendapatan produk", s.revenue, "Omset dikurangi ongkir & biaya COD yang dibayar pembeli"],
-    ["Potongan marketplace", -s.fees, "Komisi, layanan, transaksi, ongkir ditanggung penjual"],
+    ["Potongan marketplace", -s.fees, "Biaya admin, layanan, pemrosesan, ongkir & retur dari Shopee"],
     ["HPP (modal produk)", -s.cogs, "Harga pokok × jumlah terjual"],
-    ["Biaya iklan", -s.ads, "Meta, TikTok, Google, Shopee Ads"],
+    ["Biaya iklan", -s.ads, "Meta, TikTok, Google, Shopee Ads (termasuk PPN)"],
+    ["Biaya operasional", -s.opex, "Gaji, sewa, packing, dll. dari menu Pengeluaran"],
   ] as const : [];
 
   return (

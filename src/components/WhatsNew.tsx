@@ -1,18 +1,21 @@
 "use client";
 import { Search, Share2, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { type Announcement, publicApi } from "@/lib/content";
 
-const POSTS = [
-  { date: "06 November 2026", tag: "NEW", title: "BARU! WhatsApp Rotator", body: "Bagi chat pembeli secara bergiliran ke beberapa CS, lengkap dengan jadwal shift dan libur terjadwal. Buka menu WA Rotator untuk mulai.", color: "bg-emerald-600" },
-  { date: "06 November 2026", tag: "NEW", title: "Kupon & Diskon Otomatis", body: "Buat kode kupon atau diskon otomatis untuk produk, pesanan, maupun ongkir. Aktifkan komponen Kupon di Halaman Checkout.", color: "bg-brand-600" },
-  { date: "05 November 2026", tag: "UPDATE", title: "Landing Page Builder", body: "Susun halaman penjualan dengan formulir checkout tertanam, pantau sesi & referrer di Landing Page › Laporan.", color: "bg-navy" },
-  { date: "05 November 2026", tag: "UPDATE", title: "Ongkir otomatis & biaya COD", body: "Pembeli memilih kecamatan, daftar kurir dan biaya COD dihitung otomatis dari alamat pickup kamu.", color: "bg-amber-500" },
-];
+type Post = { date: string; tag: string; title: string; body: string; color: string };
+const TAG_COLOR: Record<string, string> = { NEW: "bg-emerald-600", UPDATE: "bg-brand-600", INFO: "bg-navy" };
 
 export function WhatsNew({ onClose }: { onClose: () => void }) {
   const [q, setQ] = useState("");
   const [searching, setSearching] = useState(false);
-  const list = POSTS.filter((p) => (p.title + p.body).toLowerCase().includes(q.toLowerCase()));
+  const [posts, setPosts] = useState<Post[] | null>(null);
+  useEffect(() => {
+    publicApi<{ data: Announcement[] }>("/announcements")
+      .then((r) => setPosts(r.data.map((a) => ({ date: new Date(a.published_at).toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" }), tag: a.tag, title: a.title, body: a.body, color: TAG_COLOR[a.tag] ?? "bg-navy" }))))
+      .catch(() => setPosts([]));
+  }, []);
+  const list = (posts ?? []).filter((p) => (p.title + p.body).toLowerCase().includes(q.toLowerCase()));
   return (
     <div className="fixed inset-0 z-50" onClick={onClose}>
       <div className="absolute inset-0 bg-slate-900/30" />
@@ -32,7 +35,8 @@ export function WhatsNew({ onClose }: { onClose: () => void }) {
               <p className="text-sm text-slate-700">{p.body}</p>
             </article>
           ))}
-          {!list.length && <p className="p-6 text-center text-sm text-slate-500">Tidak ada update yang cocok.</p>}
+          {posts === null && <p className="p-6 text-center text-sm text-slate-400">Memuat…</p>}
+          {posts !== null && !list.length && <p className="p-6 text-center text-sm text-slate-500">Tidak ada update yang cocok.</p>}
         </div>
       </aside>
     </div>

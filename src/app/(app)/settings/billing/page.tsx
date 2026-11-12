@@ -1,6 +1,7 @@
 "use client";
 import { AlertTriangle, ArrowUpRight, Check, Clock, Crown, Eye, Minus, Receipt, Sparkles } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckoutDialog, InvoiceDialog, PayDialog } from "@/components/billing/Dialogs";
 import { Billing, FEATURE_LABEL, fmtDay, Invoice, INVOICE_STATUS, LIMIT_LABEL, METHOD, PlanInfo } from "@/components/billing/types";
 import { EmptyState, PageHead, Panel, Toggle } from "@/components/kit";
@@ -32,19 +33,29 @@ export default function BillingPage() {
   const [pay, setPay] = useState<Invoice | null>(null);
   const [view, setView] = useState<Invoice | null>(null);
   const { user, setUser } = useAuth();
+  const params = useSearchParams();
+  const opened = useRef(false);
   const load = useCallback(() => api<Billing>("/billing").then((b) => {
     setD(b);
-    if (b.billing) setPeriod(b.billing);
-    // Keep the header plan badge in sync after a payment.
-    if (user && user.active_plan !== b.plan) setUser({ ...user, active_plan: b.plan as NonNullable<typeof user.active_plan> });
+    if (b.billing === "monthly" || b.billing === "yearly") setPeriod(b.billing);
+    // Keep the header plan badge and the trial/lock state in sync after a payment.
+    if (user && (user.active_plan !== b.plan || user.subscription?.status !== b.subscription.status)) setUser({ ...user, active_plan: b.plan as NonNullable<typeof user.active_plan>, subscription: b.subscription });
   }), [user, setUser]);
   useEffect(() => { load(); }, [load]);
+  // Arriving from the plan picker (/langganan): open checkout for the chosen plan right away.
+  useEffect(() => {
+    const want = params.get("buy");
+    if (!d || opened.current || !want) return;
+    opened.current = true;
+    const p = d.plans.find((x) => x.id === want && x.monthly > 0);
+    if (p) { const per = params.get("period"); if (per === "monthly" || per === "yearly") setPeriod(per); setBuy(p); }
+  }, [d, params]);
   if (!d) return <div className="py-24 text-center text-sm text-slate-400">Memuat paket…</div>;
 
   const current = d.plans.find((p) => p.id === d.plan)!;
   const unpaid = d.invoices.find((i) => i.status === "unpaid");
   const daysLeft = d.expires_at ? Math.max(0, Math.ceil((new Date(d.expires_at).getTime() - Date.now()) / 864e5)) : null;
-  const total = d.billing === "yearly" ? 365 : 30;
+  const total = d.billing === "yearly" ? 365 : d.billing === "trial" ? d.trial_days : 30;
   const toggleRenew = async (v: boolean) => { setD({ ...d, auto_renew: v }); await api("/billing/auto-renew", { method: "PUT", json: { auto_renew: v } }); };
   const near = LIMIT_LABEL.filter(([k]) => { const l = current.limits[k]; return l !== null && l > 0 && d.usage[k] / l >= 0.8; });
 
@@ -62,8 +73,8 @@ export default function BillingPage() {
           <button onClick={() => setPay(unpaid)} className="h-10 rounded-lg bg-brand-500 px-5 text-sm font-semibold text-white hover:bg-brand-600">Bayar sekarang</button>
         </div>
       )}
-      {d.lapsed && (
-        <div className="surface flex items-center gap-3 border-rose-200 bg-rose-50/60 p-4 text-sm text-rose-700"><AlertTriangle size={18} />Masa paket berbayarmu sudah berakhir, akun kembali ke paket Gratis. Perpanjang untuk membuka lagi semua fitur.</div>
+      {d.subscription.status === "expired" && (
+        <div className="surface flex items-center gap-3 border-rose-200 bg-rose-50/60 p-4 text-sm text-rose-700"><AlertTriangle size={18} className="shrink-0" />{d.subscription.reason === "trial" ? "Masa trial sudah berakhir." : "Masa paket dan masa tenggang sudah berakhir."} Dashboard dikunci sampai kamu memilih paket di bawah ini. Data kamu tetap tersimpan.</div>
       )}
 
       <div className="grid gap-5 lg:grid-cols-[1.1fr_1fr]">
@@ -72,25 +83,25 @@ export default function BillingPage() {
           <div className="relative">
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2 text-sm text-navy-200"><Crown size={16} className="text-brand-400" />Paket aktif</span>
-              {d.billing && <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold">{d.billing === "yearly" ? "Tahunan" : "Bulanan"}</span>}
+              {d.billing && <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold">{d.billing === "trial" ? `Trial ${d.trial_days} hari` : d.billing === "yearly" ? "Tahunan" : "Bulanan"}</span>}
             </div>
             <h2 className="mt-2 text-[34px] font-extrabold tracking-tight">{current.name}</h2>
-            <p className="text-navy-200">{current.monthly ? `${rupiah(d.billing === "yearly" ? current.yearly : current.monthly)} / ${d.billing === "yearly" ? "tahun" : "bulan"}` : "Gratis selamanya"}</p>
+            <p className="text-navy-200">{d.billing === "trial" ? "Gratis selama masa trial, semua fitur Bisnis terbuka" : current.monthly ? `${rupiah(d.billing === "yearly" ? current.yearly : current.monthly)} / ${d.billing === "yearly" ? "tahun" : "bulan"}` : "Gratis selamanya"}</p>
 
             {d.expires_at && daysLeft !== null ? (
               <div className="mt-6">
-                <div className="flex justify-between text-sm"><span className="text-navy-200">{d.auto_renew ? "Diperpanjang" : "Berakhir"} {fmtDay(d.expires_at)}</span><b>{daysLeft} hari lagi</b></div>
+                <div className="flex justify-between text-sm"><span className="text-navy-200">{d.billing === "trial" ? "Trial berakhir" : d.auto_renew ? "Diperpanjang" : "Berakhir"} {fmtDay(d.expires_at)}</span><b>{daysLeft} hari lagi</b></div>
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-brand-500" style={{ width: `${Math.min(100, (daysLeft / total) * 100)}%` }} /></div>
-                <label className="mt-5 flex items-center justify-between gap-4 rounded-xl bg-white/[.06] px-4 py-3 text-sm">
+                {d.billing === "trial" ? <p className="mt-5 rounded-xl bg-white/[.06] px-4 py-3 text-sm text-navy-100">Setelah trial berakhir, dashboard dikunci sampai kamu memilih paket. Tidak ada tagihan otomatis.</p> : <label className="mt-5 flex items-center justify-between gap-4 rounded-xl bg-white/[.06] px-4 py-3 text-sm">
                   <span><b className="block">Perpanjang otomatis</b><span className="text-navy-200">Tagihan baru dibuat 3 hari sebelum masa aktif habis</span></span>
                   <Toggle checked={d.auto_renew} onChange={toggleRenew} />
-                </label>
+                </label>}
               </div>
             ) : (
               <p className="mt-6 rounded-xl bg-white/[.06] p-4 text-sm text-navy-100">Upgrade untuk custom domain, follow up otomatis, tanpa watermark, dan kuota pesanan lebih besar.</p>
             )}
             <div className="mt-6 flex flex-wrap gap-2">
-              {current.monthly > 0 && <button onClick={() => setBuy(current)} className="h-10 rounded-lg bg-white px-5 text-sm font-bold text-navy hover:bg-navy-50">Perpanjang</button>}
+              {current.monthly > 0 && <button onClick={() => setBuy(current)} className="h-10 rounded-lg bg-white px-5 text-sm font-bold text-navy hover:bg-navy-50">{d.billing === "trial" ? `Langganan ${current.name}` : "Perpanjang"}</button>}
               <a href="#paket" className="flex h-10 items-center gap-1.5 rounded-lg bg-brand-500 px-5 text-sm font-bold text-white hover:bg-brand-400">{current.rank < 3 ? "Upgrade paket" : "Lihat paket"}<ArrowUpRight size={16} /></a>
             </div>
           </div>

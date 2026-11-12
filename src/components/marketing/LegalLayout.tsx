@@ -1,13 +1,7 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
-import { Logo, Wordmark } from "@/components/Logo";
+import { Wordmark } from "@/components/Logo";
+import { SiteHeader } from "@/components/marketing/SiteChrome";
 
-const NAV = [
-  ["Fitur", "/#fitur"],
-  ["Cara Kerja", "/#cara-kerja"],
-  ["Harga", "/#harga"],
-  ["FAQ", "/#faq"],
-] as const;
 
 interface LegalLayoutProps {
   icon: React.ReactNode;
@@ -28,35 +22,7 @@ export function LegalLayout({
 }: LegalLayoutProps) {
   return (
     <div className="min-h-screen bg-white text-slate-700">
-      {/* NAVBAR */}
-      <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/95 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
-          <Link href="/" aria-label="Pesanin">
-            <Logo />
-          </Link>
-          <nav className="hidden items-center gap-7 text-sm font-medium text-slate-600 md:flex">
-            {NAV.map(([label, href]) => (
-              <Link key={href} href={href} className="transition hover:text-navy">
-                {label}
-              </Link>
-            ))}
-          </nav>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/login"
-              className="hidden h-10 items-center rounded-xl px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 sm:flex"
-            >
-              Masuk
-            </Link>
-            <Link
-              href="/register"
-              className="flex h-10 items-center gap-1.5 rounded-xl bg-brand-500 px-5 text-sm font-bold text-white shadow-sm shadow-brand-500/30 transition hover:bg-brand-600"
-            >
-              Coba Gratis <ArrowRight size={15} />
-            </Link>
-          </div>
-        </div>
-      </header>
+      <SiteHeader />
 
       {/* HEADER SECTION */}
       <section className="border-b border-slate-100 bg-white py-14 text-center">

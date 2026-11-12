@@ -32,7 +32,11 @@ export async function api<T = any>(path: string, options: RequestInit & { json?:
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => ({}));
   // 402 = plan quota/feature limit; the app shell shows an upgrade prompt.
-  if (res.status === 402 && typeof window !== "undefined") window.dispatchEvent(new CustomEvent("pesanin:upgrade", { detail: data.message }));
+  // Trial or plan (incl. grace period) is over: the app is locked until a plan is chosen.
+  if (res.status === 402 && data.subscription_required && typeof window !== "undefined") {
+    // Paket & Tagihan stays usable so the store can pay; other widgets there just fail quietly.
+    if (!/^\/(langganan|settings\/billing)/.test(location.pathname)) location.href = "/langganan";
+  } else if (res.status === 402 && typeof window !== "undefined") window.dispatchEvent(new CustomEvent("pesanin:upgrade", { detail: data.message }));
   if (!res.ok) throw new ApiError(res.status, data.message ?? "Terjadi kesalahan", data.errors);
   return data;
 }

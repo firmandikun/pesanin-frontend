@@ -1,12 +1,13 @@
 "use client";
 import { BarChart3, BookOpen, ChevronDown, ClipboardCheck, Gift, LayoutDashboard, LogOut, Maximize2, Megaphone, Menu, MessageCircle, MessageSquareMore, Package, Settings, Store, User, Wallet } from "lucide-react";
-import { Crown } from "lucide-react";
+import { AlertTriangle, Crown } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { NotificationBell } from "@/components/NotificationBell";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { loadSiteConfig } from "@/lib/site";
 import { canOpen } from "@/lib/roles";
 import { Logo, LogoMark } from "@/components/Logo";
 import { WhatsNew } from "@/components/WhatsNew";
@@ -46,6 +47,7 @@ const NAV_ALL: NavItem[] = [
     { label: "Laporan Penjualan", href: "/reports/sales" },
     { label: "Statistik Penjualan", href: "/reports/statistics" },
     { label: "Laba Bersih", href: "/reports/profit" },
+    { label: "Pengeluaran", href: "/reports/expenses" },
     { label: "Laporan Produk", href: "/others/product-reports" },
     { label: "Biaya Iklan", href: "/reports/ads" },
     { label: "Iklan Meta", href: "/reports/meta-ads" },
@@ -83,12 +85,22 @@ const NAV_ALL: NavItem[] = [
 function Shell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const member = user!.member ?? null;
+  const router = useRouter();
+  const pathname = usePathname();
+  // Admin accounts manage Pesanin from the console, not a store.
+  const consoleOnly = !!user!.is_admin && !member;
+  useEffect(() => { if (consoleOnly) router.replace("/admin"); }, [consoleOnly, router]);
+  // Trial or plan (incl. grace) is over: everything but Paket & Tagihan sends the store to the plan picker.
+  const sub = user!.subscription;
+  const lockedPath = !consoleOnly && sub?.status === "expired" && !pathname.startsWith("/settings/billing");
+  useEffect(() => { if (lockedPath) router.replace("/langganan"); }, [lockedPath, router]);
+  const [notice, setNotice] = useState<{ text: string; tone: string } | null>(null);
+  useEffect(() => { loadSiteConfig().then((s) => s?.notice && setNotice({ text: s.notice, tone: s.notice_tone })); }, []);
   // Team members only see the pages their role can use.
   const NAV = member ? NAV_ALL.flatMap((item) => {
     if (item.children) { const children = item.children.filter((c) => canOpen(member, c.href)); return children.length ? [{ ...item, children }] : []; }
     return !item.href || canOpen(member, item.href) ? [item] : [];
   }) : NAV_ALL;
-  const pathname = usePathname();
   const search = useSearchParams();
   const [collapsed, setCollapsed] = useState(false);
   const [mobile, setMobile] = useState(false);
@@ -102,6 +114,8 @@ function Shell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("pesanin:upgrade", on);
   }, []);
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  if (consoleOnly) return <div className="flex h-screen items-center justify-center text-slate-400">Membuka Pesanin Console…</div>;
+  if (lockedPath) return <div className="flex h-screen items-center justify-center text-slate-400">Membuka pilihan paket…</div>;
   const fullscreen = pathname.startsWith("/products/new") || /^\/products\/\d+\/edit/.test(pathname) || /^\/landing-pages\/\d+$/.test(pathname);
   if (fullscreen) return <>{children}</>;
 
@@ -116,7 +130,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="fixed inset-x-0 top-0 z-40 flex h-16 items-center bg-navy pr-6 text-white">
+      <header className="app-shell-chrome fixed inset-x-0 top-0 z-40 flex h-16 items-center bg-navy pr-6 text-white">
         <div className={`flex h-full shrink-0 items-center overflow-hidden pl-4 transition-[width,padding] duration-300 ${collapsed ? "lg:w-[100px] lg:justify-center lg:pl-0" : "lg:w-[330px] lg:pl-[60px]"}`}>
           <Link href="/dashboard" aria-label="Pesanin">
             <span className={collapsed ? "lg:hidden" : ""}><Logo light /></span>
@@ -127,8 +141,8 @@ function Shell({ children }: { children: React.ReactNode }) {
         <div className="ml-auto flex items-center gap-6 text-sm">
           <NotificationBell />
           {!member && <Link href="/settings/billing" className="hidden items-center gap-2 rounded-full bg-white/10 py-1 pl-1 pr-3 text-xs font-semibold transition hover:bg-white/15 md:flex">
-            <span className="flex items-center gap-1 rounded-full bg-brand-500 px-2 py-0.5 text-white"><Crown size={12} />{PLAN_NAME[user!.active_plan ?? "gratis"]}</span>
-            {user!.active_plan === "pro" ? "Kelola paket" : "Upgrade"}
+            <span className="flex items-center gap-1 rounded-full bg-brand-500 px-2 py-0.5 text-white"><Crown size={12} />{PLAN_NAME[user!.active_plan ?? "gratis"]}{sub?.status === "trial" && " · Trial"}</span>
+            {sub?.status === "trial" ? `${sub.days_left} hari lagi` : user!.active_plan === "pro" ? "Kelola paket" : "Upgrade"}
           </Link>}
           <span className="hidden items-center gap-2 font-medium sm:flex"><Wallet size={19} />IDR 0</span>
           <div className="relative">
@@ -150,7 +164,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <aside className={`fixed bottom-0 left-0 top-16 z-30 overflow-y-auto bg-[#f5f6fa] pb-24 pt-6 transition-[width,transform] duration-300 ease-out
+      <aside className={`app-shell-chrome fixed bottom-0 left-0 top-16 z-30 overflow-y-auto bg-[#f5f6fa] pb-24 pt-6 transition-[width,transform] duration-300 ease-out
         ${mobile ? "translate-x-0 shadow-xl" : "-translate-x-full"} lg:translate-x-0 lg:shadow-none ${collapsed ? "w-[100px]" : "w-[330px]"}`}>
         <nav className={`space-y-1.5 text-[15px] transition-[padding] duration-300 ${collapsed ? "px-[21px]" : "pl-10 pr-4"}`}>
           {NAV.map((item) => {
@@ -214,8 +228,13 @@ function Shell({ children }: { children: React.ReactNode }) {
       )}
       {mobile && <div className="fixed inset-0 top-16 z-20 bg-slate-900/30 lg:hidden" onClick={() => setMobile(false)} />}
 
-      <main className={`flex-1 pt-16 transition-[padding] duration-300 ease-out ${collapsed ? "lg:pl-[100px]" : "lg:pl-[330px]"}`}>
+      <main className={`app-shell flex-1 pt-16 transition-[padding] duration-300 ease-out ${collapsed ? "lg:pl-[100px]" : "lg:pl-[330px]"}`}>
         <div className={`mx-auto px-4 py-8 md:px-8 ${wide ? "max-w-none" : "max-w-[1180px]"}`}>
+          {sub?.status === "trial" && <SubBanner tone="brand" icon={<Gift size={18} />} cta={member ? null : ["Pilih paket", "/langganan"]}
+            text={<><b>Masa trial paket Bisnis {sub.days_left === 0 ? "berakhir hari ini" : `tersisa ${sub.days_left} hari`}.</b> {member ? "Minta pemilik toko memilih paket sebelum trial berakhir." : "Pilih paket sebelum trial berakhir agar sinkron pesanan dan laporan tetap berjalan."}</>} />}
+          {sub?.status === "grace" && <SubBanner tone="rose" icon={<AlertTriangle size={18} />} cta={member ? null : ["Perpanjang", "/langganan"]}
+            text={<><b>Paket {PLAN_NAME[sub.plan] ?? sub.plan} sudah berakhir.</b> Masa tenggang {sub.days_left === 0 ? "habis hari ini" : `tinggal ${sub.days_left} hari`}, setelah itu akses dashboard dikunci sampai paket diperpanjang.</>} />}
+          {notice && <div className={`mb-5 rounded-xl border px-4 py-3 text-sm font-medium ${notice.tone === "warning" ? "border-amber-200 bg-amber-50 text-amber-900" : notice.tone === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-sky-200 bg-sky-50 text-sky-800"}`}>📢 {notice.text}</div>}
           {canOpen(member, pathname) ? children : (
             <div className="mx-auto mt-16 max-w-md rounded-2xl bg-white p-8 text-center">
               <h1 className="text-lg font-bold text-navy">Halaman ini tidak tersedia untuk peran {member?.role_label}</h1>
@@ -230,6 +249,17 @@ function Shell({ children }: { children: React.ReactNode }) {
         <span className="flex gap-8">{["Terms of Use", "Disclaimer", "Privacy Policy", "Antispam", "Changelog"].map((l) => <a key={l} href={soon(l)} className="hover:text-brand-600">{l}</a>)}</span>
       </footer>
       <button className="fixed bottom-5 left-5 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-brand-600 text-white shadow-lg" aria-label="Bantuan"><MessageSquareMore size={22} /></button>
+    </div>
+  );
+}
+
+function SubBanner({ tone, icon, text, cta }: { tone: "brand" | "rose"; icon: React.ReactNode; text: React.ReactNode; cta: [string, string] | null }) {
+  const c = tone === "brand" ? "border-brand-200 bg-brand-50 text-brand-900 [&_.ic]:bg-brand-100 [&_.ic]:text-brand-600" : "border-rose-200 bg-rose-50 text-rose-900 [&_.ic]:bg-rose-100 [&_.ic]:text-rose-600";
+  return (
+    <div className={`mb-5 flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3 text-sm ${c}`}>
+      <span className="ic flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">{icon}</span>
+      <p className="min-w-[200px] flex-1">{text}</p>
+      {cta && <Link href={cta[1]} className={`rounded-lg px-4 py-2 text-sm font-bold text-white ${tone === "brand" ? "bg-brand-600 hover:bg-brand-700" : "bg-rose-600 hover:bg-rose-700"}`}>{cta[0]}</Link>}
     </div>
   );
 }

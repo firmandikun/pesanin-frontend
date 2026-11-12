@@ -6,8 +6,9 @@ export type Invoice = {
   period_start: string; period_end: string; due_at: string; paid_at: string | null; created_at: string;
 };
 export type Billing = {
-  plan: string; billing: "monthly" | "yearly" | null; expires_at: string | null; auto_renew: boolean; lapsed: boolean;
+  plan: string; billing: "monthly" | "yearly" | "trial" | null; expires_at: string | null; auto_renew: boolean; lapsed: boolean;
   usage: Record<keyof Limits, number>; plans: PlanInfo[]; tax_percent: number; methods: string[]; invoices: Invoice[]; can_simulate: boolean;
+  subscription: import("@/lib/auth").Subscription; trial_days: number; grace_days: number;
 };
 
 export const METHOD: Record<string, { label: string; logo: string; group: "Virtual Account" | "QRIS" | "E-Wallet" }> = {

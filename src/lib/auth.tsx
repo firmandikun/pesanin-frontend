@@ -9,25 +9,36 @@ export type User = {
   bank_accounts?: { bank: string; number: string; holder: string }[] | null; cod_fee_percent: number;
   settings?: Record<string, any> | null;
   active_plan?: "gratis" | "starter" | "bisnis" | "pro";
+  plan_billing?: "monthly" | "yearly" | "trial" | null;
+  subscription?: Subscription;
+  /** Pesanin platform staff: can open /admin. */
+  is_admin?: boolean;
   /** Set when a team member (not the owner) is signed in. */
   member?: Member | null;
 };
 
+/** See backend Plans::status(). */
+export type Subscription = {
+  status: "free" | "trial" | "active" | "grace" | "expired";
+  plan: string; ends_at: string | null; days_left: number | null; grace_ends_at: string | null;
+  reason?: "trial" | "paid";
+};
+
 const AuthContext = createContext<{ user: User | null; setUser: (u: User) => void; logout: () => void }>(null!);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({ children, loginPath = "/login" }: { children: React.ReactNode; loginPath?: string }) {
   const [user, setUser] = useState<User | null>(null);
   const router = useRouter();
 
   useEffect(() => {
-    if (!getToken()) return router.replace("/login");
-    api<User>("/me").then(setUser).catch(() => router.replace("/login"));
-  }, [router]);
+    if (!getToken()) return router.replace(loginPath);
+    api<User>("/me").then(setUser).catch(() => router.replace(loginPath));
+  }, [router, loginPath]);
 
   const logout = async () => {
     await api("/logout", { method: "POST" }).catch(() => {});
     setToken(null);
-    router.replace("/login");
+    router.replace(loginPath);
   };
 
   if (!user) {

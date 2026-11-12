@@ -67,17 +67,52 @@ body { @apply bg-[#f6f7fa] text-slate-700 antialiased; }
 .fk-dp .rdp-chevron { fill: var(--color-brand-600); }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+@keyframes authSlide { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
 html { scroll-behavior: smooth; }
 @media print {
   body:has(#invoice-print) * { visibility: hidden; }
   #invoice-print, #invoice-print * { visibility: visible; }
   #invoice-print { position: fixed; inset: 0; padding: 40px; background: #fff; }
 }
+/* Shipping labels print on 100×150 mm stickers; everything else (reports) on landscape A4. */
+@page { size: A4 landscape; margin: 10mm; }
+@page label { size: 100mm 150mm; margin: 0; }
 @media print {
-  @page { size: 100mm 150mm; margin: 0; }
   .no-print { display: none !important; }
-  .label-sheet { break-after: page; border-color: #000; }
+  .label-sheet { page: label; break-after: page; border-color: #000; }
+  /* App pages: drop the shell, let wide tables use the full page width instead of being clipped. */
+  body:has(.app-shell) .app-shell-chrome { display: none !important; }
+  body:has(.app-shell) .app-shell { padding: 0 !important; }
+  body:has(.app-shell) .overflow-x-auto { overflow: visible !important; }
+  body:has(.app-shell) table { min-width: 0 !important; width: 100% !important; font-size: 9px; }
+  body:has(.app-shell) table td, body:has(.app-shell) table th { padding: 4px 6px !important; }
+  body:has(.app-shell) .truncate { white-space: normal !important; overflow: visible !important; }
+  body:has(.app-shell) tr { break-inside: avoid; }
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 
 /* Checkboxes & radios follow the Pesanin brand colour instead of the browser's blue. */
 input[type="checkbox"], input[type="radio"] { accent-color: var(--color-brand-600); }
+
+/* Pesanin Console (admin): same components, its own indigo/slate palette so it never looks like a seller store. */
+.console {
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-200: #c7d2fe;
+  --color-brand-300: #a5b4fc;
+  --color-brand-400: #818cf8;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+  --color-brand-800: #3730a3;
+  --color-brand-900: #312e81;
+  --color-navy-50: #f8fafc;
+  --color-navy-100: #f1f5f9;
+  --color-navy-200: #cbd5e1;
+  --color-navy-400: #94a3b8;
+  --color-navy-600: #475569;
+  --color-navy-700: #334155;
+  --color-navy-800: #1e293b;
+  --color-navy: #0f172a;
+  --color-ink: #0f172a;
+}

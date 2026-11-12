@@ -17,7 +17,7 @@ type Shop = {
   products_synced_at: string | null; orders_synced_at: string | null;
 };
 type ListingData = { stats: { total: number; with_cost: number; out_of_stock: number; stock: number } };
-type Profit = { summary: { orders: number; items: number; gmv: number; revenue: number; fees: number; cogs: number; ads: number; net_profit: number; margin: number; pending_fee_orders: number; missing_cost_orders: number } };
+type Profit = { summary: { orders: number; items: number; gmv: number; revenue: number; fees: number; cogs: number; ads: number; opex: number; net_profit: number; margin: number; pending_fee_orders: number; missing_cost_orders: number } };
 
 const statusLabel: Record<string, [string, string]> = {
   READY_TO_SHIP: ["Perlu dikirim", "bg-blue-50 text-blue-700"],
@@ -77,8 +77,8 @@ export default function ShopDashboard({ params }: { params: Promise<{ id: string
   if (!shop) return <Panel className="p-10 text-center"><Store className="mx-auto text-slate-300" size={36} /><h1 className="mt-3 font-bold text-navy">Toko tidak ditemukan</h1><Link href="/marketplace/shops" className="mt-3 inline-block text-sm font-semibold text-brand-600">Kembali ke daftar toko</Link></Panel>;
 
   const funnel = profit ? [
-    ["Omzet", profit.gmv, "bg-emerald-500"], ["HPP", -profit.cogs, "bg-rose-400"],
-    ["Potongan marketplace", -profit.fees, "bg-orange-400"], ["Biaya iklan", -profit.ads, "bg-violet-400"],
+    ["Omzet", profit.revenue, "bg-emerald-500"], ["HPP", -profit.cogs, "bg-rose-400"],
+    ["Potongan marketplace", -profit.fees, "bg-orange-400"], ["Biaya iklan", -profit.ads, "bg-violet-400"], ["Biaya operasional", -profit.opex, "bg-amber-400"],
     ["Laba bersih", profit.net_profit, "bg-green-500"],
   ] as const : [];
   const quickActions = [
@@ -108,7 +108,7 @@ export default function ShopDashboard({ params }: { params: Promise<{ id: string
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          [ShoppingBag, "Omzet 30 hari", rupiah(profit?.gmv ?? 0), `${profit?.orders ?? 0} pesanan`, "bg-blue-50 text-blue-600"],
+          [ShoppingBag, "Omzet 30 hari", rupiah(profit?.revenue ?? 0), `${profit?.orders ?? 0} pesanan`, "bg-blue-50 text-blue-600"],
           [TrendingUp, "Laba bersih", rupiah(profit?.net_profit ?? 0), `Margin ${profit?.margin ?? 0}%`, "bg-emerald-50 text-emerald-600"],
           [Package, "Produk aktif", String(listing?.total ?? shop.listings_count), `${listing?.stock ?? 0} total stok`, "bg-violet-50 text-violet-600"],
           [Megaphone, "Biaya iklan", rupiah(profit?.ads ?? 0), "30 hari terakhir", "bg-orange-50 text-orange-600"],
@@ -119,7 +119,7 @@ export default function ShopDashboard({ params }: { params: Promise<{ id: string
       </div>
 
       {profit && <Panel className="p-5"><div className="mb-4 flex items-center justify-between"><div><h2 className="font-bold text-navy">Profit funnel</h2><p className="text-xs text-slate-500">Alur omzet menjadi laba bersih selama 30 hari</p></div><Link href={`/reports/profit?channel=shopee&shop_id=${shop.id}`} className="text-sm font-semibold text-brand-600">Lihat laporan <ChevronRight className="inline" size={15} /></Link></div>
-        <div className="grid gap-2 lg:grid-cols-5">{funnel.map(([label, value, tone], i) => <div key={label} className={`relative overflow-hidden rounded-xl p-4 text-white ${tone}`}><p className="text-[11px] font-semibold uppercase tracking-wide text-white/80">{label}</p><p className="mt-1 text-lg font-bold">{value < 0 ? "− " : ""}{rupiah(Math.abs(value))}</p>{i < funnel.length - 1 && <ArrowRight size={18} className="absolute right-3 top-1/2 hidden -translate-y-1/2 opacity-60 lg:block" />}</div>)}</div>
+        <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">{funnel.map(([label, value, tone], i) => <div key={label} className={`relative overflow-hidden rounded-xl p-4 text-white ${tone}`}><p className="text-[11px] font-semibold uppercase tracking-wide text-white/80">{label}</p><p className="mt-1 text-lg font-bold">{value < 0 ? "− " : ""}{rupiah(Math.abs(value))}</p>{i < funnel.length - 1 && <ArrowRight size={18} className="absolute right-3 top-1/2 hidden -translate-y-1/2 opacity-60 lg:block" />}</div>)}</div>
       </Panel>}
 
       <div className="grid gap-5 xl:grid-cols-[1.35fr_.65fr]">
