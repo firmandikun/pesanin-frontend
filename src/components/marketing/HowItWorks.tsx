@@ -19,7 +19,7 @@ function TikTokMark({ size = 16 }: { size?: number }) {
 }
 
 const Card = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
-  <div className={`rounded-xl border border-slate-100 bg-white p-3 shadow-sm ${className}`}>{children}</div>
+  <div className={`rounded-xl border border-slate-100/80 bg-white p-3 shadow-[0_1px_3px_rgba(0,0,0,0.03)] ${className}`}>{children}</div>
 );
 
 /* ─── Mockups: Medsos & Website ──────────────────────── */
@@ -330,7 +330,7 @@ export function HowItWorks() {
           Jualan di medsos, website, atau marketplace? Pilih alurmu — siap terima pesanan dalam 3 langkah.
         </p>
 
-        <div role="tablist" className="mt-8 inline-flex rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm">
+        <div role="tablist" className="mt-8 inline-flex rounded-2xl border border-slate-200/80 bg-white p-1.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
           {(Object.keys(FLOWS) as Flow[]).map((k) => {
             const Icon = FLOWS[k].icon;
             const active = flow === k;
@@ -342,7 +342,7 @@ export function HowItWorks() {
                 aria-selected={active}
                 onClick={() => setFlow(k)}
                 className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition sm:px-5 sm:text-sm ${
-                  active ? "bg-brand-500 text-white shadow-sm shadow-brand-500/30" : "text-slate-600 hover:bg-slate-50 hover:text-navy"
+                  active ? "bg-brand-500 text-white shadow-sm shadow-brand-500/25" : "text-slate-600 hover:bg-slate-50 hover:text-navy"
                 }`}
               >
                 <Icon size={16} /> {FLOWS[k].tab}
@@ -357,9 +357,9 @@ export function HowItWorks() {
         {current.steps.map((s, i) => (
           <div
             key={s.title}
-            className="flex flex-col overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm transition hover:-translate-y-1 hover:border-brand-200 hover:shadow-lg"
+            className="flex flex-col overflow-hidden rounded-3xl border border-slate-100/90 bg-white shadow-[0_2px_8px_-2px_rgba(0,0,0,0.04),0_1px_3px_-1px_rgba(0,0,0,0.02)] transition hover:-translate-y-1 hover:border-slate-200 hover:shadow-[0_8px_16px_-4px_rgba(0,0,0,0.06)]"
           >
-            <div className="border-b border-slate-100 bg-slate-50/70 p-5">{s.mockup}</div>
+            <div className="border-b border-slate-100/80 bg-slate-50/70 p-5">{s.mockup}</div>
             <div className="flex flex-1 flex-col p-6">
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-sm font-extrabold text-brand-600">
                 {i + 1}

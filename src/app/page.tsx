@@ -7,7 +7,7 @@ import { Logo, LogoMark, Wordmark } from "@/components/Logo";
 import { HowItWorks } from "@/components/marketing/HowItWorks";
 import { Pricing } from "@/components/marketing/Pricing";
 
-const NAV = [["Fitur", "#fitur"], ["Cara Kerja", "#cara-kerja"], ["Harga", "#harga"]] as const;
+const NAV = [["Fitur", "#fitur"], ["Cara Kerja", "#cara-kerja"], ["Harga", "#harga"], ["FAQ", "#faq"]] as const;
 
 const FAQ = [
   ["Bisa ganti paket kapan saja?", "Bisa. Upgrade langsung aktif dan sisa masa paket lama dihitung proporsional. Downgrade berlaku di periode tagihan berikutnya."],
@@ -308,7 +308,7 @@ type FeatureSectionProps = {
 
 function FeatureSection({ tag, title, desc, bullets, mockup, flip }: FeatureSectionProps) {
   return (
-    <div className={`mx-auto grid max-w-6xl items-center gap-12 px-4 py-20 md:py-28 lg:grid-cols-2 ${flip ? "lg:[&>:first-child]:order-last" : ""}`}>
+    <div className={`mx-auto grid max-w-7xl items-center gap-12 px-4 py-20 md:py-28 lg:grid-cols-2 ${flip ? "lg:[&>:first-child]:order-last" : ""}`}>
       <div>
         <span className="inline-block rounded-full bg-brand-100 px-3 py-1 text-xs font-bold text-brand-700">{tag}</span>
         <h2 className="mt-4 text-3xl font-extrabold leading-tight tracking-tight text-navy md:text-[36px]">{title}</h2>
@@ -335,7 +335,7 @@ export default function Home() {
 
       {/* NAV */}
       <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/90 backdrop-blur-lg">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
           <Link href="/" aria-label="Pesanin"><Logo /></Link>
           <nav className="hidden items-center gap-7 text-sm font-medium text-slate-600 md:flex">
             {NAV.map(([l, h]) => <a key={h} href={h} className="transition hover:text-navy">{l}</a>)}
@@ -354,7 +354,7 @@ export default function Home() {
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute left-1/2 top-0 h-[500px] w-[700px] -translate-x-1/2 rounded-full bg-brand-100/40 blur-3xl" />
         </div>
-        <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-4 pb-20 pt-16 lg:grid-cols-[1fr_1fr]">
+        <div className="relative mx-auto grid max-w-7xl items-center gap-14 px-4 pb-20 pt-16 lg:grid-cols-[1fr_1fr]">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Landing page builder sudah hadir
@@ -383,7 +383,7 @@ export default function Home() {
 
       {/* STATS */}
       <section className="border-b border-slate-100 bg-white">
-        <div className="mx-auto grid max-w-6xl grid-cols-2 divide-x divide-y divide-slate-100 md:grid-cols-4 md:divide-y-0">
+        <div className="mx-auto grid max-w-7xl grid-cols-2 divide-x divide-y divide-slate-100 md:grid-cols-4 md:divide-y-0">
           {[["10.000+", "Seller aktif"], ["500K+", "Pesanan berhasil"], ["Rp 50M+", "Transaksi diproses"], ["99.9%", "Uptime sistem"]].map(([v, l]) => (
             <div key={l} className="flex flex-col items-center justify-center px-6 py-8 text-center">
               <span className="text-[32px] font-extrabold tracking-tight text-navy">{v}</span>
@@ -489,14 +489,14 @@ export default function Home() {
 
       {/* CARA KERJA */}
       <section id="cara-kerja" className="scroll-mt-16 border-t border-slate-100 bg-[#fbfaf8] py-24">
-        <div className="mx-auto max-w-6xl px-4">
+        <div className="mx-auto max-w-7xl px-4">
           <HowItWorks />
         </div>
       </section>
 
       {/* PRICING */}
       <section id="harga" className="scroll-mt-16 border-t border-slate-100 bg-white py-24">
-        <div className="mx-auto max-w-6xl px-4">
+        <div className="mx-auto max-w-7xl px-4">
           <div className="mx-auto max-w-2xl text-center">
             <span className="inline-block rounded-full bg-brand-100 px-3 py-1 text-xs font-bold text-brand-700">Harga</span>
             <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-navy md:text-[40px]">Pilih paket yang sesuai</h2>
@@ -509,7 +509,7 @@ export default function Home() {
       </section>
 
       {/* FAQ */}
-      <section className="border-t border-slate-100 bg-[#fbfaf8] py-24">
+      <section id="faq" className="scroll-mt-16 border-t border-slate-100 bg-[#fbfaf8] py-24">
         <div className="mx-auto max-w-3xl px-4">
           <div className="mb-10 text-center">
             <span className="inline-block rounded-full bg-brand-100 px-3 py-1 text-xs font-bold text-brand-700">FAQ</span>
@@ -550,7 +550,7 @@ export default function Home() {
 
       {/* FOOTER */}
       <footer className="border-t border-white/5 bg-navy">
-        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 md:grid-cols-[1.5fr_1fr_1fr_1fr]">
+        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:grid-cols-2 md:grid-cols-[1.5fr_1fr_1fr_1fr_1.1fr]">
           <div>
             <Logo light />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-navy-200">Platform checkout & manajemen pesanan untuk seller online Indonesia. Ongkir otomatis, COD, e-payment, dan WhatsApp dalam satu dashboard.</p>
@@ -559,6 +559,12 @@ export default function Home() {
             ["Produk", [["Fitur", "#fitur"], ["Cara Kerja", "#cara-kerja"], ["Harga", "#harga"], ["Contoh checkout", "/c/toner-lemon"]]],
             ["Akun", [["Masuk", "/login"], ["Daftar", "/register"]]],
             ["Bantuan", [["FAQ", "#faq"], ["Cara kerja", "#cara-kerja"]]],
+            ["Legal", [
+              ["Kebijakan Privasi", "/privacy-policy"],
+              ["Ketentuan Layanan", "/terms-of-service"],
+              ["Kebijakan Cookie", "/cookie-policy"],
+              ["Kebijakan Pengiriman", "/delivery-policy"],
+            ]],
           ].map(([h, links]) => (
             <div key={h as string}>
               <h4 className="text-sm font-bold text-white">{h as string}</h4>
