@@ -139,6 +139,8 @@ export default function ShopeeOrders() {
   // Dikirim → "Dikirim Dari": seller's own stock vs Pengiriman Kilat stock.
   const [stock, setStock] = useState<"" | "seller" | "kilat">("");
   const [stockCounts, setStockCounts] = useState({ seller: 0, kilat: 0 });
+  // Perlu Dikirim → Status Pesanan counts (Semua / Perlu diproses / Telah diproses), for the chosen order type.
+  const [subCounts, setSubCounts] = useState<Record<string, number>>({});
   // Pengembalian/Pembatalan sub-tab.
   const [retTab, setRetTab] = useState<"returns" | "pembatalan">("returns");
   const [returns, setReturns] = useState<Paginated<ReturnReq> | null>(null);
@@ -178,6 +180,11 @@ export default function ShopeeOrders() {
     }
     api<ListRes>(`/orders?${base({ ...st, ...stockQ, ...(kind ? { kind } : {}), sort: "created_at", dir, page: String(page), per_page: String(perPage), facets: "1" })}`)
       .then((d) => { if (id !== reqId.current) return; setData(d.orders); setBookings(d.bookings?.data ?? []); if (d.couriers) setCouriers(d.couriers); if (d.attention) setAttention(d.attention); });
+    if (tab === "perlu_kirim") {
+      Promise.all(SUB.map(([k]) => api<ListRes>(`/orders?${base({ shopee_state: k, ...(kind ? { kind } : {}), per_page: "1" })}`)
+        .then((d) => [k, d.stats.total_orders + (d.bookings?.total ?? 0)] as const)))
+        .then((r) => { if (id === reqId.current) setSubCounts(Object.fromEntries(r)); });
+    }
     if (tab === "shipping") {
       Promise.all((["seller", "kilat"] as const).map((k) => api<ListRes>(`/orders?${base({ ...st, kind: "order", stock: k, per_page: "1" })}`).then((d) => d.stats.total_orders)))
         .then(([seller, kilat]) => { if (id === reqId.current) setStockCounts({ seller, kilat }); });
@@ -293,7 +300,7 @@ export default function ShopeeOrders() {
           {tab === "perlu_kirim" && (
             <div className="flex flex-wrap items-center gap-2">
               <span className="w-28 text-slate-500">Status Pesanan</span>
-              {SUB.map(([k, l]) => <button key={k} onClick={() => { setSub(k); setPage(1); }} className={pill(sub === k)}>{l}</button>)}
+              {SUB.map(([k, l]) => <button key={k} onClick={() => { setSub(k); setPage(1); }} className={pill(sub === k)}>{l}{subCounts[k] !== undefined ? ` (${subCounts[k]})` : ""}</button>)}
             </div>
           )}
 
