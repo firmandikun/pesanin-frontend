@@ -45,7 +45,7 @@ function Shops() {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(PER_PAGE);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(
-    sp.get("connected") ? { ok: true, text: "Toko Shopee berhasil dihubungkan. Klik Sinkronkan untuk mengambil produk dan pesanan." }
+    sp.get("connected") ? { ok: true, text: "Toko Shopee berhasil dihubungkan. Produk, pesanan, dan biaya iklan sedang disinkronkan otomatis; tunggu beberapa menit lalu refresh." }
       : sp.get("error") ? { ok: false, text: sp.get("error")! } : null,
   );
   const load = useCallback(() => api<Data>("/marketplace/shops").then(setD), []);

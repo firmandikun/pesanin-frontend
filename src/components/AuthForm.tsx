@@ -21,11 +21,18 @@ const REGISTER: FieldDef[] = [
   { name: "password", label: "Kata sandi", type: "password", placeholder: "Minimal 8 karakter", auto: "new-password" },
 ];
 
-/** Where a freshly signed-in account should land. */
+/** Same-site path from ?next= (never another origin). */
+export function nextPath(): string | null {
+  if (typeof window === "undefined") return null;
+  const n = new URLSearchParams(window.location.search).get("next");
+  return n && n.startsWith("/") && !n.startsWith("//") && !n.startsWith("/login") ? n : null;
+}
+
+/** Where a freshly signed-in account should land: the page they came from, else the default. */
 export function landingFor(user: Partial<User> | undefined, fallback = "/dashboard") {
   if (user?.is_admin && !user.member) return "/admin";
   if (user?.subscription?.status === "expired") return "/langganan";
-  return fallback;
+  return nextPath() ?? fallback;
 }
 
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
