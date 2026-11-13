@@ -16,7 +16,7 @@ import { api, ApiError, fmtDate, Order, Paginated, rupiah } from "@/lib/api";
 
 const STATES: [string, string][] = [
   ["to_ship", "Perlu dikirim"], ["processed", "Siap diserahkan"], ["shipping", "Dalam pengiriman"],
-  ["done", "Selesai"], ["cancelled", "Dibatalkan / retur"], ["unpaid", "Belum dibayar"],
+  ["done", "Selesai"], ["cancelled", "Dibatalkan"], ["unpaid", "Belum dibayar"],
 ];
 const STATUS_TEXT: Record<string, [string, string]> = {
   READY_TO_SHIP: ["Perlu dikirim", "bg-amber-50 text-amber-700"], RETRY_SHIP: ["Siap diserahkan", "bg-sky-50 text-sky-700"],
@@ -196,12 +196,13 @@ export default function ShopeeOrders() {
                     <p className="mt-0.5 whitespace-nowrap font-mono text-slate-400">{b.tracking_number || "resi belum terbit"}</p>
                   </td>
                   <td className="px-3 py-3.5">
-                    <span className="whitespace-nowrap rounded-md bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-700">{b.booking_status === "PROCESSED" ? "Siap diserahkan" : "Perlu dikirim"}</span>
+                    <span className="whitespace-nowrap rounded-md bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-700">{b.booking_status === "SHIPPED" ? "Dalam pengiriman" : b.booking_status === "PROCESSED" ? "Siap diserahkan" : "Perlu dikirim"}</span>
                     <p className="mt-1.5 max-w-[220px] text-xs leading-snug text-slate-500">Dibuat oleh Shopee. Kirim sebelum reservasi dibatalkan otomatis.</p>
                   </td>
                   <td className="whitespace-nowrap px-3 py-3.5 text-right text-slate-400">-</td>
                   <td className={actionCell}>
-                    {b.booking_status === "PROCESSED"
+                    {b.booking_status === "SHIPPED" ? <span className="block text-center text-xs text-slate-300">-</span>
+                      : b.booking_status === "PROCESSED"
                       ? <RowAction tone="primary" icon={Printer} busy={busy === `kb${b.id}`} disabled={!!busy} onClick={() => printBookings([b])}>Cetak resi</RowAction>
                       : <a href="https://seller.shopee.co.id/portal/sale/order?type=toship" target="_blank" rel="noopener noreferrer" className="block rounded-lg border border-slate-200 px-3 py-1.5 text-center text-xs font-semibold text-slate-600 hover:border-brand-400 hover:text-brand-600">Atur di Seller Centre</a>}
                   </td>
