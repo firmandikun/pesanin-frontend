@@ -135,7 +135,7 @@ export type Order = {
   bump_items?: { product_id: number; name: string; price: number }[] | null; custom_fields?: Record<string, string> | null; village?: string | null;
   channel: "website" | "shopee" | "manual"; marketplace_shop_id?: number | null; external_order_sn?: string | null; external_status?: string | null;
   items?: { item_id: number; model_id: number; name: string; variant?: string | null; sku?: string | null; qty: number; price: number; product_id?: number | null }[] | null;
-  marketplace_fee: number; seller_shipping_fee: number; escrow_amount: number | null;
+  marketplace_fee: number; seller_shipping_fee: number; escrow_amount: number | null; payment_channel?: string | null;
   marketplace_shop?: { id: number; shop_name: string; is_demo: boolean } | null;
 };
 export type Paginated<T> = { data: T[]; current_page: number; last_page: number; total: number };

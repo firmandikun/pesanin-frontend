@@ -5,12 +5,12 @@ import { API_URL, getToken } from "@/lib/api";
 
 type AwbOrder = { id: number; marketplace_shop_id?: number | null; courier?: string | null };
 
-/** Download one Shopee air waybill PDF (orders of one shop and one courier). */
-async function fetchAwb(ids: number[]): Promise<Uint8Array> {
-  const res = await fetch(`${API_URL}/labels/shopee/pdf`, {
+/** Download one Shopee air waybill PDF (orders, or "Pengiriman Kilat" reservations, of one shop and one courier). */
+async function fetchAwb(ids: number[], kind: "order" | "booking" = "order"): Promise<Uint8Array> {
+  const res = await fetch(`${API_URL}/labels/shopee/${kind === "booking" ? "booking-pdf" : "pdf"}`, {
     method: "POST",
     headers: { Authorization: `Bearer ${getToken()}`, "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ order_ids: ids }),
+    body: JSON.stringify(kind === "booking" ? { booking_ids: ids } : { order_ids: ids }),
   });
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? "Resi Shopee belum bisa diambil");
   return new Uint8Array(await res.arrayBuffer());
@@ -52,7 +52,7 @@ async function hideProductNames(bytes: Uint8Array): Promise<PDFDocument> {
  * document), product names hidden, all merged into a single PDF opened in a new tab.
  * Call it directly from a click so the new tab isn't blocked as a pop-up.
  */
-export async function openShopeeAwb(orders: AwbOrder[]): Promise<void> {
+export async function openShopeeAwb(orders: AwbOrder[], kind: "order" | "booking" = "order"): Promise<void> {
   const win = window.open("", "_blank");
   if (win) win.document.write("<p style='font-family:sans-serif;padding:24px;color:#475569'>Menyiapkan resi Shopee…</p>");
   try {
@@ -62,7 +62,7 @@ export async function openShopeeAwb(orders: AwbOrder[]): Promise<void> {
     }, {}));
     const merged = await PDFDocument.create();
     for (const ids of groups) {
-      const src = await hideProductNames(await fetchAwb(ids));
+      const src = await hideProductNames(await fetchAwb(ids, kind));
       const pages = await merged.copyPages(src, src.getPageIndices());
       pages.forEach((p) => merged.addPage(p));
     }
