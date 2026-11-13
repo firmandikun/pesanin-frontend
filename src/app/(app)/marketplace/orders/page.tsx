@@ -6,7 +6,7 @@ import { TrackingModal } from "@/components/TrackingModal";
 import { ShipModal } from "@/components/marketplace/ShipModal";
 import { openShopeeAwb } from "@/lib/awb";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ShopeeMark } from "@/components/ChannelBadge";
 import { Pager, PageHead, Panel, SearchBox } from "@/components/kit";
 import { Select } from "@/components/Select";
@@ -53,10 +53,14 @@ export default function ShopeeOrders() {
   }, []);
 
   const base = useCallback((extra: Record<string, string>) => new URLSearchParams({ channel: "shopee", ...(shopId ? { marketplace_shop_id: shopId } : {}), ...extra }).toString(), [shopId]);
+  // Only the newest request may fill the table: switching tabs fast must not show an older tab's (empty) list.
+  const reqId = useRef(0);
   const load = useCallback(() => {
-    api<{ orders: Paginated<Order> }>(`/orders?${base({ shopee_state: state, search, page: String(page), per_page: String(perPage) })}`).then((d) => setData(d.orders));
+    const id = ++reqId.current;
+    setData(null);
+    api<{ orders: Paginated<Order> }>(`/orders?${base({ shopee_state: state, search, page: String(page), per_page: String(perPage) })}`).then((d) => { if (id === reqId.current) setData(d.orders); });
     Promise.all(STATES.map(([k]) => api(`/orders?${base({ shopee_state: k, per_page: "1" })}`).then((d) => [k, d.stats.total_orders] as const)))
-      .then((r) => setCounts(Object.fromEntries(r)));
+      .then((r) => { if (id === reqId.current) setCounts(Object.fromEntries(r)); });
     setSelected([]);
   }, [base, state, search, page, perPage]);
   useEffect(() => { const t = setTimeout(load, 200); return () => clearTimeout(t); }, [load]);
