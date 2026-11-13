@@ -1,19 +1,23 @@
 "use client";
 import { BadgeCheck, Package, ShoppingBag, Store, TrendingUp, Wallet } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, rupiah } from "@/lib/api";
 import { BarChart, StatCard } from "@/components/ui";
 import { DateRange, useDefaultRange } from "@/components/DateRange";
+import { BackfillNotice, useBackfillReload } from "@/components/BackfillNotice";
 
 export default function SalesReport() {
   const [range, setRange] = useState(useDefaultRange());
   const [metric, setMetric] = useState<"net" | "gross" | "orders">("net");
   const [d, setD] = useState<any>(null);
+  const [tick, setTick] = useState(0);
+  const reload = useCallback(() => setTick((t) => t + 1), []);
   useEffect(() => {
     setD(null);
     const query = new URLSearchParams(range);
     api(`/reports/sales?${query}`).then(setD);
-  }, [range]);
+  }, [range, tick]);
+  useBackfillReload(d?.backfilling, reload);
 
   const fmt = (n: number) => (metric === "orders" ? String(n) : rupiah(n));
   return (
@@ -22,6 +26,7 @@ export default function SalesReport() {
         <h1 className="page-title">Laporan Penjualan</h1>
         <DateRange value={range} onChange={setRange} />
       </div>
+      <BackfillNotice show={d?.backfilling} />
       {d && (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">

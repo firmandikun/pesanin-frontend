@@ -2,12 +2,13 @@
 import { AlertTriangle, ArrowDownRight, Megaphone, Receipt, Store, TrendingUp, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { DateRangePicker } from "@/components/DatePicker";
 import { ShopeeMark } from "@/components/ChannelBadge";
 import { PageHead, Panel } from "@/components/kit";
 import { Select } from "@/components/Select";
 import { api, isoDate, rupiah } from "@/lib/api";
+import { BackfillNotice, useBackfillReload } from "@/components/BackfillNotice";
 
 type Money = { orders: number; items: number; gmv: number; revenue: number; fees: number; cogs: number; ads: number; opex: number; gross_profit: number; net_profit: number; margin: number; roas: number | null };
 type Data = {
@@ -16,6 +17,7 @@ type Data = {
   daily: { date: string; revenue: number; net: number; ads: number }[];
   products: { key: string; name: string; qty: number; revenue: number; fees: number; cogs: number; gross: number; channels: Record<string, number> }[];
   ads_by_platform: { platform: string; label: string; amount: number }[];
+  backfilling?: boolean;
 };
 
 const short = (n: number) => (Math.abs(n) >= 1e6 ? `${(n / 1e6).toFixed(1).replace(".", ",")} jt` : Math.abs(n) >= 1e3 ? `${Math.round(n / 1e3)} rb` : String(n));
@@ -47,11 +49,14 @@ function Profit() {
   const [shopId, setShopId] = useState(sp.get("shop_id") ?? "");
   const [shops, setShops] = useState<{ id: number; shop_name: string }[]>([]);
   const [d, setD] = useState<Data | null>(null);
+  const [tick, setTick] = useState(0);
+  const reload = useCallback(() => setTick((t) => t + 1), []);
   useEffect(() => { api("/marketplace/shops").then((x) => setShops(x.shops)).catch(() => {}); }, []);
   useEffect(() => {
     setD(null);
     api<Data>(`/reports/profit?${new URLSearchParams({ ...range, ...(channel ? { channel } : {}), ...(shopId ? { shop_id: shopId } : {}) })}`).then(setD);
-  }, [range, channel, shopId]);
+  }, [range, channel, shopId, tick]);
+  useBackfillReload(d?.backfilling, reload);
 
   const s = d?.summary;
   const steps = s ? [
@@ -75,6 +80,8 @@ function Profit() {
         )}
         <DateRangePicker value={range} onChange={setRange} />
       </PageHead>
+
+      <BackfillNotice show={d?.backfilling} />
 
       {!d || !s ? <div className="py-24 text-center text-sm text-slate-400">Menghitung laba…</div> : (
         <>

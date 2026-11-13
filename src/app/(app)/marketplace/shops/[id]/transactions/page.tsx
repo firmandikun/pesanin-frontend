@@ -7,6 +7,7 @@ import { ShopeeMark } from "@/components/ChannelBadge";
 import { PageHead, Pager, Panel } from "@/components/kit";
 import { ShopWorkspaceNav } from "@/components/marketplace/ShopWorkspaceNav";
 import { api, download, isoDate, Paginated, rupiah } from "@/lib/api";
+import { BackfillNotice, useBackfillReload } from "@/components/BackfillNotice";
 
 type Shop = { id: number; shop_id: number; shop_name: string; region: string; status: string };
 type Item = { name: string; variant?: string | null; sku?: string | null; qty: number; price: number };
@@ -16,7 +17,7 @@ type Row = {
   revenue: number; fees: number; net_revenue: number; cogs: number; profit: number; margin: number;
   fee_final: boolean; missing_cost: boolean; fee_breakdown: { key: string; label: string; amount: number }[]; fee_source: "shopee" | "summary" | "estimate";
 };
-type Data = { transactions: Paginated<Row>; summary: { gmv: number; revenue: number; fees: number; net_revenue: number; cogs: number; profit: number; missing_cost: number } };
+type Data = { transactions: Paginated<Row>; summary: { gmv: number; revenue: number; fees: number; net_revenue: number; cogs: number; profit: number; missing_cost: number }; backfilling?: boolean };
 
 const FILTERS = [
   ["", "Semua transaksi"], ["READY_TO_SHIP", "Perlu dikirim"], ["PROCESSED", "Siap diserahkan"],
@@ -39,6 +40,7 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
   const load = useCallback(() => api<Data>(`/marketplace/shops/${shopId}/transactions?${query}`).then(setData), [shopId, query]);
   useEffect(() => { api<{ shops: Shop[] }>("/marketplace/shops").then((x) => setShop(x.shops.find((s) => s.id === shopId) ?? null)); }, [shopId]);
   useEffect(() => { const t = setTimeout(load, 180); return () => clearTimeout(t); }, [load]);
+  useBackfillReload(data?.backfilling, load);
   if (!shop) return <div className="py-24 text-center text-sm text-slate-400">Memuat transaksi toko…</div>;
   const s = data?.summary;
   return <div className="space-y-5">
@@ -48,6 +50,7 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
       <button onClick={load} className="flex h-10 items-center gap-2 rounded-lg bg-navy px-4 text-sm font-semibold text-white"><RefreshCcw size={16} />Muat ulang</button>
     </PageHead>
     <div className="flex items-center gap-3 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800"><ShopeeMark size={28} /><span><b className="block">Terhubung ke {shop.shop_name}</b><span className="text-xs">Transaksi keuangan dipisahkan dari halaman pengaturan pengiriman.</span></span><DateRangePicker value={range} onChange={(v) => { setRange(v); setPage(1); }} /></div>
+    <BackfillNotice show={data?.backfilling} />
     <ShopWorkspaceNav shopId={shop.id} active="finance" />
     <div className="flex gap-2"><span className="rounded-lg bg-navy px-4 py-2 text-sm font-semibold text-white">Transaksi</span><a href={`/marketplace/shops/${shop.id}/expenses`} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-600">Pengeluaran</a><a href={`/marketplace/shops/${shop.id}/finance`} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-600">Laba Rugi & Arus Kas</a></div>
     {s && <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{[

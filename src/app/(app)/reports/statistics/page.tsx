@@ -1,9 +1,10 @@
 "use client";
 import { Eye, ShoppingCart } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, PAY_STATUS_LABEL, PAYMENT_LABEL, rupiah, STATUS_LABEL } from "@/lib/api";
 import { DateRange, useDefaultRange } from "@/components/DateRange";
 import { StatCard } from "@/components/ui";
+import { BackfillNotice, useBackfillReload } from "@/components/BackfillNotice";
 
 function Breakdown({ title, rows, labels }: { title: string; rows: { label: string; total: number }[]; labels?: Record<string, string> }) {
   const sum = rows.reduce((a, r) => a + Number(r.total), 0) || 1;
@@ -26,7 +27,10 @@ function Breakdown({ title, rows, labels }: { title: string; rows: { label: stri
 export default function Statistics() {
   const [range, setRange] = useState(useDefaultRange());
   const [d, setD] = useState<any>(null);
-  useEffect(() => { api(`/reports/statistics?${new URLSearchParams(range)}`).then(setD); }, [range]);
+  const [tick, setTick] = useState(0);
+  const reload = useCallback(() => setTick((t) => t + 1), []);
+  useEffect(() => { api(`/reports/statistics?${new URLSearchParams(range)}`).then(setD); }, [range, tick]);
+  useBackfillReload(d?.backfilling, reload);
 
   return (
     <div className="space-y-5">
@@ -34,6 +38,7 @@ export default function Statistics() {
         <h1 className="page-title">Statistik Penjualan</h1>
         <DateRange value={range} onChange={setRange} />
       </div>
+      <BackfillNotice show={d?.backfilling} />
       {d && (
         <>
           <div className="grid gap-4 sm:grid-cols-2">
