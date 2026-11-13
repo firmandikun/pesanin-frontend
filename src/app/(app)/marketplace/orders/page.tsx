@@ -164,6 +164,9 @@ export default function ShopeeOrders() {
 
   const rows = data?.data ?? [];
   const chosen = rows.filter((o) => selected.includes(o.id));
+  // Only orders with a next step (atur pengiriman / cetak label) can be picked, as in Seller Centre.
+  const selectableRows = rows.filter((o) => needsShipping(o) || canPrint(o));
+  const allChosen = selectableRows.length > 0 && selectableRows.every((o) => selected.includes(o.id));
   const shipChosen = chosen.filter(needsShipping);
   const printChosen = chosen.filter(canPrint);
   const total = (data?.total ?? 0) + (page === 1 ? bookings.length : 0);
@@ -296,7 +299,14 @@ export default function ShopeeOrders() {
         <div className="mt-3 overflow-x-auto">
           <div className="min-w-[960px]">
             <div className={`${COLS} rounded-t-lg bg-slate-50 px-4 py-3 text-[13px] font-medium text-slate-500`}>
-              <span>Produk</span><span>Dibayar Pembeli</span><span>Status · Batas Waktu Pengiriman</span><span>Jasa Kirim</span><span>Aksi</span>
+              <span className="flex items-center gap-3">
+                {selectableRows.length > 0 && (
+                  <input type="checkbox" aria-label="Pilih semua pesanan di halaman ini" className="h-4 w-4 accent-brand-600"
+                    checked={allChosen} ref={(el) => { if (el) el.indeterminate = selected.length > 0 && !allChosen; }}
+                    onChange={(e) => setSelected(e.target.checked ? selectableRows.map((o) => o.id) : [])} />
+                )}
+                Produk
+              </span><span>Dibayar Pembeli</span><span>Status · Batas Waktu Pengiriman</span><span>Jasa Kirim</span><span>Aksi</span>
             </div>
 
             <div className="mt-3 space-y-3">
@@ -336,7 +346,7 @@ export default function ShopeeOrders() {
                 return (
                   <div key={o.id} className={`overflow-hidden rounded-lg border ${selected.includes(o.id) ? "border-brand-300 ring-1 ring-brand-200" : "border-slate-200"}`}>
                     <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5 text-[13px]">
-                      {selectable && <input type="checkbox" checked={selected.includes(o.id)} onChange={(e) => toggle(o.id, e.target.checked)} />}
+                      {selectable && <input type="checkbox" className="h-4 w-4 accent-brand-600" checked={selected.includes(o.id)} onChange={(e) => toggle(o.id, e.target.checked)} />}
                       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-[11px] font-bold uppercase text-slate-600">{(buyer || "?").slice(0, 1)}</span>
                       <span className="font-medium text-slate-700">{buyer}</span>
                       {!shopId && <span className="flex items-center gap-1 text-xs text-slate-400"><ShopeeMark size={12} />{o.marketplace_shop?.shop_name}</span>}
