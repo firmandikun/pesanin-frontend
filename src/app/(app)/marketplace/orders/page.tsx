@@ -26,7 +26,7 @@ const STATUS_TEXT: Record<string, [string, string]> = {
   TO_RETURN: ["Retur", "bg-rose-50 text-rose-700"], UNPAID: ["Belum dibayar", "bg-slate-100 text-slate-500"],
 };
 /** Shopee "Pengiriman Kilat" reservation: created by Shopee, counted in Perlu Dikirim, not a sale. */
-type Booking = { id: number; booking_sn: string; booking_status: string; shipping_carrier: string | null; tracking_number: string | null; booked_at: string | null; items: { name: string; variant: string | null; sku: string | null; qty: number }[] | null; marketplace_shop?: { shop_name: string } };
+type Booking = { id: number; marketplace_shop_id: number; booking_sn: string; booking_status: string; shipping_carrier: string | null; tracking_number: string | null; booked_at: string | null; items: { name: string; variant: string | null; sku: string | null; qty: number }[] | null; marketplace_shop?: { shop_name: string } };
 
 /** A label can be printed only while the parcel waits for pickup; once on the way it is locked. */
 const ARRANGED = ["PROCESSED", "RETRY_SHIP"];
@@ -82,6 +82,12 @@ export default function ShopeeOrders() {
   async function print(list: Order[]) {
     setBusy("print"); setNotice("");
     try { await openShopeeAwb(list); }
+    catch (e) { setNotice((e as Error).message); }
+    finally { setBusy(""); }
+  }
+  async function printBookings(list: Booking[]) {
+    setBusy(list.length === 1 ? `kb${list[0].id}` : "print"); setNotice("");
+    try { await openShopeeAwb(list.map((b) => ({ id: b.id, marketplace_shop_id: b.marketplace_shop_id, courier: b.shipping_carrier })), "booking"); }
     catch (e) { setNotice((e as Error).message); }
     finally { setBusy(""); }
   }
@@ -191,11 +197,13 @@ export default function ShopeeOrders() {
                   </td>
                   <td className="px-3 py-3.5">
                     <span className="whitespace-nowrap rounded-md bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-700">{b.booking_status === "PROCESSED" ? "Siap diserahkan" : "Perlu dikirim"}</span>
-                    <p className="mt-1.5 max-w-[220px] text-xs leading-snug text-slate-500">Dibuat oleh Shopee. Kirim sebelum reservasi dibatalkan otomatis; label dicetak dari Seller Centre.</p>
+                    <p className="mt-1.5 max-w-[220px] text-xs leading-snug text-slate-500">Dibuat oleh Shopee. Kirim sebelum reservasi dibatalkan otomatis.</p>
                   </td>
                   <td className="whitespace-nowrap px-3 py-3.5 text-right text-slate-400">-</td>
                   <td className={actionCell}>
-                    <a href="https://seller.shopee.co.id/portal/sale/order?type=toship" target="_blank" rel="noopener noreferrer" className="block rounded-lg border border-slate-200 px-3 py-1.5 text-center text-xs font-semibold text-slate-600 hover:border-brand-400 hover:text-brand-600">Buka Seller Centre</a>
+                    {b.booking_status === "PROCESSED"
+                      ? <RowAction tone="primary" icon={Printer} busy={busy === `kb${b.id}`} disabled={!!busy} onClick={() => printBookings([b])}>Cetak resi</RowAction>
+                      : <a href="https://seller.shopee.co.id/portal/sale/order?type=toship" target="_blank" rel="noopener noreferrer" className="block rounded-lg border border-slate-200 px-3 py-1.5 text-center text-xs font-semibold text-slate-600 hover:border-brand-400 hover:text-brand-600">Atur di Seller Centre</a>}
                   </td>
                 </tr>
               ))}
