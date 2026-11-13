@@ -1,6 +1,6 @@
 "use client";
 import { ORDERS_EVENT } from "@/components/NotificationBell";
-import { ArrowDownUp, FileText, Info, Loader2, PackageCheck, PackageSearch, Printer, RefreshCcw, Store, Truck, Zap } from "lucide-react";
+import { ArrowDownUp, FileText, Info, Loader2, PackageCheck, PackageSearch, Printer, RefreshCcw, Search, Store, Truck } from "lucide-react";
 import { TrackingModal } from "@/components/TrackingModal";
 import { ShipModal } from "@/components/marketplace/ShipModal";
 import { openShopeeAwb } from "@/lib/awb";
@@ -31,6 +31,19 @@ const TABS: { key: string; label: string; count: boolean }[] = [
 const SUB: [string, string][] = [["perlu_kirim", "Semua"], ["to_ship", "Perlu diproses"], ["processed", "Telah diproses"]];
 const WITH_KILAT = ["", "perlu_kirim", "to_ship", "processed", "shipping"];
 const SEARCH_BY: [string, string][] = [["sn", "No. Pesanan"], ["buyer", "Nama/username pembeli"], ["product", "Produk / SKU"], ["resi", "No. Resi"]];
+
+/** "Pengiriman Kilat": a delivery van with speed lines (fast, Shopee-arranged fulfilment). */
+function KilatIcon({ size = 14, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <path d="M1 8h4M2 12h3M3 16h2" />
+      <path d="M7 6h9v10H7z" />
+      <path d="M16 9h3.5l2.5 3v4h-6" />
+      <circle cx="10" cy="17.5" r="1.8" fill="white" />
+      <circle cx="18.5" cy="17.5" r="1.8" fill="white" />
+    </svg>
+  );
+}
 
 /** Seller Centre's wording: [status, explanation]. */
 function statusText(o: Order): [string, string, string] {
@@ -223,7 +236,7 @@ export default function ShopeeOrders() {
               <span className="w-28 text-slate-500">Tipe Pesanan</span>
               <button onClick={() => { setKind(""); setPage(1); }} className={pill(kind === "")}>Semua</button>
               <button onClick={() => { setKind("order"); setPage(1); }} className={pill(kind === "order")}>Pesanan ({split.order})</button>
-              <button onClick={() => { setKind("kilat"); setPage(1); }} className={pill(kind === "kilat")}><span className="flex items-center gap-1"><Zap size={13} />Pengiriman Kilat ({split.kilat})</span></button>
+              <button onClick={() => { setKind("kilat"); setPage(1); }} className={pill(kind === "kilat")}><span className="flex items-center gap-1.5"><KilatIcon size={15} />Pengiriman Kilat ({split.kilat})</span></button>
             </div>
           )}
           {tab === "perlu_kirim" && (
@@ -235,19 +248,22 @@ export default function ShopeeOrders() {
 
           {/* Search + courier */}
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            <div className="flex min-w-[280px] flex-1 overflow-hidden rounded-lg border border-slate-200 focus-within:border-brand-500">
-              <select value={by} onChange={(e) => setBy(e.target.value)} className="border-r border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none">
+            <div className="flex min-w-[300px] flex-1">
+              <Select className="input h-10 w-52 shrink-0 rounded-r-none bg-slate-50" value={by} onChange={(e) => setBy(e.target.value)} aria-label="Cari berdasarkan">
                 {SEARCH_BY.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-              </select>
-              <input value={draft.search} onChange={(e) => setDraft({ ...draft, search: e.target.value })} onKeyDown={(e) => e.key === "Enter" && apply()}
-                placeholder={`Masukkan ${SEARCH_BY.find(([k]) => k === by)?.[1].toLowerCase()}`} className="h-10 min-w-0 flex-1 px-3 text-sm outline-none" />
+              </Select>
+              <div className="relative min-w-0 flex-1">
+                <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input value={draft.search} onChange={(e) => setDraft({ ...draft, search: e.target.value })} onKeyDown={(e) => e.key === "Enter" && apply()}
+                  placeholder={`Masukkan ${SEARCH_BY.find(([k]) => k === by)?.[1].toLowerCase()}`} className="input h-10 rounded-l-none border-l-0 pl-9" />
+              </div>
             </div>
-            <div className="flex min-w-[240px] items-center overflow-hidden rounded-lg border border-slate-200">
-              <span className="bg-slate-50 px-3 py-2.5 text-sm text-slate-500">Jasa Kirim</span>
-              <select value={draft.courier} onChange={(e) => setDraft({ ...draft, courier: e.target.value })} className="h-10 min-w-0 flex-1 px-2 text-sm outline-none">
-                <option value="">Semua Jasa Kirim</option>
-                {couriers.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
+            <div className="flex min-w-[260px]">
+              <span className="flex h-10 shrink-0 items-center rounded-l-lg border border-r-0 border-slate-200 bg-slate-50 px-3 text-sm text-slate-500">Jasa Kirim</span>
+              <Select className="input h-10 flex-1 rounded-l-none" value={draft.courier || "all"} onChange={(e) => setDraft({ ...draft, courier: e.target.value === "all" ? "" : e.target.value })} aria-label="Jasa Kirim">
+                <option value="all">Semua Jasa Kirim</option>
+                {couriers.map((c) => <option key={c} value={c}>{cleanCourier(c)}</option>)}
+              </Select>
             </div>
             <button onClick={apply} className="h-10 rounded-lg border border-brand-500 px-5 text-sm font-semibold text-brand-600 hover:bg-brand-50">Terapkan</button>
             <button onClick={reset} className="h-10 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50">Atur Ulang</button>
@@ -287,8 +303,8 @@ export default function ShopeeOrders() {
               {page === 1 && bookings.map((b) => (
                 <div key={`b${b.id}`} className="overflow-hidden rounded-lg border border-slate-200">
                   <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5 text-[13px]">
-                    <span className="flex items-center gap-1.5 text-slate-700"><Zap size={14} className="text-teal-600" />Dibuat oleh Shopee</span>
-                    <span className="rounded bg-teal-50 px-1.5 py-0.5 text-[11px] font-semibold text-teal-700">Pengiriman Kilat</span>
+                    <span className="flex items-center gap-1.5 text-slate-700"><Store size={14} className="text-slate-400" />Dibuat oleh Shopee</span>
+                    <span className="flex items-center gap-1 rounded bg-teal-50 px-1.5 py-0.5 text-[11px] font-semibold text-teal-700 ring-1 ring-teal-100"><KilatIcon size={13} />Pengiriman Kilat</span>
                     {!shopId && <span className="flex items-center gap-1 text-xs text-slate-400"><ShopeeMark size={12} />{b.marketplace_shop?.shop_name}</span>}
                     <span className="ml-auto text-slate-500">No. Reservasi <b className="font-medium text-slate-700">{b.booking_sn}</b>{b.order_sn && <> · No. Pesanan <b className="font-medium text-slate-700">{b.order_sn}</b></>}</span>
                   </div>
