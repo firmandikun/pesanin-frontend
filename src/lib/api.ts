@@ -27,7 +27,8 @@ export async function api<T = any>(path: string, options: RequestInit & { json?:
   const res = await fetch(`${API_URL}${path}`, { ...options, headers, body });
   if (res.status === 401 && typeof window !== "undefined" && !path.startsWith("/public")) {
     setToken(null);
-    if (!location.pathname.startsWith("/login")) location.href = "/login";
+    if (!/^\/(login|admin)/.test(location.pathname)) location.href = `/login?next=${encodeURIComponent(location.pathname + location.search)}`;
+    else if (location.pathname.startsWith("/admin") && !location.pathname.startsWith("/admin/login")) location.href = "/admin/login";
   }
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => ({}));

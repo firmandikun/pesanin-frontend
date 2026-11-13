@@ -34,12 +34,14 @@ export function AuthProvider({ children, loginPath = "/login" }: { children: Rea
   // Only a real "not signed in" (401) sends the user to the login page. A server restart during a deploy,
   // a 5xx or a dropped connection keeps the session and retries instead of asking to sign in again.
   useEffect(() => {
-    if (!getToken()) return router.replace(loginPath);
+    // Come back to this page after signing in (e.g. Daftar Toko right after authorising a Shopee shop).
+    const toLogin = () => router.replace(loginPath === "/login" ? `/login?next=${encodeURIComponent(location.pathname + location.search)}` : loginPath);
+    if (!getToken()) return toLogin();
     let alive = true;
     let wait = 2000;
     const check = () => api<User>("/me").then((u) => { if (alive) { setOffline(false); setUser(u); } }).catch((e) => {
       if (!alive) return;
-      if (e instanceof ApiError && e.status === 401) return router.replace(loginPath);
+      if (e instanceof ApiError && e.status === 401) return toLogin();
       setOffline(true);
       setTimeout(check, wait);
       wait = Math.min(wait * 2, 30000);

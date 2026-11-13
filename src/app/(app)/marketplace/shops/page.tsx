@@ -45,7 +45,7 @@ function Shops() {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(PER_PAGE);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(
-    sp.get("connected") ? { ok: true, text: "Toko Shopee berhasil dihubungkan. Klik Sinkronkan untuk mengambil produk dan pesanan." }
+    sp.get("connected") ? { ok: true, text: "Toko Shopee berhasil dihubungkan. Produk, pesanan, dan biaya iklan sedang disinkronkan otomatis; tunggu beberapa menit lalu refresh." }
       : sp.get("error") ? { ok: false, text: sp.get("error")! } : null,
   );
   const load = useCallback(() => api<Data>("/marketplace/shops").then(setD), []);
@@ -65,6 +65,14 @@ function Shops() {
     const { url } = await api("/marketplace/shopee/connect", { method: "POST" });
     if (tab) tab.location.href = url; else window.open(url, "_blank");
     setPasting(true); setPasted("");
+  });
+  // The Shopee login is often held by someone else (the shop owner, on their own laptop): send them a link.
+  const [share, setShare] = useState<{ url: string; copied: boolean } | null>(null);
+  const shareLink = () => run("share", async () => {
+    const { url } = await api<{ url: string }>("/marketplace/shopee/share-link", { method: "POST" });
+    let copied = false;
+    try { await navigator.clipboard.writeText(url); copied = true; } catch { /* shown below to copy by hand */ }
+    setShare({ url, copied });
   });
   const complete = () => run("complete", async () => {
     const r = await api("/marketplace/shopee/complete", { method: "POST", json: { url: pasted.trim() } });
@@ -97,7 +105,28 @@ function Shops() {
         <button onClick={connect} disabled={!!busy || !d.configured} className="flex h-10 items-center gap-2 rounded-lg bg-[#ee4d2d] px-4 text-sm font-semibold text-white hover:bg-[#d73f22] disabled:opacity-50">
           {busy === "connect" ? <Loader2 size={16} className="animate-spin" /> : <Link2 size={16} />}Hubungkan Toko Shopee
         </button>
+        <button onClick={shareLink} disabled={!!busy || !d.configured} title="Untuk pemilik toko yang login Shopee di perangkatnya sendiri" className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-navy hover:border-[#ee4d2d] hover:text-[#ee4d2d] disabled:opacity-50">
+          {busy === "share" ? <Loader2 size={16} className="animate-spin" /> : <Copy size={16} />}Salin link untuk pemilik toko
+        </button>
       </PageHead>
+
+      {share && (
+        <Panel className="space-y-3 p-5">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-[#ee4d2d]"><Copy size={18} /></span>
+            <div className="text-sm">
+              <b className="block text-navy">{share.copied ? "Link disalin. Kirim ke pemilik toko lewat WhatsApp." : "Salin link ini dan kirim ke pemilik toko."}</b>
+              <span className="text-slate-500">Pemilik toko cukup membuka link, login Shopee, lalu klik <b>Confirm Authorization</b>. Tidak perlu akun Pesanin. Toko langsung masuk ke akun ini. Link berlaku 24 jam.</span>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <input readOnly className="input h-10 min-w-[260px] flex-1 font-mono text-xs" value={share.url} onFocus={(e) => e.target.select()} />
+            <button onClick={async () => { try { await navigator.clipboard.writeText(share.url); setShare({ ...share, copied: true }); } catch { /* select & copy by hand */ } }} className="flex h-10 items-center gap-2 rounded-lg bg-[#ee4d2d] px-4 text-sm font-semibold text-white"><Copy size={15} />{share.copied ? "Tersalin" : "Salin"}</button>
+            <a href={`https://wa.me/?text=${encodeURIComponent(`Halo, tolong hubungkan toko Shopee ke Pesanin lewat link ini (login Shopee lalu klik Confirm Authorization): ${share.url}`)}`} target="_blank" rel="noopener noreferrer" className="flex h-10 items-center rounded-lg bg-emerald-500 px-4 text-sm font-semibold text-white hover:bg-emerald-600">Kirim via WhatsApp</a>
+            <button onClick={() => setShare(null)} className="h-10 rounded-lg bg-slate-100 px-4 text-sm font-semibold text-slate-600">Tutup</button>
+          </div>
+        </Panel>
+      )}
 
       {pasting && (
         <Panel className="space-y-3 p-5">
