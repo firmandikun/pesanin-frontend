@@ -25,7 +25,8 @@ const TABS: { key: string; label: string; count: boolean }[] = [
   { key: "perlu_kirim", label: "Perlu Dikirim", count: true },
   { key: "shipping", label: "Dikirim", count: true },
   { key: "done", label: "Selesai", count: false },
-  { key: "cancelled", label: "Pembatalan", count: true },
+  // Badge = requests waiting for the seller (returns + buyer cancel requests), as in Seller Centre.
+  { key: "cancelled", label: "Pengembalian/Pembatalan", count: false },
 ];
 // Sub-status inside "Perlu Dikirim", as in Seller Centre.
 const SUB: [string, string][] = [["perlu_kirim", "Semua"], ["to_ship", "Perlu diproses"], ["processed", "Telah diproses"]];
@@ -71,7 +72,20 @@ const fmtShort = (s: string) => new Date(s).toLocaleString("id-ID", { day: "2-di
 
 type Booking = { id: number; marketplace_shop_id: number; booking_sn: string; order_sn: string | null; booking_status: string; shipping_carrier: string | null; tracking_number: string | null; booked_at: string | null; items: { name: string; variant: string | null; sku: string | null; qty: number }[] | null; marketplace_shop?: { shop_name: string } };
 type Item = NonNullable<Order["items"]>[number] & { image?: string | null };
-type ListRes = { orders: Paginated<Order>; stats: { total_orders: number }; bookings?: { total: number; data: Booking[] }; couriers?: string[] };
+type ListRes = { orders: Paginated<Order>; stats: { total_orders: number }; bookings?: { total: number; data: Booking[] }; couriers?: string[]; attention?: { returns: number; cancel_requests: number } };
+type ReturnReq = { id: number; return_sn: string; order_sn: string | null; status: string; reason: string | null; text_reason: string | null; refund_amount: number; buyer_username: string | null; tracking_number: string | null; due_at: string | null; requested_at: string | null; items: { name: string; variant: string | null; sku: string | null; qty: number; image?: string | null }[] | null; marketplace_shop?: { shop_name: string } };
+
+/** Return request status in Seller Centre's words: [label, tone]. */
+const RETURN_STATUS: Record<string, [string, string]> = {
+  REQUESTED: ["Pengajuan Baru", "text-rose-600"], PROCESSING: ["Menunggu Validasi Penjual", "text-rose-600"],
+  ACCEPTED: ["Dana Dikembalikan ke Pembeli", "text-slate-600"], JUDGING: ["Sedang Ditinjau Shopee", "text-amber-600"],
+  SELLER_DISPUTE: ["Banding Diajukan", "text-amber-600"], CANCELLED: ["Dibatalkan Pembeli", "text-slate-500"], CLOSED: ["Selesai", "text-slate-500"],
+};
+const REASON: Record<string, string> = {
+  NOT_RECEIPT: "Belum menerima pesanan", WRONG_ITEM: "Barang yang dikirim salah", ITEM_DAMAGED: "Barang rusak", DIFFERENT_DESCRIPTION: "Barang tidak sesuai deskripsi",
+  MUTUAL_AGREE: "Kesepakatan bersama", OTHER: "Lainnya", ITEM_WRONGDAMAGED: "Barang salah/rusak", CHANGE_MIND: "Berubah pikiran", ITEM_MISSING: "Barang kurang",
+  EXPECTATION_FAILED: "Tidak sesuai harapan", ITEM_FAKE: "Barang palsu", PHYSICAL_DMG: "Kerusakan fisik", FUNCTIONAL_DMG: "Tidak berfungsi",
+};
 
 // Column widths shared by the header row and every card, like Seller Centre's table.
 const COLS = "grid grid-cols-[minmax(0,2.4fr)_minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1.15fr)_minmax(0,0.95fr)] gap-4";
@@ -122,6 +136,13 @@ export default function ShopeeOrders() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [split, setSplit] = useState({ order: 0, kilat: 0 });
+  // Dikirim → "Dikirim Dari": seller's own stock vs Pengiriman Kilat stock.
+  const [stock, setStock] = useState<"" | "seller" | "kilat">("");
+  const [stockCounts, setStockCounts] = useState({ seller: 0, kilat: 0 });
+  // Pengembalian/Pembatalan sub-tab.
+  const [retTab, setRetTab] = useState<"returns" | "pembatalan">("returns");
+  const [returns, setReturns] = useState<Paginated<ReturnReq> | null>(null);
+  const [attention, setAttention] = useState({ returns: 0, cancel_requests: 0 });
   const [couriers, setCouriers] = useState<string[]>([]);
   const [shops, setShops] = useState<{ id: number; shop_name: string; status: string }[] | null>(null);
   const [selected, setSelected] = useState<number[]>([]);
@@ -136,7 +157,8 @@ export default function ShopeeOrders() {
     if (selectedShop) setShopId(selectedShop);
   }, []);
 
-  const state = tab === "perlu_kirim" ? sub : tab;
+  const state = tab === "perlu_kirim" ? sub : tab === "cancelled" ? "pembatalan" : tab;
+  const showingReturns = tab === "cancelled" && retTab === "returns";
   const base = useCallback((extra: Record<string, string>) => new URLSearchParams({
     channel: "shopee", ...(shopId ? { marketplace_shop_id: shopId } : {}),
     ...(filters.search ? { search: filters.search } : {}), ...(filters.courier ? { shopee_courier: filters.courier } : {}), ...extra,
@@ -148,15 +170,25 @@ export default function ShopeeOrders() {
     const id = ++reqId.current;
     setData(null);
     const st: Record<string, string> = state ? { shopee_state: state } : {};
-    api<ListRes>(`/orders?${base({ ...st, ...(kind ? { kind } : {}), sort: "created_at", dir, page: String(page), per_page: String(perPage), facets: "1" })}`)
-      .then((d) => { if (id !== reqId.current) return; setData(d.orders); setBookings(d.bookings?.data ?? []); if (d.couriers) setCouriers(d.couriers); });
+    const stockQ: Record<string, string> = tab === "shipping" && kind === "order" && stock ? { stock } : {};
+    if (showingReturns) {
+      setReturns(null);
+      api<Paginated<ReturnReq>>(`/marketplace/returns?${new URLSearchParams({ ...(shopId ? { shop_id: shopId } : {}), ...(filters.search ? { search: filters.search } : {}), page: String(page), per_page: String(perPage) })}`)
+        .then((r) => { if (id === reqId.current) setReturns(r); });
+    }
+    api<ListRes>(`/orders?${base({ ...st, ...stockQ, ...(kind ? { kind } : {}), sort: "created_at", dir, page: String(page), per_page: String(perPage), facets: "1" })}`)
+      .then((d) => { if (id !== reqId.current) return; setData(d.orders); setBookings(d.bookings?.data ?? []); if (d.couriers) setCouriers(d.couriers); if (d.attention) setAttention(d.attention); });
+    if (tab === "shipping") {
+      Promise.all((["seller", "kilat"] as const).map((k) => api<ListRes>(`/orders?${base({ ...st, kind: "order", stock: k, per_page: "1" })}`).then((d) => d.stats.total_orders)))
+        .then(([seller, kilat]) => { if (id === reqId.current) setStockCounts({ seller, kilat }); });
+    }
     // Tab counts: orders + "Pengiriman Kilat" reservations, as Seller Centre counts them.
     Promise.all(TABS.filter((t) => t.count).map((t) => api<ListRes>(`/orders?${base({ shopee_state: t.key, per_page: "1" })}`)
       .then((d) => [t.key, d.stats.total_orders + (d.bookings?.total ?? 0)] as const)))
       .then((r) => { if (id === reqId.current) setCounts(Object.fromEntries(r)); });
     api<ListRes>(`/orders?${base({ ...st, per_page: "1" })}`).then((d) => { if (id === reqId.current) setSplit({ order: d.stats.total_orders, kilat: d.bookings?.total ?? 0 }); });
     setSelected([]);
-  }, [base, state, kind, dir, page, perPage]);
+  }, [base, state, kind, stock, tab, showingReturns, shopId, filters.search, dir, page, perPage]);
   useEffect(() => { const t = setTimeout(load, 150); return () => clearTimeout(t); }, [load]);
   useEffect(() => { window.addEventListener(ORDERS_EVENT, load); return () => window.removeEventListener(ORDERS_EVENT, load); }, [load]);
   useEffect(() => { api("/marketplace/shops").then((d) => setShops(d.shops.filter((s: any) => s.status !== "disconnected"))).catch(() => setShops([])); }, []);
@@ -197,9 +229,10 @@ export default function ShopeeOrders() {
       load();
     } catch (e) { setNotice(e instanceof ApiError ? e.message : "Sinkron gagal"); } finally { setBusy(""); }
   }
-  const pickTab = (k: string) => { setTab(k); setSub("perlu_kirim"); setKind(""); setPage(1); };
+  // Seller Centre's Dikirim tab has no "Semua" type: it opens on Pesanan.
+  const pickTab = (k: string) => { setTab(k); setSub("perlu_kirim"); setKind(k === "shipping" ? "order" : ""); setStock(""); setRetTab("returns"); setPage(1); };
   const apply = () => { setFilters(draft); setPage(1); };
-  const reset = () => { const empty = { search: "", courier: "" }; setDraft(empty); setFilters(empty); setKind(""); setPage(1); };
+  const reset = () => { const empty = { search: "", courier: "" }; setDraft(empty); setFilters(empty); setKind(tab === "shipping" ? "order" : ""); setStock(""); setPage(1); };
   const toggle = (id: number, on: boolean) => setSelected(on ? [...selected, id] : selected.filter((x) => x !== id));
   const pill = (on: boolean) => `h-8 rounded-full border px-4 text-[13px] transition ${on ? "border-brand-500 bg-white font-semibold text-brand-600" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"}`;
 
@@ -226,7 +259,7 @@ export default function ShopeeOrders() {
           {TABS.map((t) => (
             <button key={t.key || "all"} onClick={() => pickTab(t.key)}
               className={`relative whitespace-nowrap px-3 py-4 text-sm transition ${tab === t.key ? "font-semibold text-brand-600" : "text-slate-600 hover:text-brand-600"}`}>
-              {t.label}{t.count && counts[t.key] !== undefined ? ` (${counts[t.key]})` : ""}
+              {t.label}{t.count && counts[t.key] !== undefined ? ` (${counts[t.key]})` : ""}{t.key === "cancelled" ? ` (${attention.returns + attention.cancel_requests})` : ""}
               {tab === t.key && <span className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-brand-600" />}
             </button>
           ))}
@@ -237,9 +270,24 @@ export default function ShopeeOrders() {
           {showKilat && (
             <div className="flex flex-wrap items-center gap-2">
               <span className="w-28 text-slate-500">Tipe Pesanan</span>
-              <button onClick={() => { setKind(""); setPage(1); }} className={pill(kind === "")}>Semua</button>
+              {tab !== "shipping" && <button onClick={() => { setKind(""); setPage(1); }} className={pill(kind === "")}>Semua</button>}
               <button onClick={() => { setKind("order"); setPage(1); }} className={pill(kind === "order")}>Pesanan ({split.order})</button>
               <button onClick={() => { setKind("kilat"); setPage(1); }} className={pill(kind === "kilat")}><span className="flex items-center gap-1.5"><KilatIcon size={15} />Pengiriman Kilat ({split.kilat})</span></button>
+            </div>
+          )}
+          {tab === "shipping" && kind === "order" && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="w-28 text-slate-500">Dikirim Dari</span>
+              <button onClick={() => { setStock(""); setPage(1); }} className={pill(stock === "")}>Semua</button>
+              <button onClick={() => { setStock("seller"); setPage(1); }} className={pill(stock === "seller")}>Dikirim dari stok Penjual ({stockCounts.seller})</button>
+              <button onClick={() => { setStock("kilat"); setPage(1); }} className={pill(stock === "kilat")}>Dikirim dari stok Pengiriman Kilat ({stockCounts.kilat})</button>
+            </div>
+          )}
+          {tab === "cancelled" && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="w-28 text-slate-500">Jenis</span>
+              <button onClick={() => { setRetTab("returns"); setPage(1); }} className={pill(retTab === "returns")}>Pengembalian Barang/Dana{attention.returns ? ` (${attention.returns})` : ""}</button>
+              <button onClick={() => { setRetTab("pembatalan"); setPage(1); }} className={pill(retTab === "pembatalan")}>Pembatalan{attention.cancel_requests ? ` (${attention.cancel_requests})` : ""}</button>
             </div>
           )}
           {tab === "perlu_kirim" && (
@@ -261,18 +309,19 @@ export default function ShopeeOrders() {
                   placeholder={`Masukkan ${SEARCH_BY.find(([k]) => k === by)?.[1].toLowerCase()}`} className="input h-10 rounded-l-none border-l-0 pl-9" />
               </div>
             </div>
-            <div className="flex min-w-[260px]">
+            {!showingReturns && <div className="flex min-w-[260px]">
               <span className="flex h-10 shrink-0 items-center rounded-l-lg border border-r-0 border-slate-200 bg-slate-50 px-3 text-sm text-slate-500">Jasa Kirim</span>
               <Select className="input h-10 flex-1 rounded-l-none" value={draft.courier || "all"} onChange={(e) => setDraft({ ...draft, courier: e.target.value === "all" ? "" : e.target.value })} aria-label="Jasa Kirim">
                 <option value="all">Semua Jasa Kirim</option>
                 {couriers.map((c) => <option key={c} value={c}>{cleanCourier(c)}</option>)}
               </Select>
-            </div>
+            </div>}
             <button onClick={apply} className="h-10 rounded-lg border border-brand-500 px-5 text-sm font-semibold text-brand-600 hover:bg-brand-50">Terapkan</button>
             <button onClick={reset} className="h-10 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50">Atur Ulang</button>
           </div>
         </div>
 
+        {showingReturns ? <ReturnsList data={returns} onPage={setPage} perPage={perPage} onPerPage={setPerPage} showShop={!shopId} /> : (<>
         {/* Result count, sort, mass actions */}
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <h2 className="text-lg font-bold text-navy">{data ? `${total.toLocaleString("id-ID")} Pesanan` : "Memuat…"}</h2>
@@ -390,12 +439,63 @@ export default function ShopeeOrders() {
           </div>
         </div>
         {data && kind !== "kilat" && <div className="mt-4"><Pager page={data.current_page} last={data.last_page} onPage={setPage} total={data.total} perPage={perPage} onPerPage={setPerPage} /></div>}
+        </>)}
       </Panel>
 
       {detail && <OrderDetail order={detail} onClose={() => setDetail(null)} />}
       {track && <TrackingModal orderId={track.id} title={`Lacak · ${track.external_order_sn}`} onClose={() => setTrack(null)} />}
       {shipIds && <ShipModal orderIds={shipIds} onClose={() => setShipIds(null)} onDone={(m) => { const ids = shipIds; setShipIds(null); setNotice(m); load(); refreshAwb(ids); }} />}
     </div>
+  );
+}
+
+/** Pengembalian Barang/Dana: return / refund requests, laid out like Seller Centre's list. */
+function ReturnsList({ data, onPage, perPage, onPerPage, showShop }: { data: Paginated<ReturnReq> | null; onPage: (p: number) => void; perPage: number; onPerPage: (n: number) => void; showShop: boolean }) {
+  const cols = "grid grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,1.4fr)_minmax(0,1fr)] gap-4";
+  return (
+    <>
+      <h2 className="mt-6 text-lg font-bold text-navy">{data ? `${data.total.toLocaleString("id-ID")} Pengajuan` : "Memuat…"}</h2>
+      <div className="mt-3 overflow-x-auto">
+        <div className="min-w-[960px]">
+          <div className={`${cols} rounded-t-lg bg-slate-50 px-4 py-3 text-[13px] font-medium text-slate-500`}>
+            <span>Produk</span><span>Jumlah Pengembalian Dana</span><span>Alasan Pengajuan</span><span>Status Pengajuan</span><span>Aksi</span>
+          </div>
+          <div className="mt-3 space-y-3">
+            {(data?.data ?? []).map((r) => {
+              const [label, tone] = RETURN_STATUS[r.status] ?? [r.status, "text-slate-600"];
+              const open = r.status === "REQUESTED" || r.status === "PROCESSING";
+              return (
+                <div key={r.id} className={`overflow-hidden rounded-lg border ${open ? "border-rose-200" : "border-slate-200"}`}>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5 text-[13px]">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-[11px] font-bold uppercase text-slate-600">{(r.buyer_username || "?").slice(0, 1)}</span>
+                    <span className="font-medium text-slate-700">{r.buyer_username || "-"}</span>
+                    {showShop && <span className="flex items-center gap-1 text-xs text-slate-400"><ShopeeMark size={12} />{r.marketplace_shop?.shop_name}</span>}
+                    <span className="text-slate-300">|</span><span className="text-slate-500">No. Pesanan <b className="font-medium text-slate-700">{r.order_sn}</b></span>
+                    <span className="text-slate-300">|</span><span className="text-slate-500">No. Pengajuan <b className="font-medium text-slate-700">{r.return_sn}</b></span>
+                  </div>
+                  <div className={`${cols} px-4 py-4 text-[13px]`}>
+                    <Products items={(r.items ?? []) as Item[]} />
+                    <div><p className="text-xs text-slate-500">Pengembalian Dana</p><p className="font-semibold text-navy">{rupiah(r.refund_amount)}</p></div>
+                    <div><p className="text-slate-700">{REASON[r.reason ?? ""] ?? r.reason ?? "-"}</p>{r.text_reason && <p className="mt-0.5 line-clamp-3 text-xs text-slate-500">“{r.text_reason}”</p>}</div>
+                    <div>
+                      <p className={`font-semibold ${tone}`}>{label}</p>
+                      {open && r.due_at && <p className={`mt-0.5 text-xs ${new Date(r.due_at).getTime() - Date.now() < 2 * 864e5 ? "font-semibold text-rose-600" : "text-slate-500"}`}>Tanggapi sebelum {fmtShort(r.due_at)}</p>}
+                      {r.tracking_number && <p className="mt-0.5 font-mono text-[11px] text-slate-400">Resi retur {r.tracking_number}</p>}
+                    </div>
+                    <div>
+                      <a href="https://seller.shopee.co.id/portal/sale/returnrefundcancel" target="_blank" rel="noopener noreferrer" className="text-[13px] font-medium text-sky-600 hover:underline">{open ? "Tanggapi di Seller Centre" : "Lihat di Seller Centre"}</a>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {data && data.data.length === 0 && <div className="py-16 text-center"><PackageCheck size={40} className="mx-auto text-slate-200" /><p className="mt-3 text-sm text-slate-500">Tidak ada pengajuan pengembalian</p></div>}
+          {!data && <p className="py-16 text-center text-sm text-slate-400">Memuat pengajuan…</p>}
+        </div>
+      </div>
+      {data && <div className="mt-4"><Pager page={data.current_page} last={data.last_page} onPage={onPage} total={data.total} perPage={perPage} onPerPage={onPerPage} /></div>}
+    </>
   );
 }
 
