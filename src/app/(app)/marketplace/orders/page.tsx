@@ -25,6 +25,9 @@ const STATUS_TEXT: Record<string, [string, string]> = {
   CANCELLED: ["Dibatalkan", "bg-slate-100 text-slate-500"], IN_CANCEL: ["Proses batal", "bg-slate-100 text-slate-500"],
   TO_RETURN: ["Retur", "bg-rose-50 text-rose-700"], UNPAID: ["Belum dibayar", "bg-slate-100 text-slate-500"],
 };
+/** Shopee "Pengiriman Kilat" reservation: created by Shopee, counted in Perlu Dikirim, not a sale. */
+type Booking = { id: number; booking_sn: string; booking_status: string; shipping_carrier: string | null; tracking_number: string | null; booked_at: string | null; items: { name: string; variant: string | null; sku: string | null; qty: number }[] | null; marketplace_shop?: { shop_name: string } };
+
 /** A label can be printed only while the parcel waits for pickup; once on the way it is locked. */
 const ARRANGED = ["PROCESSED", "RETRY_SHIP"];
 const canPrint = (o: Order) => ARRANGED.includes(o.external_status ?? "") && !!o.tracking_number;
@@ -38,6 +41,7 @@ export default function ShopeeOrders() {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
   const [data, setData] = useState<Paginated<Order> | null>(null);
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [shops, setShops] = useState<{ id: number; shop_name: string; status: string }[]>([]);
   const [selected, setSelected] = useState<number[]>([]);
@@ -58,8 +62,10 @@ export default function ShopeeOrders() {
   const load = useCallback(() => {
     const id = ++reqId.current;
     setData(null);
-    api<{ orders: Paginated<Order> }>(`/orders?${base({ shopee_state: state, search, page: String(page), per_page: String(perPage) })}`).then((d) => { if (id === reqId.current) setData(d.orders); });
-    Promise.all(STATES.map(([k]) => api(`/orders?${base({ shopee_state: k, per_page: "1" })}`).then((d) => [k, d.stats.total_orders] as const)))
+    api<{ orders: Paginated<Order>; bookings?: { data: Booking[] } }>(`/orders?${base({ shopee_state: state, search, page: String(page), per_page: String(perPage) })}`)
+      .then((d) => { if (id === reqId.current) { setData(d.orders); setBookings(d.bookings?.data ?? []); } });
+    // Seller Centre counts "Pengiriman Kilat" reservations in Perlu Dikirim, so the tab counts include them.
+    Promise.all(STATES.map(([k]) => api(`/orders?${base({ shopee_state: k, per_page: "1" })}`).then((d) => [k, d.stats.total_orders + (d.bookings?.total ?? 0)] as const)))
       .then((r) => { if (id === reqId.current) setCounts(Object.fromEntries(r)); });
     setSelected([]);
   }, [base, state, search, page, perPage]);
@@ -162,6 +168,37 @@ export default function ShopeeOrders() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
+              {bookings.map((b) => (
+                <tr key={`b${b.id}`} className="bg-teal-50/30 align-top">
+                  <td className="py-3.5 pl-4 pr-1" />
+                  <td className="px-3 py-3.5">
+                    <p className="font-mono text-xs font-semibold text-navy">{b.booking_sn}</p>
+                    <p className="mt-1 flex items-center gap-1 text-xs text-slate-500"><ShopeeMark size={12} /><span className="max-w-[150px] truncate">{b.marketplace_shop?.shop_name}</span></p>
+                    <span className="mt-1 inline-block rounded bg-teal-50 px-1.5 py-0.5 text-[11px] font-semibold text-teal-700 ring-1 ring-teal-100">Pengiriman Kilat · Reservasi</span>
+                    {b.booked_at && <p className="mt-0.5 text-xs text-slate-400">{fmtDate(b.booked_at)}</p>}
+                  </td>
+                  <td className="px-3 py-3.5">
+                    {(b.items ?? []).map((i, k) => (
+                      <div key={k} className="text-xs [&+&]:mt-1.5">
+                        <p><span className="font-mono font-semibold text-navy">{i.sku || "tanpa SKU"}</span><span className="text-slate-500"> × {i.qty}</span></p>
+                        <p className="max-w-[190px] truncate text-slate-400">{i.name}{i.variant ? ` · ${i.variant}` : ""}</p>
+                      </div>
+                    ))}
+                  </td>
+                  <td className="px-3 py-3.5 text-xs">
+                    <p className="whitespace-nowrap font-medium text-slate-700">{cleanCourier(b.shipping_carrier)}</p>
+                    <p className="mt-0.5 whitespace-nowrap font-mono text-slate-400">{b.tracking_number || "resi belum terbit"}</p>
+                  </td>
+                  <td className="px-3 py-3.5">
+                    <span className="whitespace-nowrap rounded-md bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-700">{b.booking_status === "PROCESSED" ? "Siap diserahkan" : "Perlu dikirim"}</span>
+                    <p className="mt-1.5 max-w-[220px] text-xs leading-snug text-slate-500">Dibuat oleh Shopee. Kirim sebelum reservasi dibatalkan otomatis; label dicetak dari Seller Centre.</p>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-3.5 text-right text-slate-400">-</td>
+                  <td className={actionCell}>
+                    <a href="https://seller.shopee.co.id/portal/sale/order?type=toship" target="_blank" rel="noopener noreferrer" className="block rounded-lg border border-slate-200 px-3 py-1.5 text-center text-xs font-semibold text-slate-600 hover:border-brand-400 hover:text-brand-600">Buka Seller Centre</a>
+                  </td>
+                </tr>
+              ))}
               {rows.map((o) => {
                 const [label, tone] = STATUS_TEXT[o.external_status ?? ""] ?? [o.external_status ?? "-", "bg-slate-100 text-slate-500"];
                 return (
@@ -203,7 +240,7 @@ export default function ShopeeOrders() {
               })}
             </tbody>
           </table>
-          {data && rows.length === 0 && <p className="py-14 text-center text-sm text-slate-500">Tidak ada pesanan di status ini.</p>}
+          {data && rows.length === 0 && bookings.length === 0 && <p className="py-14 text-center text-sm text-slate-500">Tidak ada pesanan di status ini.</p>}
           {!data && <p className="py-14 text-center text-sm text-slate-400">Memuat pesanan…</p>}
         </div>
         {data && <Pager page={data.current_page} last={data.last_page} onPage={setPage} total={data.total} perPage={perPage} onPerPage={setPerPage} />}
