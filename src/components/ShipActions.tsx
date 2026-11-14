@@ -8,7 +8,8 @@ const SHOPEE_READY = ["READY_TO_SHIP"];
 
 /** Whether an order still needs its shipment arranged. */
 export function needsShipping(o: Order) {
-  if (o.channel === "shopee") return SHOPEE_READY.includes(o.external_status ?? "");
+  // Advance Fulfilment / Shopee-fulfilled orders are shipped by Shopee; the seller can't arrange them manually.
+  if (o.channel === "shopee") return SHOPEE_READY.includes(o.external_status ?? "") && !o.shopee_auto_ship;
   return !!o.courier && o.shipping_status === "not_shipped" && !["cancelled", "refunded"].includes(o.status) && (o.payment_method === "cod" || o.payment_status === "paid");
 }
 
