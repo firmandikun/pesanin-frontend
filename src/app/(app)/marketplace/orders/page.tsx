@@ -72,7 +72,7 @@ const awaitingAwb = (o: Order) => ["PROCESSED", "RETRY_SHIP"].includes(o.externa
 const canTrack = (o: Order) => !!o.tracking_number && ["PROCESSED", "RETRY_SHIP", "SHIPPED", "TO_CONFIRM_RECEIVE", "COMPLETED", "TO_RETURN"].includes(o.external_status ?? "");
 const fmtShort = (s: string) => new Date(s).toLocaleString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
-type Booking = { id: number; marketplace_shop_id: number; booking_sn: string; order_sn: string | null; booking_status: string; shipping_carrier: string | null; tracking_number: string | null; booked_at: string | null; items: { name: string; variant: string | null; sku: string | null; qty: number; image?: string | null }[] | null; marketplace_shop?: { shop_name: string } };
+type Booking = { id: number; marketplace_shop_id: number; booking_sn: string; order_sn: string | null; booking_status: string; shipping_carrier: string | null; tracking_number: string | null; booked_at: string | null; items: { name: string; variant: string | null; sku: string | null; item_sku?: string | null; model_sku?: string | null; qty: number; image?: string | null }[] | null; marketplace_shop?: { shop_name: string } };
 type Item = NonNullable<Order["items"]>[number] & { image?: string | null };
 type ListRes = { orders: Paginated<Order>; stats: { total_orders: number }; bookings?: { total: number; data: Booking[] }; couriers?: string[]; attention?: { returns: number; cancel_requests: number } };
 type ReturnReq = { id: number; return_sn: string; order_sn: string | null; status: string; reason: string | null; text_reason: string | null; refund_amount: number; buyer_username: string | null; tracking_number: string | null; due_at: string | null; requested_at: string | null; items: { name: string; variant: string | null; sku: string | null; qty: number; image?: string | null }[] | null; marketplace_shop?: { shop_name: string } };
@@ -228,7 +228,7 @@ export default function ShopeeOrders() {
   async function printBookings(list: Booking[]) {
     if (!list.length) return;
     setBusy(list.length > 1 ? "printbk" : `kb${list[0].id}`); setNotice("");
-    try { await openShopeeAwb(list.map((b) => ({ id: b.id, marketplace_shop_id: b.marketplace_shop_id, courier: b.shipping_carrier })), "booking"); setSelectedBk([]); }
+    try { await openShopeeAwb(list.map((b) => ({ id: b.id, marketplace_shop_id: b.marketplace_shop_id, courier: b.shipping_carrier, items: b.items ?? undefined })), "booking"); setSelectedBk([]); }
     catch (e) { setNotice((e as Error).message); } finally { setBusy(""); }
   }
   const toggleBk = (id: number, on: boolean) => setSelectedBk(on ? [...selectedBk, id] : selectedBk.filter((x) => x !== id));
