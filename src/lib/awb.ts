@@ -4,7 +4,11 @@ import { redrawItemTable, type SkuRow, type TextItem } from "@/lib/awbTable";
 import { API_URL, getToken } from "@/lib/api";
 
 type AwbItem = { item_sku?: string | null; model_sku?: string | null; sku?: string | null; qty?: number };
-type AwbOrder = { id: number; marketplace_shop_id?: number | null; courier?: string | null; items?: AwbItem[] | null };
+type AwbOrder = {
+  id: number; marketplace_shop_id?: number | null; courier?: string | null; items?: AwbItem[] | null;
+  /** Numbers printed on the label (order / reservation), used to match a PDF page to its order. */
+  external_order_sn?: string | null; booking_sn?: string | null; order_sn?: string | null;
+};
 
 /** Download one Shopee air waybill PDF (orders, or "Pengiriman Kilat" reservations, of one shop and one courier). */
 async function fetchAwb(ids: number[], kind: "order" | "booking" = "order"): Promise<Uint8Array> {
@@ -21,16 +25,23 @@ async function fetchAwb(ids: number[], kind: "order" | "booking" = "order"): Pro
  * Remove product names from Shopee's AWB: the item table is redrawn as "# | SKU | Variasi | Qty"
  * (see awbTable.ts). If a page's layout isn't recognised, the name column is covered instead.
  */
-async function hideProductNames(bytes: Uint8Array, perPageRows?: SkuRow[][]): Promise<PDFDocument> {
+async function hideProductNames(bytes: Uint8Array, group: AwbOrder[] = []): Promise<PDFDocument> {
   const pdfjs = await import("pdfjs-dist");
   pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
   const doc = await pdfjs.getDocument({ data: bytes.slice() }).promise;
   const out = await PDFDocument.load(bytes);
   const fonts = { regular: await out.embedFont(StandardFonts.Helvetica), bold: await out.embedFont(StandardFonts.HelveticaBold) };
+  const skuRows = (o: AwbOrder): SkuRow[] => (o.items ?? []).map((it) => ({
+    parent: (it.item_sku ?? it.sku ?? "") || "-", variant: (it.model_sku ?? "") || "-",
+  }));
+  // Shopee doesn't always return pages in the order requested, so find each page's order by the number printed on it.
+  const keyed = group.flatMap((o) => [o.external_order_sn, o.booking_sn, o.order_sn].filter((sn): sn is string => !!sn).map((sn) => [sn.toUpperCase(), o] as const));
 
   for (let i = 0; i < doc.numPages; i++) {
     const items = (await (await doc.getPage(i + 1)).getTextContent()).items.filter((it): it is TextItem & typeof it => "str" in it) as unknown as TextItem[];
-    if (redrawItemTable(out.getPage(i), items, fonts, perPageRows?.[i])) continue;
+    const text = items.map((it) => it.str).join("").replace(/\s+/g, "").toUpperCase();
+    const match = keyed.find(([sn]) => text.includes(sn))?.[1] ?? (group.length === doc.numPages ? group[i] : undefined);
+    if (redrawItemTable(out.getPage(i), items, fonts, match ? skuRows(match) : undefined)) continue;
     const header = items.find((it) => /^Nama\s*Produk/i.test(it.str.trim()) || /^Product\s*Name/i.test(it.str.trim()));
     if (!header) continue;
     const hy = header.transform[5];
@@ -71,11 +82,7 @@ export async function openShopeeAwbMerged({ orders = [], bookings = [] }: { orde
         return acc;
       }, {}));
       for (const group of groups) {
-        // One page per order, in the order sent; each page's rows come from that order's items.
-        const rows: SkuRow[][] = group.map((o) => (o.items ?? []).map((it) => ({
-          parent: (it.item_sku ?? it.sku ?? "") || "-", variant: (it.model_sku ?? "") || "-",
-        })));
-        const src = await hideProductNames(await fetchAwb(group.map((o) => o.id), kind), rows);
+        const src = await hideProductNames(await fetchAwb(group.map((o) => o.id), kind), group);
         const pages = await merged.copyPages(src, src.getPageIndices());
         pages.forEach((p) => merged.addPage(p));
       }
