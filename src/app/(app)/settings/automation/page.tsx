@@ -7,8 +7,10 @@ import { Select } from "@/components/Select";
 import { api, ApiError } from "@/lib/api";
 import { WaTemplate } from "@/lib/broadcast";
 
-type Automation = { auto_ship: boolean; auto_ship_cod: boolean; auto_ship_shopee: boolean; auto_ship_shopee_method: "auto" | "pickup" | "dropoff"; awb_schedule: boolean; awb_times: string[]; digital_email: boolean; digital_wa_template: { name: string; language: string; variables: number } | null };
-const DEFAULTS: Automation = { auto_ship: false, auto_ship_cod: false, auto_ship_shopee: false, auto_ship_shopee_method: "auto", awb_schedule: false, awb_times: ["08:00"], digital_email: true, digital_wa_template: null };
+/** One scheduled send: the time (WIB) and which labels — only unprinted ones, or every ready label. */
+type AwbSlot = { time: string; scope: "new" | "all" };
+type Automation = { auto_ship: boolean; auto_ship_cod: boolean; auto_ship_shopee: boolean; auto_ship_shopee_method: "auto" | "pickup" | "dropoff"; awb_schedule: boolean; awb_times: string[]; awb_slots: AwbSlot[] | null; digital_email: boolean; digital_wa_template: { name: string; language: string; variables: number } | null };
+const DEFAULTS: Automation = { auto_ship: false, auto_ship_cod: false, auto_ship_shopee: false, auto_ship_shopee_method: "auto", awb_schedule: false, awb_times: ["08:00"], awb_slots: null, digital_email: true, digital_wa_template: null };
 type Telegram = { connected: boolean; bot_username: string | null; chat_name: string | null; ready: boolean };
 
 /** Scheduled Shopee AWB PDF → the seller's own Telegram bot. */
@@ -25,8 +27,13 @@ function TelegramAwbPanel({ a, save }: { a: Automation; save: (next: Automation)
     catch (e) { setNote({ ok: false, text: e instanceof ApiError ? e.message : "Gagal" }); }
     finally { setBusy(""); }
   };
-  const times = a.awb_times?.length ? a.awb_times : ["08:00"];
-  const setTimes = (next: string[]) => save({ ...a, awb_times: [...new Set(next.filter(Boolean))].sort() });
+  // Older settings only had a list of times; those mean "only unprinted labels".
+  const slots: AwbSlot[] = a.awb_slots?.length ? a.awb_slots : (a.awb_times?.length ? a.awb_times : ["08:00"]).map((time) => ({ time, scope: "new" as const }));
+  const setSlots = (next: AwbSlot[]) => {
+    const clean = [...new Map(next.filter((s) => s.time).map((s) => [s.time, s])).values()].sort((x, y) => x.time.localeCompare(y.time));
+    save({ ...a, awb_slots: clean, awb_times: clean.map((s) => s.time) });
+  };
+  const nextFree = () => ["08:00", "13:00", "16:00", "19:00", "10:00", "21:00"].find((t) => !slots.some((s) => s.time === t)) ?? "12:00";
   const spin = (k: string) => busy === k && <Loader2 size={14} className="animate-spin" />;
   const btn = "flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-navy hover:bg-slate-50 disabled:opacity-50";
 
@@ -57,24 +64,30 @@ function TelegramAwbPanel({ a, save }: { a: Automation; save: (next: Automation)
           <span className="mr-auto text-slate-700">Bot <b>@{tg.bot_username}</b>{tg.ready ? <> · kirim ke <b>{tg.chat_name}</b></> : <span className="text-amber-700"> · chat belum terdeteksi</span>}</span>
           {!tg.ready && <button className={btn} disabled={!!busy} onClick={() => run("detect", async () => { setTg(await api<Telegram>("/telegram/detect", { method: "POST" })); return "Chat terdeteksi."; })}>{spin("detect")}Deteksi chat</button>}
           {tg.ready && <button className={btn} disabled={!!busy} onClick={() => run("test", async () => { await api("/telegram/test", { method: "POST" }); return "Pesan tes terkirim, cek Telegram."; })}>{spin("test")}Kirim tes</button>}
-          {tg.ready && <button className={btn} disabled={!!busy} onClick={() => run("now", async () => { await api("/telegram/send-awb", { method: "POST" }); return "Sedang menyiapkan resi… PDF masuk ke Telegram dalam 1–2 menit."; })}>{spin("now")}Kirim resi sekarang</button>}
+          {tg.ready && <button className={btn} disabled={!!busy} onClick={() => run("now", async () => { await api("/telegram/send-awb", { method: "POST", json: { scope: "new" } }); return "Sedang menyiapkan resi yang belum tercetak… PDF masuk ke Telegram dalam 1–2 menit."; })}>{spin("now")}Kirim yang belum tercetak</button>}
+          {tg.ready && <button className={btn} disabled={!!busy} onClick={() => run("all", async () => { await api("/telegram/send-awb", { method: "POST", json: { scope: "all" } }); return "Sedang menyiapkan semua resi siap cetak… PDF masuk ke Telegram dalam 1–2 menit."; })}>{spin("all")}Kirim semua</button>}
           <button className="text-xs font-semibold text-slate-500 hover:text-rose-600" disabled={!!busy} onClick={() => run("del", async () => { await api("/telegram", { method: "DELETE" }); setTg({ connected: false, bot_username: null, chat_name: null, ready: false }); })}>Putuskan</button>
         </div>
       )}
 
       <div className="space-y-2 rounded-lg bg-slate-50 p-3 text-sm">
-        <b className="block text-slate-700">Jam kirim (WIB)</b>
-        <div className="flex flex-wrap items-center gap-2">
-          {times.map((t, i) => (
-            <span key={`${t}-${i}`} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white pl-2">
-              <input type="time" step={60} className="h-8 bg-transparent text-sm outline-none" defaultValue={t}
-                onBlur={(e) => { if (e.target.value && e.target.value !== t) setTimes(times.map((x, k) => (k === i ? e.target.value : x))); }} />
-              {times.length > 1 && <button aria-label={`Hapus jam ${t}`} className="px-2 text-slate-400 hover:text-rose-600" onClick={() => setTimes(times.filter((_, k) => k !== i))}><X size={14} /></button>}
-            </span>
+        <b className="block text-slate-700">Jadwal kirim setiap hari (WIB) · {slots.length}× sehari</b>
+        <div className="space-y-2">
+          {slots.map((s, i) => (
+            <div key={`${s.time}-${i}`} className="flex flex-wrap items-center gap-2">
+              <input type="time" step={60} aria-label={`Jam kirim ${i + 1}`} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm outline-none focus:border-brand-400" defaultValue={s.time}
+                onBlur={(e) => { if (e.target.value && e.target.value !== s.time) setSlots(slots.map((x, k) => (k === i ? { ...x, time: e.target.value } : x))); }} />
+              <Select className="input h-9 w-64 bg-white" aria-label={`Resi yang dikirim jam ${s.time}`} value={s.scope}
+                onChange={(e) => setSlots(slots.map((x, k) => (k === i ? { ...x, scope: e.target.value as AwbSlot["scope"] } : x)))}>
+                <option value="new">Hanya yang belum tercetak</option>
+                <option value="all">Semua resi siap cetak</option>
+              </Select>
+              {slots.length > 1 && <button aria-label={`Hapus jam ${s.time}`} className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-white hover:text-rose-600" onClick={() => setSlots(slots.filter((_, k) => k !== i))}><X size={15} /></button>}
+            </div>
           ))}
-          {times.length < 6 && <button className="flex h-8 items-center gap-1 rounded-lg border border-dashed border-slate-300 px-3 text-xs font-semibold text-slate-600 hover:border-brand-400 hover:text-brand-600" onClick={() => setTimes([...times, "13:00"])}><Plus size={13} />Tambah jam</button>}
+          {slots.length < 6 && <button className="flex h-8 items-center gap-1 rounded-lg border border-dashed border-slate-300 px-3 text-xs font-semibold text-slate-600 hover:border-brand-400 hover:text-brand-600" onClick={() => setSlots([...slots, { time: nextFree(), scope: "new" }])}><Plus size={13} />Tambah jam</button>}
         </div>
-        <p className="text-xs text-slate-500">Mis. 08:00 dan 13:00 → dua kali sehari. Kalau tidak ada resi baru, kamu tetap dapat pesan singkat.</p>
+        <p className="text-xs text-slate-500"><b>Hanya yang belum tercetak</b>: resi yang belum pernah dicetak atau dikirim. <b>Semua resi siap cetak</b>: semua resi yang masih menunggu pickup, termasuk yang sudah pernah dicetak (cocok untuk cetak ulang pagi hari). Kalau tidak ada resi, kamu tetap dapat pesan singkat.</p>
       </div>
       {a.awb_schedule && tg && !tg.ready && <p className="flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-800"><AlertTriangle size={15} className="mt-0.5 shrink-0" />Jadwal aktif, tapi Telegram belum siap. Hubungkan bot dulu agar resi bisa terkirim.</p>}
       {note && <p className={`rounded-lg p-2.5 text-sm ${note.ok ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>{note.text}</p>}
