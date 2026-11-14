@@ -11,7 +11,7 @@ import { api, ApiError, Paginated, rupiah } from "@/lib/api";
 import { showAlert } from "@/components/Dialogs";
 
 type Listing = {
-  id: number; marketplace_shop_id: number; item_id: number; model_id: number; name: string; model_name: string | null; sku: string | null;
+  id: number; marketplace_shop_id: number; item_id: number; model_id: number; name: string; model_name: string | null; sku: string | null; item_sku: string | null;
   price: number; cost_price: number | null; stock: number; status: string; image: string | null;
   shop: { id: number; shop_name: string; shop_id: number; is_demo: boolean };
   product: { id: number; name: string; sku: string | null; cost_price: number | null } | null;
@@ -182,7 +182,7 @@ function Products() {
                       <div className="min-w-0"><p className="max-w-[220px] truncate font-semibold text-navy" title={first.name}>{first.name}</p>
                         <p className="text-xs text-slate-500"><span className="rounded bg-slate-200/70 px-1.5 py-0.5 font-semibold text-slate-600">{g.length} variasi</span>{statusNote && ` · ${statusNote}`}</p></div></div></td>
                     {shopCell}
-                    <td className="px-3 py-3 text-xs text-slate-400">—</td>
+                    <td className="px-3 py-3 whitespace-nowrap font-mono text-xs text-slate-500">{first.item_sku ?? "—"}</td>
                     <td className="whitespace-nowrap px-3 py-3 font-medium text-navy">{lo === hi ? rupiah(lo) : `${rupiah(lo)} – ${rupiah(hi)}`}</td>
                     <td className="px-3 py-3 text-xs">{costFilled === g.length ? <span className="font-semibold text-emerald-600">HPP lengkap</span> : <span className="rounded-md bg-amber-50 px-2 py-1 font-semibold text-amber-700">{costFilled}/{g.length} variasi terisi</span>}</td>
                     <td className="px-3 py-3"><span className="font-semibold text-navy">{stock.toLocaleString("id-ID")}</span><span className="block text-[11px] text-slate-400">total</span></td>
