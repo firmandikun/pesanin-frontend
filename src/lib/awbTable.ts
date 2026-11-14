@@ -2,7 +2,7 @@ import { PDFFont, PDFPage, rgb } from "pdf-lib";
 
 export type TextItem = { str: string; transform: number[]; width: number; height: number };
 type Fonts = { regular: PDFFont; bold: PDFFont };
-type Row = { no: string; sku: string; qty: string; label: string };
+type Row = { no: string; sku: string; qty: string; name: string; vname: string };
 
 const HEADER = /^(Nama\s*Produk|Product\s*Name)$/i;
 
@@ -14,10 +14,7 @@ const HEADER = /^(Nama\s*Produk|Product\s*Name)$/i;
  * Returns false (page left untouched) when the table layout isn't recognised.
  */
 /** Per-row SKU data from Pesanin's order, used to print "SKU Induk" and "SKU Variasi" separately. */
-export type SkuRow = { parent: string; variant: string; /** "Nama Produk (Variasi)", printed when the item has no SKU. */ label?: string };
-
-/** "Nama Produk (Variasi)", or just the name. */
-const nameWithVariant = (name: string, variant: string) => (name ? (variant ? `${name} (${variant})` : name) : "");
+export type SkuRow = { parent: string; variant: string; /** Product and variation names, printed when the item has no SKU. */ name?: string; varName?: string };
 
 export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, rowData?: SkuRow[]): boolean {
   const name = items.find((i) => HEADER.test(i.str.trim()));
@@ -73,7 +70,7 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
     // A wrapped SKU breaks after "-": glue those lines back without a space.
     return lines.map((l) => l.trim()).filter(Boolean).reduce((acc, l) => (acc && !acc.endsWith("-") ? `${acc} ${l}` : acc + l), "");
   };
-  const rows: Row[] = cells.map((c) => ({ no: c.no, sku: join(c.sku) || "-", qty: join(c.qty) || "1", label: nameWithVariant(join(c.name), join(c.vname)) }));
+  const rows: Row[] = cells.map((c) => ({ no: c.no, sku: join(c.sku) || "-", qty: join(c.qty) || "1", name: join(c.name), vname: join(c.vname) }));
 
   // Clear the old table (header included) across the page, from the header top to just above the next block.
   const { width: pw } = page.getSize();
@@ -82,19 +79,28 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
   const bottom = stop ? stop.transform[5] + (stop.height || size) * 0.8 : lowest - size * 0.4;
   page.drawRectangle({ x: 1.5, y: bottom, width: pw - 3, height: top - bottom, color: rgb(1, 1, 1) });
 
-  // "# | SKU | Qty". With Pesanin's own order items (matched 1:1 to the label's rows) the SKU is the variation SKU
-  // (or the product SKU when it has no variations); otherwise it comes from the label text. Qty always from the label.
-  // No SKU at all → "Nama Produk (Variasi)" (from Pesanin's order, else as printed on Shopee's label).
+  // With Pesanin's own order items (matched 1:1 to the label's rows) the SKU is the variation SKU (or the product SKU
+  // when it has no variations); otherwise it comes from the label text. Qty always comes from the label.
+  // Every item has a SKU → "# | SKU | Qty". Any item without one → "# | Nama Produk | Variasi | Qty", where an item
+  // that does have a SKU shows it in the first column.
   const own = !!rowData && rowData.length === rows.length && rows.length > 0;
-  const has = (s?: string) => !!s && s !== "-";
-  const pick = (d: SkuRow, r: Row) => (has(d.variant) ? d.variant : has(d.parent) ? d.parent : d.label || r.label || "-");
-  const heads = ["SKU", "Qty"];
-  const body2 = rows.map((r, i) => ({ no: r.no, cells: [own ? pick(rowData![i], r) : has(r.sku) ? r.sku : r.label || "-"], qty: r.qty }));
+  const has = (s?: string) => !!s && s.trim() !== "" && s.trim() !== "-";
+  const info = rows.map((r, i) => {
+    const d = own ? rowData![i] : undefined;
+    const sku = d ? (has(d.variant) ? d.variant : has(d.parent) ? d.parent : "") : has(r.sku) ? r.sku : "";
+    return { sku, name: (d?.name || r.name || "").trim(), variant: (d?.varName ?? r.vname ?? "").trim() };
+  });
+  const allSku = info.every((x) => x.sku);
+  const heads = allSku ? ["SKU", "Qty"] : [info.some((x) => x.sku) ? "SKU / Nama Produk" : "Nama Produk", "Variasi", "Qty"];
+  const body2 = rows.map((r, i) => {
+    const it = info[i];
+    return { no: r.no, qty: r.qty, cells: allSku ? [it.sku] : [it.sku || it.name || "-", it.sku ? "-" : it.variant || "-"] };
+  });
 
   const left = hash.transform[4];
   const right = pw - left;
   const qtyX = right - 18;
-  const colX = [left + 14];
+  const colX = allSku ? [left + 14] : [left + 14, left + 14 + (qtyX - left - 14) * 0.66];
   const headX = [...colX, qtyX];
   const ink = rgb(0, 0, 0), rule = rgb(0.6, 0.6, 0.6);
   const line = (y: number) => page.drawLine({ start: { x: left, y }, end: { x: right, y }, thickness: 0.5, color: rule });
