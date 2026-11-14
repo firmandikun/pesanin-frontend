@@ -437,6 +437,9 @@ export default function ShopeeOrders() {
                       </div>
                       <div className="space-y-2">
                         {needsShipping(o) && <ActionLink icon={Truck} onClick={() => setShipIds([o.id])}>Atur Pengiriman</ActionLink>}
+                        {o.channel === "shopee" && o.shopee_auto_ship && !o.tracking_number && ["READY_TO_SHIP", "PROCESSED"].includes(o.external_status ?? "") && (
+                          <span className="inline-flex items-center gap-1.5 rounded-md bg-sky-50 px-2 py-1 text-xs font-medium text-sky-700" title="Pesanan Advance Fulfilment: Shopee yang mengatur pengiriman dan menerbitkan resi otomatis."><Truck size={13} />Resi otomatis · Advance Fulfilment</span>
+                        )}
                         {canPrint(o) && <ActionLink icon={Printer} busy={busy === "print"} disabled={!!busy} onClick={() => print([o])}>Cetak Label</ActionLink>}
                         {awaitingAwb(o) && <ActionLink icon={RefreshCcw} busy={busy === `awb${o.id}`} onClick={async () => { setBusy(`awb${o.id}`); await refreshAwb([o.id], 1); setBusy(""); }}>Cek resi</ActionLink>}
                         {canTrack(o) && <ActionLink icon={PackageSearch} onClick={() => setTrack(o)}>Lacak Paket</ActionLink>}

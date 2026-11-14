@@ -134,7 +134,7 @@ export type Order = {
   followup_count: number; created_at: string; paid_at?: string; shipped_at?: string; archived_at?: string | null; is_abandoned: boolean;
   product?: { id: number; name: string; type?: string } | null;
   bump_items?: { product_id: number; name: string; price: number }[] | null; custom_fields?: Record<string, string> | null; village?: string | null;
-  channel: "website" | "shopee" | "manual"; marketplace_shop_id?: number | null; external_order_sn?: string | null; external_status?: string | null;
+  channel: "website" | "shopee" | "manual"; marketplace_shop_id?: number | null; external_order_sn?: string | null; external_status?: string | null; shopee_auto_ship?: boolean;
   items?: { item_id: number; model_id: number; name: string; variant?: string | null; sku?: string | null; item_sku?: string | null; model_sku?: string | null; qty: number; price: number; product_id?: number | null }[] | null;
   marketplace_fee: number; seller_shipping_fee: number; escrow_amount: number | null; payment_channel?: string | null;
   marketplace_shop?: { id: number; shop_name: string; is_demo: boolean } | null;
