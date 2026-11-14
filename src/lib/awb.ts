@@ -54,22 +54,31 @@ async function hideProductNames(bytes: Uint8Array, perPageRows?: SkuRow[][]): Pr
  * Call it directly from a click so the new tab isn't blocked as a pop-up.
  */
 export async function openShopeeAwb(orders: AwbOrder[], kind: "order" | "booking" = "order"): Promise<void> {
+  return openShopeeAwbMerged(kind === "booking" ? { bookings: orders } : { orders });
+}
+
+/** Print orders and "Pengiriman Kilat" reservations together in a single merged PDF / tab. */
+export async function openShopeeAwbMerged({ orders = [], bookings = [] }: { orders?: AwbOrder[]; bookings?: AwbOrder[] }): Promise<void> {
+  if (!orders.length && !bookings.length) return;
   const win = window.open("", "_blank");
   if (win) win.document.write("<p style='font-family:sans-serif;padding:24px;color:#475569'>Menyiapkan resi Shopee…</p>");
   try {
-    const groups = Object.values(orders.reduce<Record<string, AwbOrder[]>>((acc, o) => {
-      (acc[`${o.marketplace_shop_id}|${o.courier}`] ??= []).push(o);
-      return acc;
-    }, {}));
     const merged = await PDFDocument.create();
-    for (const group of groups) {
-      // One page per order, in the order sent; each page's rows come from that order's items.
-      const rows: SkuRow[][] = group.map((o) => (o.items ?? []).map((it) => ({
-        parent: (it.item_sku ?? it.sku ?? "") || "-", variant: (it.model_sku ?? "") || "-",
-      })));
-      const src = await hideProductNames(await fetchAwb(group.map((o) => o.id), kind), rows);
-      const pages = await merged.copyPages(src, src.getPageIndices());
-      pages.forEach((p) => merged.addPage(p));
+    // Shopee can't mix couriers in one document, so group each kind by shop + courier.
+    for (const [kind, list] of [["order", orders], ["booking", bookings]] as const) {
+      const groups = Object.values(list.reduce<Record<string, AwbOrder[]>>((acc, o) => {
+        (acc[`${o.marketplace_shop_id}|${o.courier}`] ??= []).push(o);
+        return acc;
+      }, {}));
+      for (const group of groups) {
+        // One page per order, in the order sent; each page's rows come from that order's items.
+        const rows: SkuRow[][] = group.map((o) => (o.items ?? []).map((it) => ({
+          parent: (it.item_sku ?? it.sku ?? "") || "-", variant: (it.model_sku ?? "") || "-",
+        })));
+        const src = await hideProductNames(await fetchAwb(group.map((o) => o.id), kind), rows);
+        const pages = await merged.copyPages(src, src.getPageIndices());
+        pages.forEach((p) => merged.addPage(p));
+      }
     }
     const url = URL.createObjectURL(new Blob([(await merged.save()).slice().buffer as ArrayBuffer], { type: "application/pdf" }));
     if (win) win.location.href = url;
