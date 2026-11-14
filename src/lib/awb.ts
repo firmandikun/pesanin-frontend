@@ -40,7 +40,7 @@ async function hideProductNames(bytes: Uint8Array, group: AwbOrder[] = []): Prom
   const fonts = { regular: await out.embedFont(StandardFonts.Helvetica), bold: await out.embedFont(StandardFonts.HelveticaBold) };
   const skuRows = (o: AwbOrder): SkuRow[] => (o.items ?? []).map((it) => ({
     parent: (it.item_sku ?? it.sku ?? "") || "-", variant: (it.model_sku ?? "") || "-",
-    label: it.name ? (it.variant ? `${it.name} (${it.variant})` : it.name) : undefined,
+    name: it.name ?? undefined, varName: it.variant ?? undefined,
   }));
   // Shopee doesn't always return pages in the order requested, so find each page's order by the number printed on it.
   const keyed = group.flatMap((o) => [o.external_order_sn, o.booking_sn, o.order_sn].filter((sn): sn is string => !!sn).map((sn) => [sn.toUpperCase(), o] as const));
