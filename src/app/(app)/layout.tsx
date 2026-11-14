@@ -42,6 +42,7 @@ const NAV_ALL: NavItem[] = [
     { label: "Daftar Toko", href: "/marketplace/shops" },
     { label: "Semua Produk", href: "/marketplace/products" },
     { label: "Pesanan & Pengiriman", href: "/marketplace/orders" },
+    { label: "Saldo", href: "/marketplace/balance" },
   ] },
   { label: "Laporan Bisnis", icon: BarChart3, children: [
     { label: "Laporan Penjualan", href: "/reports/sales" },
