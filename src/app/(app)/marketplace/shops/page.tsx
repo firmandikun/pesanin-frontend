@@ -11,7 +11,7 @@ import { askConfirm } from "@/components/Dialogs";
 
 type Shop = {
   id: number; shop_id: number; shop_name: string; status: "active" | "expired" | "disconnected"; is_demo: boolean; region: string;
-  products_synced_at: string | null; orders_synced_at: string | null; last_error: string | null; listings_count: number; orders_count: number;
+  products_synced_at: string | null; orders_synced_at: string | null; last_error: string | null; listings_count: number; orders_count: number; orders_today_count: number;
 };
 type Data = { shops: Shop[]; configured: boolean; environment: "sandbox" | "live"; redirect_url: string; push_url: string | null; can_demo: boolean };
 
@@ -202,7 +202,7 @@ function Shops() {
               <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="px-4 py-3 font-semibold">Toko</th><th className="px-3 py-3 font-semibold">Status</th>
-                  <th className="px-3 py-3 text-right font-semibold">Listing</th><th className="px-3 py-3 text-right font-semibold">Pesanan</th>
+                  <th className="px-3 py-3 text-right font-semibold">Listing</th><th className="px-3 py-3 text-right font-semibold" title="Pesanan masuk hari ini">Pesanan hari ini</th>
                   <th className="px-3 py-3 font-semibold">Sinkron terakhir</th><th className="px-4 py-3 text-right font-semibold">Aksi</th>
                 </tr>
               </thead>
@@ -222,7 +222,7 @@ function Shops() {
                     </td>
                     <td className="px-3 py-3"><span className={`whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] font-semibold ${s.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>{s.status === "active" ? "Aktif" : "Perlu hubungkan ulang"}</span></td>
                     <td className="px-3 py-3 text-right"><Link href={`/marketplace/products?shop_id=${s.id}`} className="font-semibold text-navy hover:text-brand-600">{s.listings_count.toLocaleString("id-ID")}</Link></td>
-                    <td className="px-3 py-3 text-right"><Link href={`/marketplace/orders?shop_id=${s.id}`} className="font-semibold text-navy hover:text-brand-600">{s.orders_count.toLocaleString("id-ID")}</Link></td>
+                    <td className="px-3 py-3 text-right"><Link href={`/marketplace/orders?shop_id=${s.id}`} className="font-semibold text-navy hover:text-brand-600">{(s.orders_today_count ?? 0).toLocaleString("id-ID")}</Link></td>
                     <td className="whitespace-nowrap px-3 py-3 text-slate-600">{ago(s.orders_synced_at)}</td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-1.5">
