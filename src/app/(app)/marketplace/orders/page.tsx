@@ -138,6 +138,7 @@ export default function ShopeeOrders() {
   const [split, setSplit] = useState({ order: 0, kilat: 0 });
   // Dikirim → "Dikirim Dari": seller's own stock vs Pengiriman Kilat stock.
   const [stock, setStock] = useState<"" | "seller" | "kilat">("");
+  const [doneScope, setDoneScope] = useState<"today" | "all">("today");
   const [stockCounts, setStockCounts] = useState({ seller: 0, kilat: 0 });
   // Perlu Dikirim → Status Pesanan counts (Semua / Perlu diproses / Telah diproses), for the chosen order type.
   const [subCounts, setSubCounts] = useState<Record<string, number>>({});
@@ -173,12 +174,13 @@ export default function ShopeeOrders() {
     setData(null);
     const st: Record<string, string> = state ? { shopee_state: state } : {};
     const stockQ: Record<string, string> = tab === "shipping" && kind === "order" && stock ? { stock } : {};
+    const doneQ: Record<string, string> = tab === "done" && doneScope === "all" ? { done: "all" } : {};
     if (showingReturns) {
       setReturns(null);
       api<Paginated<ReturnReq>>(`/marketplace/returns?${new URLSearchParams({ ...(shopId ? { shop_id: shopId } : {}), ...(filters.search ? { search: filters.search } : {}), page: String(page), per_page: String(perPage) })}`)
         .then((r) => { if (id === reqId.current) setReturns(r); });
     }
-    api<ListRes>(`/orders?${base({ ...st, ...stockQ, ...(kind ? { kind } : {}), sort: "created_at", dir, page: String(page), per_page: String(perPage), facets: "1" })}`)
+    api<ListRes>(`/orders?${base({ ...st, ...stockQ, ...doneQ, ...(kind ? { kind } : {}), sort: "created_at", dir, page: String(page), per_page: String(perPage), facets: "1" })}`)
       .then((d) => { if (id !== reqId.current) return; setData(d.orders); setBookings(d.bookings?.data ?? []); if (d.couriers) setCouriers(d.couriers); if (d.attention) setAttention(d.attention); });
     if (tab === "perlu_kirim") {
       Promise.all(SUB.map(([k]) => api<ListRes>(`/orders?${base({ shopee_state: k, ...(kind ? { kind } : {}), per_page: "1" })}`)
@@ -195,7 +197,7 @@ export default function ShopeeOrders() {
       .then((r) => { if (id === reqId.current) setCounts(Object.fromEntries(r)); });
     api<ListRes>(`/orders?${base({ ...st, per_page: "1" })}`).then((d) => { if (id === reqId.current) setSplit({ order: d.stats.total_orders, kilat: d.bookings?.total ?? 0 }); });
     setSelected([]);
-  }, [base, state, kind, stock, tab, showingReturns, shopId, filters.search, dir, page, perPage]);
+  }, [base, state, kind, stock, doneScope, tab, showingReturns, shopId, filters.search, dir, page, perPage]);
   useEffect(() => { const t = setTimeout(load, 150); return () => clearTimeout(t); }, [load]);
   useEffect(() => { window.addEventListener(ORDERS_EVENT, load); return () => window.removeEventListener(ORDERS_EVENT, load); }, [load]);
   useEffect(() => { api("/marketplace/shops").then((d) => setShops(d.shops.filter((s: any) => s.status !== "disconnected"))).catch(() => setShops([])); }, []);
@@ -237,7 +239,7 @@ export default function ShopeeOrders() {
     } catch (e) { setNotice(e instanceof ApiError ? e.message : "Sinkron gagal"); } finally { setBusy(""); }
   }
   // Seller Centre's Dikirim tab has no "Semua" type: it opens on Pesanan.
-  const pickTab = (k: string) => { setTab(k); setSub("perlu_kirim"); setKind(k === "shipping" ? "order" : ""); setStock(""); setRetTab("returns"); setPage(1); };
+  const pickTab = (k: string) => { setTab(k); setSub("perlu_kirim"); setKind(k === "shipping" ? "order" : ""); setStock(""); setDoneScope("today"); setRetTab("returns"); setPage(1); };
   const apply = () => { setFilters(draft); setPage(1); };
   const reset = () => { const empty = { search: "", courier: "" }; setDraft(empty); setFilters(empty); setKind(tab === "shipping" ? "order" : ""); setStock(""); setPage(1); };
   const toggle = (id: number, on: boolean) => setSelected(on ? [...selected, id] : selected.filter((x) => x !== id));
@@ -288,6 +290,13 @@ export default function ShopeeOrders() {
               <button onClick={() => { setStock(""); setPage(1); }} className={pill(stock === "")}>Semua</button>
               <button onClick={() => { setStock("seller"); setPage(1); }} className={pill(stock === "seller")}>Dikirim dari stok Penjual ({stockCounts.seller})</button>
               <button onClick={() => { setStock("kilat"); setPage(1); }} className={pill(stock === "kilat")}>Dikirim dari stok Pengiriman Kilat ({stockCounts.kilat})</button>
+            </div>
+          )}
+          {tab === "done" && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="w-28 text-slate-500">Periode</span>
+              <button onClick={() => { setDoneScope("today"); setPage(1); }} className={pill(doneScope === "today")}>Selesai hari ini</button>
+              <button onClick={() => { setDoneScope("all"); setPage(1); }} className={pill(doneScope === "all")}>Semua</button>
             </div>
           )}
           {tab === "cancelled" && (
