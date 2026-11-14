@@ -35,7 +35,12 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
   const below = items.filter((i) => i.str.trim() && i.transform[5] < hy - 1).sort((a, b) => b.transform[5] - a.transform[5]);
   const stop = below.find((i) => i.transform[4] < x.name && !/^\d+$/.test(i.str.trim()));
   const body = below.filter((i) => !stop || i.transform[5] > stop.transform[5] + 1);
-  const numbers = body.filter((i) => i.transform[4] < x.name && /^\d+$/.test(i.str.trim()));
+  const numericCandidates = body.filter((i) => i.transform[4] < x.name && /^\d+$/.test(i.str.trim()));
+  // A Shopee label can print the numeric tracking number immediately below the item table at the
+  // same x-position as the "#" column. It is not another item row. When the page has been matched
+  // to an order, the API item count is the authoritative row count; without this cap a one-item
+  // parcel could be redrawn with its tracking number as a fake second SKU.
+  const numbers = rowData?.length ? numericCandidates.slice(0, rowData.length) : numericCandidates;
   if (!numbers.length) return false;
 
   // Split each run into characters positioned with Helvetica metrics scaled to the run's real width.
