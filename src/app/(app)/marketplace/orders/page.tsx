@@ -3,7 +3,7 @@ import { ORDERS_EVENT } from "@/components/NotificationBell";
 import { ArrowDownUp, FileText, Info, Loader2, PackageCheck, PackageSearch, Printer, RefreshCcw, Search, Store, Truck } from "lucide-react";
 import { TrackingModal } from "@/components/TrackingModal";
 import { ShipModal } from "@/components/marketplace/ShipModal";
-import { openShopeeAwb } from "@/lib/awb";
+import { openShopeeAwb, openShopeeAwbMerged } from "@/lib/awb";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ShopeeMark } from "@/components/ChannelBadge";
@@ -227,6 +227,15 @@ export default function ShopeeOrders() {
     setBusy("print"); setNotice("");
     try { await openShopeeAwb(list); } catch (e) { setNotice((e as Error).message); } finally { setBusy(""); }
   }
+  /** Print orders and Pengiriman Kilat reservations together in one merged PDF. */
+  async function printMixed(ords: Order[], bks: Booking[]) {
+    if (!ords.length && !bks.length) return;
+    setBusy("print"); setNotice("");
+    try {
+      await openShopeeAwbMerged({ orders: ords, bookings: bks.map((b) => ({ id: b.id, marketplace_shop_id: b.marketplace_shop_id, courier: b.shipping_carrier, items: b.items ?? undefined })) });
+      setSelected([]); setSelectedBk([]);
+    } catch (e) { setNotice((e as Error).message); } finally { setBusy(""); }
+  }
   async function printBookings(list: Booking[]) {
     if (!list.length) return;
     setBusy(list.length > 1 ? "printbk" : `kb${list[0].id}`); setNotice("");
@@ -359,25 +368,17 @@ export default function ShopeeOrders() {
           {state === "to_ship" && rows.some(needsShipping) && (
             <button onClick={() => setShipIds(rows.filter(needsShipping).map((o) => o.id))} className="flex h-9 items-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700"><Truck size={15} />Atur Pengiriman Massal</button>
           )}
-          {(state === "processed" || state === "advance") && rows.some(canPrint) && (
-            <button onClick={() => print(rows.filter(canPrint))} disabled={!!busy} className="flex h-9 items-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">{busy === "print" ? <Loader2 size={15} className="animate-spin" /> : <Printer size={15} />}Cetak Resi Massal</button>
+          {(state === "processed" || state === "advance") && (rows.some(canPrint) || printableBk.length > 0) && (
+            <button onClick={() => printMixed(rows.filter(canPrint), printableBk)} disabled={!!busy} className="flex h-9 items-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">{busy === "print" ? <Loader2 size={15} className="animate-spin" /> : <Printer size={15} />}Cetak Resi Massal</button>
           )}
         </div>
 
-        {selected.length > 0 && (
+        {(selected.length > 0 || selectedBk.length > 0) && (
           <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-brand-100 bg-brand-50 px-4 py-2.5 text-sm">
-            <b>{selected.length} pesanan dipilih</b>
+            <b>{selected.length + selectedBk.length} dipilih{selectedBk.length > 0 ? ` (${selected.length} pesanan + ${selectedBk.length} Kilat)` : ""}</b>
             {shipChosen.length > 0 && <button onClick={() => setShipIds(shipChosen.map((o) => o.id))} className="flex items-center gap-1.5 font-semibold text-brand-700 hover:underline"><Truck size={14} />Atur pengiriman ({shipChosen.length})</button>}
-            {printChosen.length > 0 && <button onClick={() => print(printChosen)} disabled={!!busy} className="flex items-center gap-1.5 font-semibold text-brand-700 hover:underline"><Printer size={14} />Cetak resi ({printChosen.length})</button>}
-            <button onClick={() => setSelected([])} className="ml-auto text-xs font-semibold text-slate-500 hover:text-navy">Batal pilih</button>
-          </div>
-        )}
-
-        {selectedBk.length > 0 && (
-          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-teal-100 bg-teal-50/70 px-4 py-2.5 text-sm">
-            <b className="flex items-center gap-1.5 text-teal-800"><KilatIcon size={14} />Pengiriman Kilat · {chosenBk.length} dipilih</b>
-            <button onClick={() => printBookings(chosenBk)} disabled={!!busy} className="flex items-center gap-1.5 font-semibold text-teal-700 hover:underline">{busy === "printbk" ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}Cetak Label Massal ({chosenBk.length})</button>
-            <button onClick={() => setSelectedBk([])} className="ml-auto text-xs font-semibold text-slate-500 hover:text-navy">Batal pilih</button>
+            {printChosen.length + chosenBk.length > 0 && <button onClick={() => printMixed(printChosen, chosenBk)} disabled={!!busy} className="flex items-center gap-1.5 font-semibold text-brand-700 hover:underline">{busy === "print" ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}Cetak Resi Massal ({printChosen.length + chosenBk.length})</button>}
+            <button onClick={() => { setSelected([]); setSelectedBk([]); }} className="ml-auto text-xs font-semibold text-slate-500 hover:text-navy">Batal pilih</button>
           </div>
         )}
 
