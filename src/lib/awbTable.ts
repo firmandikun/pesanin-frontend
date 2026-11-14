@@ -2,18 +2,21 @@ import { PDFFont, PDFPage, rgb } from "pdf-lib";
 
 export type TextItem = { str: string; transform: number[]; width: number; height: number };
 type Fonts = { regular: PDFFont; bold: PDFFont };
-type Row = { no: string; sku: string; variant: string; qty: string };
+type Row = { no: string; sku: string; qty: string };
 
 const HEADER = /^(Nama\s*Produk|Product\s*Name)$/i;
 
 /**
  * Shopee's AWB item table is "# | Nama Produk | SKU | Variasi | Qty". Pesanin hides product names,
- * so the whole table is cleared and redrawn as "# | SKU | Variasi | Qty" at full width.
+ * so the whole table is cleared and redrawn as "# | SKU | Qty" at full width (the variant *name* is dropped; the SKU is enough).
  * pdf.js merges neighbouring cells into one text run ("CEK-BLUE-M blue,M"), so every run is split
  * back into characters and each character is assigned to the column whose header it sits under.
  * Returns false (page left untouched) when the table layout isn't recognised.
  */
-export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts): boolean {
+/** Per-row SKU data from Pesanin's order, used to print "SKU Induk" and "SKU Variasi" separately. */
+export type SkuRow = { parent: string; variant: string };
+
+export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, rowData?: SkuRow[]): boolean {
   const name = items.find((i) => HEADER.test(i.str.trim()));
   if (!name) return false;
   const hy = name.transform[5];
@@ -33,7 +36,7 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts):
   if (!numbers.length) return false;
 
   // Split each run into characters positioned with Helvetica metrics scaled to the run's real width.
-  const cells = numbers.map((n) => ({ y: n.transform[5], no: n.str.trim(), sku: [] as [number, string][], variant: [] as [number, string][], qty: [] as [number, string][] }));
+  const cells = numbers.map((n) => ({ y: n.transform[5], no: n.str.trim(), sku: [] as [number, string][], qty: [] as [number, string][] }));
   for (const it of body) {
     if (numbers.includes(it)) continue;
     const y = it.transform[5];
@@ -46,7 +49,8 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts):
     chars.forEach((c, k) => {
       const mid = cx + (widths[k] * scale) / 2;
       cx += widths[k] * scale;
-      const col = mid >= x.qty ? "qty" : mid >= x.variant ? "variant" : mid >= x.sku ? "sku" : null;
+      // Characters between the Variasi and Qty columns are the variant name — dropped on purpose.
+      const col = mid >= x.qty ? "qty" : mid >= x.variant ? null : mid >= x.sku ? "sku" : null;
       if (col) row[col].push([y, c]);
     });
   }
@@ -61,7 +65,7 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts):
     // A wrapped SKU breaks after "-": glue those lines back without a space.
     return lines.map((l) => l.trim()).filter(Boolean).reduce((acc, l) => (acc && !acc.endsWith("-") ? `${acc} ${l}` : acc + l), "");
   };
-  const rows: Row[] = cells.map((c) => ({ no: c.no, sku: join(c.sku) || "-", variant: join(c.variant) || "-", qty: join(c.qty) || "1" }));
+  const rows: Row[] = cells.map((c) => ({ no: c.no, sku: join(c.sku) || "-", qty: join(c.qty) || "1" }));
 
   // Clear the old table (header included) across the page, from the header top to just above the next block.
   const { width: pw } = page.getSize();
@@ -70,34 +74,45 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts):
   const bottom = stop ? stop.transform[5] + (stop.height || size) * 0.8 : lowest - size * 0.4;
   page.drawRectangle({ x: 1.5, y: bottom, width: pw - 3, height: top - bottom, color: rgb(1, 1, 1) });
 
-  // New columns: # | SKU (wide) | Variasi | Qty, filling the same width as the original table.
+  // With Pesanin's own order items (matched 1:1 to the label's rows) print "# | SKU Induk | SKU Variasi | Qty";
+  // otherwise fall back to "# | SKU | Qty" from the label text. Qty always comes from the label.
+  const two = !!rowData && rowData.length === rows.length && rows.length > 0;
+  const heads = two ? ["SKU Induk", "SKU Variasi", "Qty"] : ["SKU", "Qty"];
+  const body2 = two
+    ? rows.map((r, i) => ({ no: r.no, cells: [rowData![i].parent || "-", rowData![i].variant || "-"], qty: r.qty }))
+    : rows.map((r) => ({ no: r.no, cells: [r.sku], qty: r.qty }));
+
   const left = hash.transform[4];
   const right = pw - left;
-  const col = { no: left, sku: left + 14, variant: left + (right - left) * 0.56, qty: right - 18 };
+  const qtyX = right - 18;
+  const colX = two ? [left + 14, left + (right - left) * 0.52] : [left + 14];
+  const headX = [...colX, qtyX];
   const ink = rgb(0, 0, 0), rule = rgb(0.6, 0.6, 0.6);
   const line = (y: number) => page.drawLine({ start: { x: left, y }, end: { x: right, y }, thickness: 0.5, color: rule });
   const lh = size * 1.18;
+  const widthFor = (k: number) => (k + 1 < colX.length ? colX[k + 1] : qtyX) - colX[k] - 6;
 
   let y = hy;
-  [["#", col.no], ["SKU", col.sku], ["Variasi", col.variant], ["Qty", col.qty]].forEach(([t, cx]) =>
-    page.drawText(t as string, { x: cx as number, y, size, font: fonts.bold, color: ink }));
+  page.drawText("#", { x: left, y, size, font: fonts.bold, color: ink });
+  heads.forEach((t, k) => page.drawText(t, { x: headX[k], y, size, font: fonts.bold, color: ink }));
   y -= size * 0.32;
   line(y);
-  rows.forEach((r, i) => {
-    const skuLines = wrap(r.sku, fonts.bold, size, col.variant - col.sku - 6);
-    const varLines = wrap(r.variant, fonts.regular, size, col.qty - col.variant - 6);
-    const n = Math.max(skuLines.length, varLines.length);
+  body2.forEach((r, i) => {
+    const lines = r.cells.map((c, k) => wrap(c, fonts.bold, size, widthFor(k)));
+    const n = Math.max(1, ...lines.map((l) => l.length));
     const first = y - size * 1.0;
     if (first - (n - 1) * lh < bottom) return; // never spill into the block below
-    page.drawText(r.no, { x: col.no, y: first, size, font: fonts.regular, color: ink });
-    page.drawText(sanitize(fonts.regular, r.qty), { x: col.qty, y: first, size, font: fonts.bold, color: ink });
-    for (let k = 0; k < n; k++) {
-      const ty = first - k * lh;
-      if (skuLines[k]) page.drawText(skuLines[k], { x: col.sku, y: ty, size, font: fonts.bold, color: ink });
-      if (varLines[k]) page.drawText(varLines[k], { x: col.variant, y: ty, size, font: fonts.regular, color: ink });
+    page.drawText(r.no, { x: left, y: first, size, font: fonts.regular, color: ink });
+    const qty = sanitize(fonts.regular, r.qty);
+    page.drawText(qty, { x: qtyX, y: first, size, font: fonts.bold, color: ink });
+    // Draw attention to multi-item orders: circle a quantity greater than 1 so it isn't missed when packing.
+    if ((parseInt(r.qty, 10) || 1) > 1) {
+      const tw = safeWidth(fonts.bold, qty, size);
+      page.drawEllipse({ x: qtyX + tw / 2, y: first + size * 0.33, xScale: tw / 2 + 4, yScale: size * 0.72, borderColor: ink, borderWidth: 1.1 });
     }
+    lines.forEach((col, k) => col.forEach((ln, j) => page.drawText(ln, { x: colX[k], y: first - j * lh, size, font: fonts.bold, color: ink })));
     y = first - (n - 1) * lh - size * 0.32;
-    if (i < rows.length - 1) line(y);
+    if (i < body2.length - 1) line(y);
   });
   return true;
 }
