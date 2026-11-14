@@ -74,18 +74,17 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
   const bottom = stop ? stop.transform[5] + (stop.height || size) * 0.8 : lowest - size * 0.4;
   page.drawRectangle({ x: 1.5, y: bottom, width: pw - 3, height: top - bottom, color: rgb(1, 1, 1) });
 
-  // With Pesanin's own order items (matched 1:1 to the label's rows) print "# | SKU Induk | SKU Variasi | Qty";
-  // otherwise fall back to "# | SKU | Qty" from the label text. Qty always comes from the label.
-  const two = !!rowData && rowData.length === rows.length && rows.length > 0;
-  const heads = two ? ["SKU Induk", "SKU Variasi", "Qty"] : ["SKU", "Qty"];
-  const body2 = two
-    ? rows.map((r, i) => ({ no: r.no, cells: [rowData![i].parent || "-", rowData![i].variant || "-"], qty: r.qty }))
-    : rows.map((r) => ({ no: r.no, cells: [r.sku], qty: r.qty }));
+  // "# | SKU | Qty". With Pesanin's own order items (matched 1:1 to the label's rows) the SKU is the variation SKU
+  // (or the product SKU when it has no variations); otherwise it comes from the label text. Qty always from the label.
+  const own = !!rowData && rowData.length === rows.length && rows.length > 0;
+  const pick = (d: SkuRow) => (d.variant && d.variant !== "-" ? d.variant : d.parent) || "-";
+  const heads = ["SKU", "Qty"];
+  const body2 = rows.map((r, i) => ({ no: r.no, cells: [own ? pick(rowData![i]) : r.sku], qty: r.qty }));
 
   const left = hash.transform[4];
   const right = pw - left;
   const qtyX = right - 18;
-  const colX = two ? [left + 14, left + (right - left) * 0.52] : [left + 14];
+  const colX = [left + 14];
   const headX = [...colX, qtyX];
   const ink = rgb(0, 0, 0), rule = rgb(0.6, 0.6, 0.6);
   const line = (y: number) => page.drawLine({ start: { x: left, y }, end: { x: right, y }, thickness: 0.5, color: rule });
