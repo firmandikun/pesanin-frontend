@@ -23,6 +23,8 @@ const TABS: { key: string; label: string; count: boolean }[] = [
   { key: "", label: "Semua", count: false },
   { key: "unpaid", label: "Belum Bayar", count: true },
   { key: "perlu_kirim", label: "Perlu Dikirim", count: true },
+  // Orders fulfilled by Shopee (Advance Fulfilment): no manual arranging, just print the auto-issued resi.
+  { key: "advance", label: "Advance Fulfilment", count: true },
   { key: "shipping", label: "Dikirim", count: true },
   { key: "done", label: "Selesai", count: false },
   // Badge = requests waiting for the seller (returns + buyer cancel requests), as in Seller Centre.
@@ -70,7 +72,7 @@ const awaitingAwb = (o: Order) => ["PROCESSED", "RETRY_SHIP"].includes(o.externa
 const canTrack = (o: Order) => !!o.tracking_number && ["PROCESSED", "RETRY_SHIP", "SHIPPED", "TO_CONFIRM_RECEIVE", "COMPLETED", "TO_RETURN"].includes(o.external_status ?? "");
 const fmtShort = (s: string) => new Date(s).toLocaleString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
-type Booking = { id: number; marketplace_shop_id: number; booking_sn: string; order_sn: string | null; booking_status: string; shipping_carrier: string | null; tracking_number: string | null; booked_at: string | null; items: { name: string; variant: string | null; sku: string | null; qty: number }[] | null; marketplace_shop?: { shop_name: string } };
+type Booking = { id: number; marketplace_shop_id: number; booking_sn: string; order_sn: string | null; booking_status: string; shipping_carrier: string | null; tracking_number: string | null; booked_at: string | null; items: { name: string; variant: string | null; sku: string | null; qty: number; image?: string | null }[] | null; marketplace_shop?: { shop_name: string } };
 type Item = NonNullable<Order["items"]>[number] & { image?: string | null };
 type ListRes = { orders: Paginated<Order>; stats: { total_orders: number }; bookings?: { total: number; data: Booking[] }; couriers?: string[]; attention?: { returns: number; cancel_requests: number } };
 type ReturnReq = { id: number; return_sn: string; order_sn: string | null; status: string; reason: string | null; text_reason: string | null; refund_amount: number; buyer_username: string | null; tracking_number: string | null; due_at: string | null; requested_at: string | null; items: { name: string; variant: string | null; sku: string | null; qty: number; image?: string | null }[] | null; marketplace_shop?: { shop_name: string } };
@@ -149,6 +151,7 @@ export default function ShopeeOrders() {
   const [couriers, setCouriers] = useState<string[]>([]);
   const [shops, setShops] = useState<{ id: number; shop_name: string; status: string }[] | null>(null);
   const [selected, setSelected] = useState<number[]>([]);
+  const [selectedBk, setSelectedBk] = useState<number[]>([]);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState("");
   const [shipIds, setShipIds] = useState<number[] | null>(null);
@@ -197,6 +200,7 @@ export default function ShopeeOrders() {
       .then((r) => { if (id === reqId.current) setCounts(Object.fromEntries(r)); });
     api<ListRes>(`/orders?${base({ ...st, per_page: "1" })}`).then((d) => { if (id === reqId.current) setSplit({ order: d.stats.total_orders, kilat: d.bookings?.total ?? 0 }); });
     setSelected([]);
+    setSelectedBk([]);
   }, [base, state, kind, stock, doneScope, tab, showingReturns, shopId, filters.search, dir, page, perPage]);
   useEffect(() => { const t = setTimeout(load, 150); return () => clearTimeout(t); }, [load]);
   useEffect(() => { window.addEventListener(ORDERS_EVENT, load); return () => window.removeEventListener(ORDERS_EVENT, load); }, [load]);
@@ -212,16 +216,22 @@ export default function ShopeeOrders() {
   const printChosen = chosen.filter(canPrint);
   const total = (data?.total ?? 0) + (page === 1 ? bookings.length : 0);
   const showKilat = WITH_KILAT.includes(state);
+  // Pengiriman Kilat reservations ready to print (bulk / select).
+  const printableBk = bookings.filter((b) => b.booking_status === "PROCESSED");
+  const chosenBk = printableBk.filter((b) => selectedBk.includes(b.id));
+  const allBkChosen = printableBk.length > 0 && printableBk.every((b) => selectedBk.includes(b.id));
 
   async function print(list: Order[]) {
     setBusy("print"); setNotice("");
     try { await openShopeeAwb(list); } catch (e) { setNotice((e as Error).message); } finally { setBusy(""); }
   }
   async function printBookings(list: Booking[]) {
-    setBusy(`kb${list[0].id}`); setNotice("");
-    try { await openShopeeAwb(list.map((b) => ({ id: b.id, marketplace_shop_id: b.marketplace_shop_id, courier: b.shipping_carrier })), "booking"); }
+    if (!list.length) return;
+    setBusy(list.length > 1 ? "printbk" : `kb${list[0].id}`); setNotice("");
+    try { await openShopeeAwb(list.map((b) => ({ id: b.id, marketplace_shop_id: b.marketplace_shop_id, courier: b.shipping_carrier })), "booking"); setSelectedBk([]); }
     catch (e) { setNotice((e as Error).message); } finally { setBusy(""); }
   }
+  const toggleBk = (id: number, on: boolean) => setSelectedBk(on ? [...selectedBk, id] : selectedBk.filter((x) => x !== id));
   async function refreshAwb(ids: number[], tries = 3) {
     for (let i = 0; i < tries; i++) {
       await new Promise((r) => setTimeout(r, i === 0 && tries > 1 ? 4000 : 1500));
@@ -347,7 +357,7 @@ export default function ShopeeOrders() {
           {state === "to_ship" && rows.some(needsShipping) && (
             <button onClick={() => setShipIds(rows.filter(needsShipping).map((o) => o.id))} className="flex h-9 items-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700"><Truck size={15} />Atur Pengiriman Massal</button>
           )}
-          {state === "processed" && rows.some(canPrint) && (
+          {(state === "processed" || state === "advance") && rows.some(canPrint) && (
             <button onClick={() => print(rows.filter(canPrint))} disabled={!!busy} className="flex h-9 items-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">{busy === "print" ? <Loader2 size={15} className="animate-spin" /> : <Printer size={15} />}Cetak Resi Massal</button>
           )}
         </div>
@@ -358,6 +368,19 @@ export default function ShopeeOrders() {
             {shipChosen.length > 0 && <button onClick={() => setShipIds(shipChosen.map((o) => o.id))} className="flex items-center gap-1.5 font-semibold text-brand-700 hover:underline"><Truck size={14} />Atur pengiriman ({shipChosen.length})</button>}
             {printChosen.length > 0 && <button onClick={() => print(printChosen)} disabled={!!busy} className="flex items-center gap-1.5 font-semibold text-brand-700 hover:underline"><Printer size={14} />Cetak resi ({printChosen.length})</button>}
             <button onClick={() => setSelected([])} className="ml-auto text-xs font-semibold text-slate-500 hover:text-navy">Batal pilih</button>
+          </div>
+        )}
+
+        {printableBk.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-teal-100 bg-teal-50/70 px-4 py-2.5 text-sm">
+            <label className="flex items-center gap-2 font-semibold text-teal-800">
+              <input type="checkbox" className="h-4 w-4 accent-teal-600" checked={allBkChosen}
+                ref={(el) => { if (el) el.indeterminate = selectedBk.length > 0 && !allBkChosen; }}
+                onChange={(e) => setSelectedBk(e.target.checked ? printableBk.map((b) => b.id) : [])} />
+              <span className="flex items-center gap-1.5"><KilatIcon size={14} />Pengiriman Kilat{chosenBk.length ? ` · ${chosenBk.length} dipilih` : ` · ${printableBk.length} siap cetak`}</span>
+            </label>
+            <button onClick={() => printBookings(chosenBk.length ? chosenBk : printableBk)} disabled={!!busy} className="flex items-center gap-1.5 font-semibold text-teal-700 hover:underline">{busy === "printbk" ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}Cetak Label Massal ({chosenBk.length || printableBk.length})</button>
+            {selectedBk.length > 0 && <button onClick={() => setSelectedBk([])} className="ml-auto text-xs font-semibold text-slate-500 hover:text-navy">Batal pilih</button>}
           </div>
         )}
 
@@ -376,8 +399,9 @@ export default function ShopeeOrders() {
 
             <div className="mt-3 space-y-3">
               {page === 1 && bookings.map((b) => (
-                <div key={`b${b.id}`} className="overflow-hidden rounded-lg border border-slate-200">
+                <div key={`b${b.id}`} className={`overflow-hidden rounded-lg border ${selectedBk.includes(b.id) ? "border-teal-300 ring-1 ring-teal-200" : "border-slate-200"}`}>
                   <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5 text-[13px]">
+                    {b.booking_status === "PROCESSED" && <input type="checkbox" className="h-4 w-4 accent-teal-600" checked={selectedBk.includes(b.id)} onChange={(e) => toggleBk(b.id, e.target.checked)} />}
                     <span className="flex items-center gap-1.5 text-slate-700"><Store size={14} className="text-slate-400" />Dibuat oleh Shopee</span>
                     <span className="flex items-center gap-1 rounded bg-teal-50 px-1.5 py-0.5 text-[11px] font-semibold text-teal-700 ring-1 ring-teal-100"><KilatIcon size={13} />Pengiriman Kilat</span>
                     {!shopId && <span className="flex items-center gap-1 text-xs text-slate-400"><ShopeeMark size={12} />{b.marketplace_shop?.shop_name}</span>}
@@ -437,9 +461,6 @@ export default function ShopeeOrders() {
                       </div>
                       <div className="space-y-2">
                         {needsShipping(o) && <ActionLink icon={Truck} onClick={() => setShipIds([o.id])}>Atur Pengiriman</ActionLink>}
-                        {o.channel === "shopee" && o.shopee_auto_ship && !o.tracking_number && ["READY_TO_SHIP", "PROCESSED"].includes(o.external_status ?? "") && (
-                          <span className="inline-flex items-center gap-1.5 rounded-md bg-sky-50 px-2 py-1 text-xs font-medium text-sky-700" title="Pesanan Advance Fulfilment: Shopee yang mengatur pengiriman dan menerbitkan resi otomatis."><Truck size={13} />Resi otomatis · Advance Fulfilment</span>
-                        )}
                         {canPrint(o) && <ActionLink icon={Printer} busy={busy === "print"} disabled={!!busy} onClick={() => print([o])}>Cetak Label</ActionLink>}
                         {awaitingAwb(o) && <ActionLink icon={RefreshCcw} busy={busy === `awb${o.id}`} onClick={async () => { setBusy(`awb${o.id}`); await refreshAwb([o.id], 1); setBusy(""); }}>Cek resi</ActionLink>}
                         {canTrack(o) && <ActionLink icon={PackageSearch} onClick={() => setTrack(o)}>Lacak Paket</ActionLink>}
