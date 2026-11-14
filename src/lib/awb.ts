@@ -3,7 +3,7 @@ import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { redrawItemTable, type SkuRow, type TextItem } from "@/lib/awbTable";
 import { API_URL, getToken } from "@/lib/api";
 
-type AwbItem = { item_sku?: string | null; model_sku?: string | null; sku?: string | null; qty?: number };
+type AwbItem = { item_sku?: string | null; model_sku?: string | null; sku?: string | null; qty?: number; name?: string | null; variant?: string | null };
 type AwbOrder = {
   id: number; marketplace_shop_id?: number | null; courier?: string | null; items?: AwbItem[] | null;
   /** Numbers printed on the label (order / reservation), used to match a PDF page to its order. */
@@ -40,6 +40,7 @@ async function hideProductNames(bytes: Uint8Array, group: AwbOrder[] = []): Prom
   const fonts = { regular: await out.embedFont(StandardFonts.Helvetica), bold: await out.embedFont(StandardFonts.HelveticaBold) };
   const skuRows = (o: AwbOrder): SkuRow[] => (o.items ?? []).map((it) => ({
     parent: (it.item_sku ?? it.sku ?? "") || "-", variant: (it.model_sku ?? "") || "-",
+    label: it.name ? (it.variant ? `${it.name} (${it.variant})` : it.name) : undefined,
   }));
   // Shopee doesn't always return pages in the order requested, so find each page's order by the number printed on it.
   const keyed = group.flatMap((o) => [o.external_order_sn, o.booking_sn, o.order_sn].filter((sn): sn is string => !!sn).map((sn) => [sn.toUpperCase(), o] as const));
