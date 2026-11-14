@@ -232,14 +232,14 @@ export default function ShopeeOrders() {
     if (!ords.length && !bks.length) return;
     setBusy("print"); setNotice("");
     try {
-      await openShopeeAwbMerged({ orders: ords, bookings: bks.map((b) => ({ id: b.id, marketplace_shop_id: b.marketplace_shop_id, courier: b.shipping_carrier, items: b.items ?? undefined })) });
+      await openShopeeAwbMerged({ orders: ords, bookings: bks.map((b) => ({ id: b.id, marketplace_shop_id: b.marketplace_shop_id, courier: b.shipping_carrier, items: b.items ?? undefined, booking_sn: b.booking_sn, order_sn: b.order_sn })) });
       setSelected([]); setSelectedBk([]);
     } catch (e) { setNotice((e as Error).message); } finally { setBusy(""); }
   }
   async function printBookings(list: Booking[]) {
     if (!list.length) return;
     setBusy(list.length > 1 ? "printbk" : `kb${list[0].id}`); setNotice("");
-    try { await openShopeeAwb(list.map((b) => ({ id: b.id, marketplace_shop_id: b.marketplace_shop_id, courier: b.shipping_carrier, items: b.items ?? undefined })), "booking"); setSelectedBk([]); }
+    try { await openShopeeAwb(list.map((b) => ({ id: b.id, marketplace_shop_id: b.marketplace_shop_id, courier: b.shipping_carrier, items: b.items ?? undefined, booking_sn: b.booking_sn, order_sn: b.order_sn })), "booking"); setSelectedBk([]); }
     catch (e) { setNotice((e as Error).message); } finally { setBusy(""); }
   }
   const toggleBk = (id: number, on: boolean) => setSelectedBk(on ? [...selectedBk, id] : selectedBk.filter((x) => x !== id));
