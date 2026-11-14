@@ -5,7 +5,7 @@ export type Member = { id: number; name: string; email: string | null; role: "ad
 
 const COMMON = ["/dashboard", "/tutorial", "/segera", "/settings/notifications", "#whats-new"];
 // Owner-only pages: billing, keys, account, team management.
-const OWNER_ONLY = ["/settings/billing", "/settings/integrations", "/settings/account", "/settings/banned", "/settings/activity", "/settings/domains", "/settings/balance", "/others/team-members"];
+const OWNER_ONLY = ["/settings/billing", "/settings/integrations", "/settings/account", "/settings/banned", "/settings/activity", "/settings/domains", "/settings/balance", "/marketplace/balance", "/others/team-members"];
 const ROLE_PAGES: Record<Member["role"], string[]> = {
   admin: [],
   cs: ["/chat", "/customers", "/orders", "/products", "/marketplace/orders", "/marketplace/products", "/others/inventory", "/others/payments", "/whatsapp-rotator/chats"],
