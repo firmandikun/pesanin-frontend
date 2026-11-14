@@ -211,7 +211,6 @@ export default function ShopeeOrders() {
   const chosen = rows.filter((o) => selected.includes(o.id));
   // Only orders with a next step (atur pengiriman / cetak label) can be picked, as in Seller Centre.
   const selectableRows = rows.filter((o) => needsShipping(o) || canPrint(o));
-  const allChosen = selectableRows.length > 0 && selectableRows.every((o) => selected.includes(o.id));
   const shipChosen = chosen.filter(needsShipping);
   const printChosen = chosen.filter(canPrint);
   const total = (data?.total ?? 0) + (page === 1 ? bookings.length : 0);
@@ -219,7 +218,10 @@ export default function ShopeeOrders() {
   // Pengiriman Kilat reservations ready to print (bulk / select).
   const printableBk = bookings.filter((b) => b.booking_status === "PROCESSED");
   const chosenBk = printableBk.filter((b) => selectedBk.includes(b.id));
-  const allBkChosen = printableBk.length > 0 && printableBk.every((b) => selectedBk.includes(b.id));
+  // One master "select all" covers both orders and Pengiriman Kilat reservations.
+  const anySelectable = selectableRows.length > 0 || printableBk.length > 0;
+  const allChosen = anySelectable && selectableRows.every((o) => selected.includes(o.id)) && printableBk.every((b) => selectedBk.includes(b.id));
+  const selectAll = (on: boolean) => { setSelected(on ? selectableRows.map((o) => o.id) : []); setSelectedBk(on ? printableBk.map((b) => b.id) : []); };
 
   async function print(list: Order[]) {
     setBusy("print"); setNotice("");
@@ -371,16 +373,11 @@ export default function ShopeeOrders() {
           </div>
         )}
 
-        {printableBk.length > 0 && (
+        {selectedBk.length > 0 && (
           <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-teal-100 bg-teal-50/70 px-4 py-2.5 text-sm">
-            <label className="flex items-center gap-2 font-semibold text-teal-800">
-              <input type="checkbox" className="h-4 w-4 accent-teal-600" checked={allBkChosen}
-                ref={(el) => { if (el) el.indeterminate = selectedBk.length > 0 && !allBkChosen; }}
-                onChange={(e) => setSelectedBk(e.target.checked ? printableBk.map((b) => b.id) : [])} />
-              <span className="flex items-center gap-1.5"><KilatIcon size={14} />Pengiriman Kilat{chosenBk.length ? ` · ${chosenBk.length} dipilih` : ` · ${printableBk.length} siap cetak`}</span>
-            </label>
-            <button onClick={() => printBookings(chosenBk.length ? chosenBk : printableBk)} disabled={!!busy} className="flex items-center gap-1.5 font-semibold text-teal-700 hover:underline">{busy === "printbk" ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}Cetak Label Massal ({chosenBk.length || printableBk.length})</button>
-            {selectedBk.length > 0 && <button onClick={() => setSelectedBk([])} className="ml-auto text-xs font-semibold text-slate-500 hover:text-navy">Batal pilih</button>}
+            <b className="flex items-center gap-1.5 text-teal-800"><KilatIcon size={14} />Pengiriman Kilat · {chosenBk.length} dipilih</b>
+            <button onClick={() => printBookings(chosenBk)} disabled={!!busy} className="flex items-center gap-1.5 font-semibold text-teal-700 hover:underline">{busy === "printbk" ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}Cetak Label Massal ({chosenBk.length})</button>
+            <button onClick={() => setSelectedBk([])} className="ml-auto text-xs font-semibold text-slate-500 hover:text-navy">Batal pilih</button>
           </div>
         )}
 
@@ -388,10 +385,10 @@ export default function ShopeeOrders() {
           <div className="min-w-[960px]">
             <div className={`${COLS} rounded-t-lg bg-slate-50 px-4 py-3 text-[13px] font-medium text-slate-500`}>
               <span className="flex items-center gap-3">
-                {selectableRows.length > 0 && (
-                  <input type="checkbox" aria-label="Pilih semua pesanan di halaman ini" className="h-4 w-4 accent-brand-600"
-                    checked={allChosen} ref={(el) => { if (el) el.indeterminate = selected.length > 0 && !allChosen; }}
-                    onChange={(e) => setSelected(e.target.checked ? selectableRows.map((o) => o.id) : [])} />
+                {anySelectable && (
+                  <input type="checkbox" aria-label="Pilih semua (pesanan & Pengiriman Kilat)" className="h-4 w-4 accent-brand-600"
+                    checked={allChosen} ref={(el) => { if (el) el.indeterminate = (selected.length > 0 || selectedBk.length > 0) && !allChosen; }}
+                    onChange={(e) => selectAll(e.target.checked)} />
                 )}
                 Produk
               </span><span>Dibayar Pembeli</span><span>Status · Batas Waktu Pengiriman</span><span>Jasa Kirim</span><span>Aksi</span>
