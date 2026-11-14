@@ -6,7 +6,7 @@ import { CardTitle, EmptyState, Panel, RangeButton, useRange } from "@/component
 import { Select } from "@/components/Select";
 
 export default function ProductReports() {
-  const [range, setRange] = useRange(0);
+  const [range, setRange] = useRange();
   const [pid, setPid] = useState("");
   const [d, setD] = useState<any>(null);
   useEffect(() => { api(`/product-reports?${new URLSearchParams({ ...range, ...(pid ? { product_id: pid } : {}) })}`).then(setD); }, [range, pid]);

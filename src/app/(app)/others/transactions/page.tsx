@@ -8,7 +8,7 @@ import { EmptyState, Pager, Panel, RangeButton, SearchBox, useRange } from "@/co
 
 export default function Transactions() {
   const { user } = useAuth();
-  const [range, setRange] = useRange(183);
+  const [range, setRange] = useRange();
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [d, setD] = useState<any>(null);

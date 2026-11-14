@@ -9,7 +9,7 @@ import { askConfirm } from "@/components/Dialogs";
 
 export default function Rotators() {
   const router = useRouter();
-  const [range, setRange] = useRange(183);
+  const [range, setRange] = useRange();
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<any[] | null>(null);
   const [page, setPage] = useState(1);

@@ -1,4 +1,5 @@
 "use client";
+import { todayRange } from "@/components/DatePicker";
 
 import {
   AlertTriangle, ArrowRight, CheckCircle2, ChevronRight, CircleDollarSign,
@@ -48,7 +49,7 @@ export default function ShopDashboard({ params }: { params: Promise<{ id: string
   const [syncing, setSyncing] = useState(false);
   const [notice, setNotice] = useState("");
 
-  const range = useMemo(() => ({ from: isoDate(new Date(Date.now() - 29 * 864e5)), to: isoDate(new Date()) }), []);
+  const range = useMemo(() => todayRange(), []);
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -108,17 +109,17 @@ export default function ShopDashboard({ params }: { params: Promise<{ id: string
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          [ShoppingBag, "Omzet 30 hari", rupiah(profit?.revenue ?? 0), `${profit?.orders ?? 0} pesanan`, "bg-blue-50 text-blue-600"],
+          [ShoppingBag, "Omzet hari ini", rupiah(profit?.revenue ?? 0), `${profit?.orders ?? 0} pesanan`, "bg-blue-50 text-blue-600"],
           [TrendingUp, "Laba bersih", rupiah(profit?.net_profit ?? 0), `Margin ${profit?.margin ?? 0}%`, "bg-emerald-50 text-emerald-600"],
           [Package, "Produk aktif", String(listing?.total ?? shop.listings_count), `${listing?.stock ?? 0} total stok`, "bg-violet-50 text-violet-600"],
-          [Megaphone, "Biaya iklan", rupiah(profit?.ads ?? 0), "30 hari terakhir", "bg-orange-50 text-orange-600"],
+          [Megaphone, "Biaya iklan", rupiah(profit?.ads ?? 0), "hari ini", "bg-orange-50 text-orange-600"],
         ].map(([Icon, label, value, sub, tone]) => {
           const I = Icon as typeof Store;
           return <Panel key={label as string} className="flex items-start gap-3 p-4"><span className={`flex h-10 w-10 items-center justify-center rounded-xl ${tone}`}><I size={19} /></span><div><p className="text-xs font-medium text-slate-500">{label as string}</p><p className="text-xl font-bold text-navy">{value as string}</p><p className="text-xs text-slate-500">{sub as string}</p></div></Panel>;
         })}
       </div>
 
-      {profit && <Panel className="p-5"><div className="mb-4 flex items-center justify-between"><div><h2 className="font-bold text-navy">Profit funnel</h2><p className="text-xs text-slate-500">Alur omzet menjadi laba bersih selama 30 hari</p></div><Link href={`/reports/profit?channel=shopee&shop_id=${shop.id}`} className="text-sm font-semibold text-brand-600">Lihat laporan <ChevronRight className="inline" size={15} /></Link></div>
+      {profit && <Panel className="p-5"><div className="mb-4 flex items-center justify-between"><div><h2 className="font-bold text-navy">Profit funnel</h2><p className="text-xs text-slate-500">Alur omzet menjadi laba bersih hari ini</p></div><Link href={`/reports/profit?channel=shopee&shop_id=${shop.id}`} className="text-sm font-semibold text-brand-600">Lihat laporan <ChevronRight className="inline" size={15} /></Link></div>
         <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">{funnel.map(([label, value, tone], i) => <div key={label} className={`relative overflow-hidden rounded-xl p-4 text-white ${tone}`}><p className="text-[11px] font-semibold uppercase tracking-wide text-white/80">{label}</p><p className="mt-1 text-lg font-bold">{value < 0 ? "− " : ""}{rupiah(Math.abs(value))}</p>{i < funnel.length - 1 && <ArrowRight size={18} className="absolute right-3 top-1/2 hidden -translate-y-1/2 opacity-60 lg:block" />}</div>)}</div>
       </Panel>}
 

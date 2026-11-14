@@ -40,7 +40,7 @@ const STEPS: { key: string; title: string; href: string; icon: LucideIcon }[] = 
 ];
 
 export default function Dashboard() {
-  const [days, setDays] = useState(7);
+  const [days, setDays] = useState(1);
   const [d, setD] = useState<Data | null>(null);
   const [hideSetup, setHideSetup] = useState(true);
 

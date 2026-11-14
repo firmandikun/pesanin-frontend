@@ -7,7 +7,7 @@ import { EmptyState, Panel, RangeButton, useRange } from "@/components/kit";
 const Coin = ({ c }: { c: string }) => <span className={`flex h-9 w-9 items-center justify-center rounded-full ${c}`}><span className="h-4 w-5 rounded bg-white/80" /></span>;
 
 export default function Balance() {
-  const [range, setRange] = useRange(0);
+  const [range, setRange] = useRange();
   const [d, setD] = useState<any>(null);
   useEffect(() => { api(`/balance?${new URLSearchParams(range)}`).then(setD); }, [range]);
   const p = d?.period ?? {};

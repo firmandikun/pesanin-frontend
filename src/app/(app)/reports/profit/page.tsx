@@ -3,7 +3,7 @@ import { AlertTriangle, ArrowDownRight, Megaphone, Receipt, Store, TrendingUp, W
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
-import { DateRangePicker } from "@/components/DatePicker";
+import { DateRangePicker, todayRange } from "@/components/DatePicker";
 import { ShopeeMark } from "@/components/ChannelBadge";
 import { PageHead, Panel } from "@/components/kit";
 import { Select } from "@/components/Select";
@@ -44,7 +44,7 @@ function DailyChart({ rows }: { rows: Data["daily"] }) {
 
 function Profit() {
   const sp = useSearchParams();
-  const [range, setRange] = useState({ from: isoDate(new Date(Date.now() - 29 * 864e5)), to: isoDate(new Date()) });
+  const [range, setRange] = useState(todayRange());
   const [channel, setChannel] = useState(sp.get("channel") ?? "");
   const [shopId, setShopId] = useState(sp.get("shop_id") ?? "");
   const [shops, setShops] = useState<{ id: number; shop_name: string }[]>([]);

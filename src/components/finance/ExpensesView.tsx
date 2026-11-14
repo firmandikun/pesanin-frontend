@@ -3,7 +3,7 @@
 import { Info, Megaphone, Pencil, Plus, Receipt, Search, Trash2, Wallet } from "lucide-react";
 import { askConfirm } from "@/components/Dialogs";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { DatePicker, DateRangePicker } from "@/components/DatePicker";
+import { DatePicker, DateRangePicker, todayRange } from "@/components/DatePicker";
 import { Dialog, DialogActions, FieldLabel, Panel } from "@/components/kit";
 import { Select } from "@/components/Select";
 import { MoneyInput } from "@/components/ui";
@@ -28,7 +28,7 @@ const TONE: Record<string, string> = {
 
 /** Pengeluaran list + form. With shopId it is scoped to one Shopee shop, otherwise it covers the whole business. */
 export function ExpensesView({ shopId, shops = [] }: { shopId?: number; shops?: { id: number; shop_name: string }[] }) {
-  const [range, setRange] = useState({ from: isoDate(new Date(Date.now() - 29 * 864e5)), to: isoDate(new Date()) });
+  const [range, setRange] = useState(todayRange());
   const [category, setCategory] = useState("");
   const [search, setSearch] = useState("");
   const [data, setData] = useState<Data | null>(null);

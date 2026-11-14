@@ -2,7 +2,7 @@
 import { endOfMonth, format, isValid, parseISO, startOfMonth, subDays, subMonths } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { CalendarDays, ChevronDown, Clock, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { DayPicker, type DateRange } from "react-day-picker";
 import "react-day-picker/style.css";
 
@@ -10,23 +10,52 @@ export type Range = { from: string; to: string };
 const iso = (d: Date) => format(d, "yyyy-MM-dd");
 const parse = (s?: string | null) => { const d = s ? parseISO(s) : null; return d && isValid(d) ? d : undefined; };
 
-/** Popover that closes on outside click / Escape and flips when near the viewport edge. */
+/** Today as a range, the default of every date filter in the app. */
+export const todayRange = (): Range => ({ from: iso(new Date()), to: iso(new Date()) });
+
+/**
+ * Popover that closes on outside click / Escape. It is placed with fixed positioning from its real measured size:
+ * under the trigger (or above it when there is no room below), aligned to the trigger's left edge, or its right edge
+ * when that would overflow, and always kept inside the viewport.
+ */
 function usePopover() {
   const [open, setOpen] = useState(false);
-  const [place, setPlace] = useState({ up: false, right: false });
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const r = ref.current?.getBoundingClientRect();
-    if (r) setPlace({ up: innerHeight - r.bottom < 420 && r.top > 420, right: r.left + 640 > innerWidth });
-    const close = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (!open) { setPos(null); return; }
+    const m = 8;
+    const place = () => {
+      const r = ref.current?.getBoundingClientRect();
+      const p = panelRef.current;
+      if (!r || !p) return;
+      const w = p.offsetWidth, h = p.offsetHeight;
+      let left = r.left + w > innerWidth - m ? r.right - w : r.left;
+      left = Math.max(m, Math.min(left, innerWidth - w - m));
+      let top = r.bottom + 8;
+      if (top + h > innerHeight - m && r.top - h - 8 >= m) top = r.top - h - 8;
+      setPos({ top, left });
+    };
+    place();
+    const close = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (!ref.current?.contains(t) && !panelRef.current?.contains(t)) setOpen(false);
+    };
     const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
     document.addEventListener("mousedown", close);
     document.addEventListener("keydown", esc);
-    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", esc); };
+    addEventListener("resize", place);
+    addEventListener("scroll", place, true);
+    return () => {
+      document.removeEventListener("mousedown", close); document.removeEventListener("keydown", esc);
+      removeEventListener("resize", place); removeEventListener("scroll", place, true);
+    };
   }, [open]);
-  const panel = `absolute z-50 rounded-2xl border border-slate-200 bg-white shadow-[0_12px_40px_-12px_rgba(15,23,42,0.25)] ${place.up ? "bottom-full mb-2" : "top-full mt-2"} ${place.right ? "right-0" : "left-0"}`;
-  return { open, setOpen, ref, panel };
+  const panel = "z-50 max-h-[calc(100vh-16px)] max-w-[calc(100vw-16px)] overflow-auto rounded-2xl border border-slate-200 bg-white shadow-[0_12px_40px_-12px_rgba(15,23,42,0.25)]";
+  // Rendered off-screen (but measurable) until the first placement, so it never flashes in the wrong spot.
+  const panelStyle: CSSProperties = pos ? { position: "fixed", top: pos.top, left: pos.left } : { position: "fixed", top: -9999, left: -9999, visibility: "hidden" };
+  return { open, setOpen, ref, panelRef, panel, panelStyle };
 }
 
 const triggerCls = "flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 transition hover:border-slate-300 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-100";
@@ -45,6 +74,9 @@ const PRESETS: [string, () => [Date, Date]][] = [
 export function DateRangePicker({ value, onChange, className = "" }: { value: Range; onChange: (v: Range) => void; className?: string }) {
   const pop = usePopover();
   const [draft, setDraft] = useState<DateRange | undefined>();
+  // Two months side by side only when the screen is wide enough for them.
+  const [months, setMonths] = useState(2);
+  useEffect(() => { if (pop.open) setMonths(innerWidth >= 900 ? 2 : 1); }, [pop.open]);
   useEffect(() => { if (pop.open) setDraft({ from: parse(value.from), to: parse(value.to) }); }, [pop.open]); // eslint-disable-line react-hooks/exhaustive-deps
   const label = (d?: string) => (parse(d) ? format(parse(d)!, "dd MMM", { locale: localeId }) : "-");
   const apply = (r?: DateRange) => { if (r?.from) { onChange({ from: iso(r.from), to: iso(r.to ?? r.from) }); pop.setOpen(false); } };
@@ -57,7 +89,7 @@ export function DateRangePicker({ value, onChange, className = "" }: { value: Ra
         <ChevronDown size={15} className={`text-slate-400 transition ${pop.open ? "rotate-180" : ""}`} />
       </button>
       {pop.open && (
-        <div className={`${pop.panel} flex w-max animate-[fadeIn_.15s_ease-out] overflow-hidden`}>
+        <div ref={pop.panelRef} style={pop.panelStyle} className={`${pop.panel} flex w-max animate-[fadeIn_.15s_ease-out]`}>
           <ul className="hidden w-44 shrink-0 border-r border-slate-100 p-2 text-sm sm:block">
             {PRESETS.map(([l, fn]) => {
               const [f, t] = fn();
@@ -69,7 +101,7 @@ export function DateRangePicker({ value, onChange, className = "" }: { value: Ra
             })}
           </ul>
           <div className="p-3">
-            <DayPicker mode="range" locale={localeId} numberOfMonths={2} selected={draft} onSelect={setDraft} defaultMonth={subMonths(parse(value.to) ?? new Date(), 1)} disabled={{ after: new Date() }} className="fk-dp" />
+            <DayPicker key={months} mode="range" locale={localeId} numberOfMonths={months} selected={draft} onSelect={setDraft} defaultMonth={months === 2 ? subMonths(parse(value.to) ?? new Date(), 1) : parse(value.to) ?? new Date()} disabled={{ after: new Date() }} className="fk-dp" />
             <div className="mt-2 flex items-center justify-between gap-3 border-t border-slate-100 pt-3 text-sm">
               <span className="text-slate-500">{draft?.from ? `${format(draft.from, "d MMM yyyy", { locale: localeId })} – ${draft.to ? format(draft.to, "d MMM yyyy", { locale: localeId }) : "…"}` : "Pilih tanggal awal"}</span>
               <span className="flex gap-2">
@@ -96,7 +128,7 @@ export function DatePicker({ value, onChange, placeholder = "Pilih tanggal", min
         {clearable && d ? <X size={15} className="text-slate-400 hover:text-slate-700" onClick={(e) => { e.stopPropagation(); onChange(""); }} /> : <ChevronDown size={15} className="text-slate-400" />}
       </button>
       {pop.open && (
-        <div className={`${pop.panel} p-3`}>
+        <div ref={pop.panelRef} style={pop.panelStyle} className={`${pop.panel} p-3`}>
           <DayPicker mode="single" locale={localeId} selected={d} defaultMonth={d ?? new Date()} onSelect={(x) => { if (x) { onChange(iso(x)); pop.setOpen(false); } }}
             disabled={[...(minDate ? [{ before: minDate }] : []), ...(maxDate ? [{ after: maxDate }] : [])]} className="fk-dp" />
           <div className="flex justify-between border-t border-slate-100 pt-2 text-sm">

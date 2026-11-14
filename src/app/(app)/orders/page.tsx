@@ -7,7 +7,7 @@ import { TRAFFIC, trafficOf } from "@/lib/traffic";
 import { ShippingStatus } from "@/components/ShippingStatus";
 import { actionCell, RowAction } from "@/components/RowAction";
 import { TrackingModal } from "@/components/TrackingModal";
-import { DateRangePicker } from "@/components/DatePicker";
+import { DateRangePicker, todayRange } from "@/components/DatePicker";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import {
@@ -47,7 +47,7 @@ function Orders() {
     search: sp.get("search") ?? "", product_id: "", status: sp.get("status") ?? "", payment_status: sp.get("payment_status") ?? "",
     payment_method: sp.get("payment_method") ?? "", courier: "", pickup: "", duplicates: "",
     channel: sp.get("channel") ?? "", marketplace_shop_id: "", traffic: "",
-    from: isoDate(new Date(Date.now() - 29 * 864e5)), to: isoDate(new Date()),
+    ...todayRange(),
   });
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);

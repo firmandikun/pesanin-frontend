@@ -13,7 +13,7 @@ export default function Payments() {
   const { user } = useAuth();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
-  const [range, setRange] = useRange(0);
+  const [range, setRange] = useRange();
   const res = useResource<Conf>("payment-confirmations", { search: q, ...(status ? { status } : {}) });
   const [sel, setSel] = useState<number[]>([]);
   const [editPage, setEditPage] = useState(false);

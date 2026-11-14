@@ -56,7 +56,8 @@ export const rupiah = (n: number | string | null | undefined) =>
 export const fmtDate = (s: string) =>
   new Date(s).toLocaleString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
-export const isoDate = (d: Date) => d.toISOString().slice(0, 10);
+/** YYYY-MM-DD in the user's local time (toISOString is UTC: before 07:00 WIB it would give yesterday). */
+export const isoDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 export const STATUS_LABEL: Record<string, string> = {
   pending: "Pending", processing: "Processing", completed: "Completed", cancelled: "Cancelled", refunded: "Refunded",
