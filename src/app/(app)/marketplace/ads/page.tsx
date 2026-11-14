@@ -10,7 +10,7 @@ type Metrics = { expense: number; gmv: number; clicks: number; orders: number };
 type Item = { item_id: number; name: string; image: string | null; product_id: number | null };
 type Campaign = Metrics & { id: number; campaign_id: number; name: string; status: string | null; ad_type: string | null; bidding_method: string | null; budget: number | null; impressions: number; items_sold: number; items: Item[] };
 type ProductRow = Item & Metrics & { campaigns: number; shared: boolean };
-type Data = { from: string; to: string; total: Metrics & { impressions: number }; daily: { date: string; expense: number }[]; campaigns: Campaign[]; products: ProductRow[]; topup_url: string | null; balance: { amount: number; shops: number; checked_at: string | null; stale: boolean } };
+type Data = { active_only?: boolean; counts?: { campaigns: number; active: number }; from: string; to: string; total: Metrics & { impressions: number }; daily: { date: string; expense: number }[]; campaigns: Campaign[]; products: ProductRow[]; topup_url: string | null; balance: { amount: number; shops: number; checked_at: string | null; stale: boolean } };
 type Shop = { id: number; shop_name: string; status: string; is_demo: boolean };
 
 /** Product selection (manual = 1 product, auto = Shopee picks) + bidding (manual/auto), as Seller Centre names them. */
@@ -28,13 +28,15 @@ export default function ShopeeAds() {
   const [shop, setShop] = useState("");
   const [d, setD] = useState<Data | null>(null);
   const [view, setView] = useState<"products" | "campaigns">("products");
+  // Lists show running ads only by default; the totals above always cover every ad.
+  const [activeOnly, setActiveOnly] = useState(true);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
 
   useEffect(() => { api<{ shops: Shop[] }>("/marketplace/shops").then((r) => setShops(r.shops.filter((s) => s.status !== "disconnected"))); }, []);
   const load = useCallback(() => {
-    api<Data>(`/marketplace/ads?${new URLSearchParams({ from: range.from, to: range.to, ...(shop ? { shop } : {}) })}`).then(setD);
-  }, [range, shop]);
+    api<Data>(`/marketplace/ads?${new URLSearchParams({ from: range.from, to: range.to, ...(shop ? { shop } : {}), ...(activeOnly ? {} : { all: "1" }) })}`).then(setD);
+  }, [range, shop, activeOnly]);
   useEffect(() => { load(); }, [load]);
 
   const sync = async () => {
@@ -110,17 +112,28 @@ export default function ShopeeAds() {
             </Panel>
           )}
 
-          <div className="flex w-fit rounded-xl bg-white p-1">
-            {([["products", `Per produk (${d.products.length})`], ["campaigns", `Per kampanye (${d.campaigns.length})`]] as const).map(([k, l]) => (
-              <button key={k} onClick={() => setView(k)} className={`h-9 rounded-lg px-4 text-sm font-semibold ${view === k ? "bg-navy text-white" : "text-slate-600 hover:bg-slate-100"}`}>{l}</button>
-            ))}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex w-fit rounded-xl bg-white p-1">
+              {([["products", `Per produk (${d.products.length})`], ["campaigns", `Per kampanye (${d.campaigns.length})`]] as const).map(([k, l]) => (
+                <button key={k} onClick={() => setView(k)} className={`h-9 rounded-lg px-4 text-sm font-semibold ${view === k ? "bg-navy text-white" : "text-slate-600 hover:bg-slate-100"}`}>{l}</button>
+              ))}
+            </div>
+            <div className="flex w-fit rounded-xl bg-white p-1 text-sm">
+              <button onClick={() => setActiveOnly(true)} className={`h-9 rounded-lg px-4 font-semibold ${activeOnly ? "bg-emerald-600 text-white" : "text-slate-600 hover:bg-slate-100"}`}>Hanya iklan aktif{d.counts ? ` (${d.counts.active})` : ""}</button>
+              <button onClick={() => setActiveOnly(false)} className={`h-9 rounded-lg px-4 font-semibold ${!activeOnly ? "bg-navy text-white" : "text-slate-600 hover:bg-slate-100"}`}>Semua iklan{d.counts ? ` (${d.counts.campaigns})` : ""}</button>
+            </div>
           </div>
 
           {(view === "products" ? d.products.length : d.campaigns.length) === 0 ? (
             <Panel className="flex flex-col items-center gap-2 p-10 text-center">
               <Megaphone size={26} className="text-slate-300" />
+              {activeOnly && (d.counts?.campaigns ?? 0) > 0 ? (<>
+                <p className="font-semibold text-navy">Tidak ada iklan yang sedang berjalan</p>
+                <button onClick={() => setActiveOnly(false)} className="text-sm font-semibold text-brand-600">Lihat semua iklan ({d.counts?.campaigns})</button>
+              </>) : <>
               <p className="font-semibold text-navy">Belum ada kampanye Iklan Produk</p>
               <p className="max-w-md text-sm text-slate-500">Buat iklan di Seller Centre Shopee → Iklan Shopee, lalu klik <b>Ambil data iklan</b>. Data juga diambil otomatis setiap hari jam 06.00.</p>
+              </>}
             </Panel>
           ) : view === "products" ? (
             <Panel className="overflow-x-auto">
