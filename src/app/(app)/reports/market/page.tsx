@@ -9,7 +9,9 @@ import { api, ApiError, rupiah } from "@/lib/api";
 
 type Status = { shopee: boolean; trends: boolean; source: { shopee: "own" | "pesanin" | null; trends: "own" | "pesanin" | null }; quota: { limit: number | null; used: number }; periods: Record<string, string> };
 type Item = { id: string; name: string; image: string | null; link: string | null; price_min: number; price_max: number; discount: number; sold: number; rating: number; commission: number; shop: string | null; shop_type: string | null; revenue_estimate: number };
-type ShopeeRes = { items: Item[]; has_next: boolean; summary: { count: number; sold: number; revenue_estimate: number; price_min: number | null; price_median: number | null; price_max: number | null; rating: number | null; mall_share: number; top_shops: { shop: string; products: number; sold: number }[] } };
+type Band = { min: number; max: number; products: number; sold: number; sold_share: number };
+type Analysis = { price_bands: Band[]; best_band: Band | null; shops: number; top3_share: number; non_mall_share: number; commission: { min: number; median: number; max: number } | null };
+type ShopeeRes = { items: Item[]; has_next: boolean; analysis: Analysis; summary: { count: number; sold: number; revenue_estimate: number; price_min: number | null; price_median: number | null; price_max: number | null; rating: number | null; mall_share: number; top_shops: { shop: string; products: number; sold: number }[] } };
 type TrendRes = { keywords: string[]; points: { date: string; timestamp: number; values: Record<string, number> }[]; summary: { keyword: string; average: number; latest: number; change: number | null; peak: string | null }[] };
 type Related = { rising: { query: string; value: string | null; score: number }[]; top: { query: string; value: string | null; score: number }[]; regions: { region: string; value: number }[] };
 
@@ -126,6 +128,8 @@ function ShopeeResearch({ onTrend, onSearched }: { onTrend: (k: string) => void;
         </>
       )}
 
+      {res && res.analysis && res.items.length > 0 && <ProductAnalysis a={res.analysis} />}
+
       {res && (
         <Panel className="overflow-x-auto">
           <table className="w-full min-w-[860px] text-sm">
@@ -166,6 +170,55 @@ function ShopeeResearch({ onTrend, onSearched }: { onTrend: (k: string) => void;
         </Panel>
       )}
     </div>
+  );
+}
+
+/** Product analysis over the top products: price sweet spot, market concentration, commission range. */
+function ProductAnalysis({ a }: { a: Analysis }) {
+  const max = Math.max(1, ...a.price_bands.map((b) => b.sold_share));
+  const band = (b: Band) => (b.min === b.max ? rupiah(b.min) : `${rupiah(b.min)} – ${rupiah(b.max)}`);
+  const verdict = (() => {
+    const out: string[] = [];
+    if (a.best_band && a.best_band.sold_share >= 35) out.push(`Penjualan paling terkonsentrasi di harga ${band(a.best_band)} (${a.best_band.sold_share}% dari total terjual). Ini kisaran harga paling aman untuk ikut main.`);
+    if (a.top3_share >= 60) out.push(`Pasar dikuasai sedikit toko: 3 toko teratas memegang ${a.top3_share}% penjualan — sulit ditembus pemain baru.`);
+    else if (a.non_mall_share >= 60) out.push(`${a.non_mall_share}% penjualan dari toko non-Mall — peluang untuk penjual baru masih terbuka.`);
+    return out.join(" ");
+  })();
+
+  return (
+    <Panel className="space-y-4 p-5">
+      <div><h2 className="font-bold text-navy">Analisis produk</h2><p className="text-xs text-slate-500">Dari produk teratas untuk kata kunci ini.</p></div>
+
+      {a.price_bands.length > 0 && (
+        <div>
+          <p className="mb-2 text-sm font-semibold text-slate-700">Di harga berapa produk paling laku?</p>
+          <div className="space-y-1.5">
+            {a.price_bands.map((b, i) => {
+              const best = a.best_band && b.min === a.best_band.min && b.max === a.best_band.max;
+              return (
+                <div key={i} className="flex items-center gap-3 text-sm">
+                  <span className="w-36 shrink-0 text-right text-xs text-slate-500">{band(b)}</span>
+                  <div className="h-6 flex-1 overflow-hidden rounded bg-slate-100">
+                    <div className={`flex h-full items-center rounded ${best ? "bg-brand-500" : "bg-slate-300"}`} style={{ width: `${Math.max(3, (b.sold_share / max) * 100)}%` }}>
+                      <span className="px-2 text-xs font-semibold text-white">{b.sold_share}%</span>
+                    </div>
+                  </div>
+                  <span className="w-28 shrink-0 text-xs text-slate-400">{short(b.sold)} terjual · {b.products} produk</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Stat label="Konsentrasi pasar (3 toko teratas)" value={`${a.top3_share}%`} hint={`${a.shops} toko di hasil ini`} />
+        <Stat label="Penjualan dari toko non-Mall" value={`${a.non_mall_share}%`} hint={a.non_mall_share >= 60 ? "Peluang pemain baru besar" : "Didominasi Mall/brand"} />
+        <Stat label="Rentang komisi afiliasi" value={a.commission ? `${String(a.commission.min).replace(".", ",")}–${String(a.commission.max).replace(".", ",")}%` : "-"} hint={a.commission ? `median ${String(a.commission.median).replace(".", ",")}%` : undefined} />
+      </div>
+
+      {verdict && <p className="rounded-lg bg-brand-50 p-3 text-sm text-brand-900">{verdict}</p>}
+    </Panel>
   );
 }
 
