@@ -1,6 +1,6 @@
 "use client";
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, PlusCircle, Search, X } from "lucide-react";
-import { DateRangePicker } from "@/components/DatePicker";
+import { DateRangePicker, todayRange } from "@/components/DatePicker";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -133,8 +133,9 @@ export function Pager({ page, last, onPage, perPage, onPerPage, total }: { page:
 }
 
 const fmtShort = (d: string) => new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
-export function useRange(days = 6) {
-  return useState({ from: isoDate(new Date(Date.now() - days * 864e5)), to: isoDate(new Date()) });
+/** Date filter state; every date filter starts on today. */
+export function useRange() {
+  return useState(todayRange());
 }
 export function RangeButton({ value, onChange }: { value: { from: string; to: string }; onChange: (v: { from: string; to: string }) => void }) {
   return <DateRangePicker value={value} onChange={onChange} />;

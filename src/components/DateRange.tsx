@@ -1,9 +1,9 @@
 "use client";
-import { isoDate } from "@/lib/api";
-import { DateRangePicker } from "./DatePicker";
+import { DateRangePicker, todayRange } from "./DatePicker";
 
+/** Every date filter starts on today. */
 export function useDefaultRange() {
-  return { from: isoDate(new Date(Date.now() - 29 * 864e5)), to: isoDate(new Date()) };
+  return todayRange();
 }
 
 export function DateRange({ value, onChange }: { value: { from: string; to: string }; onChange: (v: { from: string; to: string }) => void }) {

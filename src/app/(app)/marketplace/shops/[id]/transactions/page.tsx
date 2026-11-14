@@ -2,7 +2,7 @@
 
 import { AlertTriangle, ChevronDown, ChevronRight, Download, Printer, RefreshCcw, Search, Store } from "lucide-react";
 import { Fragment, use, useCallback, useEffect, useMemo, useState } from "react";
-import { DateRangePicker } from "@/components/DatePicker";
+import { DateRangePicker, todayRange } from "@/components/DatePicker";
 import { ShopeeMark } from "@/components/ChannelBadge";
 import { PageHead, Pager, Panel } from "@/components/kit";
 import { ShopWorkspaceNav } from "@/components/marketplace/ShopWorkspaceNav";
@@ -32,7 +32,7 @@ const labels = Object.fromEntries(FILTERS);
 export default function Transactions({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params); const shopId = Number(id);
   const [shop, setShop] = useState<Shop | null>(null);
-  const [range, setRange] = useState({ from: isoDate(new Date(Date.now() - 29 * 864e5)), to: isoDate(new Date()) });
+  const [range, setRange] = useState(todayRange());
   const [status, setStatus] = useState(""); const [search, setSearch] = useState("");
   const [page, setPage] = useState(1); const [perPage, setPerPage] = useState(10);
   const [data, setData] = useState<Data | null>(null); const [expanded, setExpanded] = useState<number | null>(null);

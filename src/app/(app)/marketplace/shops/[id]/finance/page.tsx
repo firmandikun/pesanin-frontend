@@ -3,7 +3,7 @@
 import { AlertTriangle, BarChart3, Download, ReceiptText, Store, TrendingUp, Wallet } from "lucide-react";
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
-import { DateRangePicker } from "@/components/DatePicker";
+import { DateRangePicker, todayRange } from "@/components/DatePicker";
 import { PageHead, Panel } from "@/components/kit";
 import { ShopWorkspaceNav } from "@/components/marketplace/ShopWorkspaceNav";
 import { api, isoDate, rupiah } from "@/lib/api";
@@ -16,7 +16,7 @@ export default function Finance({ params }: { params: Promise<{ id: string }> })
   const { id } = use(params); const shopId = Number(id);
   const [shop, setShop] = useState<Shop | null>(null); const [data, setData] = useState<Data | null>(null);
   const [tab, setTab] = useState<"profit" | "cash">("profit");
-  const [range, setRange] = useState({ from: isoDate(new Date(Date.now() - 29 * 864e5)), to: isoDate(new Date()) });
+  const [range, setRange] = useState(todayRange());
   useEffect(() => { api<{ shops: Shop[] }>("/marketplace/shops").then((x) => setShop(x.shops.find((s) => s.id === shopId) ?? null)); }, [shopId]);
   useEffect(() => { setData(null); api<Data>(`/reports/profit?channel=shopee&shop_id=${shopId}&from=${range.from}&to=${range.to}`).then(setData); }, [shopId, range]);
   if (!shop) return <div className="py-24 text-center text-sm text-slate-400">Memuat laporan keuangan…</div>;

@@ -9,7 +9,7 @@ const dur = (s: number) => [Math.floor(s / 3600), Math.floor((s % 3600) / 60), M
 const Growth = ({ v }: { v: number }) => <span className="ml-2 inline-flex items-center gap-0.5 rounded-full bg-[#3d7cf0] px-2 py-0.5 text-[11px] font-semibold text-white"><ArrowUp size={10} />{v >= 0 ? "+" : ""}{v}%</span>;
 
 export default function LandingReports() {
-  const [range, setRange] = useRange(6);
+  const [range, setRange] = useRange();
   const [pageId, setPageId] = useState("");
   const [d, setD] = useState<any>(null);
   const [tab, setTab] = useState<"referrers" | "urls">("referrers");
