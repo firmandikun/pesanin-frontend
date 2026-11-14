@@ -3,23 +3,30 @@ import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { redrawItemTable, type SkuRow, type TextItem } from "@/lib/awbTable";
 import { API_URL, getToken } from "@/lib/api";
 
-type AwbItem = { item_sku?: string | null; model_sku?: string | null; sku?: string | null; qty?: number };
+type AwbItem = { item_sku?: string | null; model_sku?: string | null; sku?: string | null; qty?: number; name?: string | null; variant?: string | null };
 type AwbOrder = {
   id: number; marketplace_shop_id?: number | null; courier?: string | null; items?: AwbItem[] | null;
   /** Numbers printed on the label (order / reservation), used to match a PDF page to its order. */
   external_order_sn?: string | null; booking_sn?: string | null; order_sn?: string | null;
 };
 
-/** Download one Shopee air waybill PDF (orders, or "Pengiriman Kilat" reservations, of one shop and one courier). */
-async function fetchAwb(ids: number[], kind: "order" | "booking" = "order"): Promise<Uint8Array> {
+/**
+ * Download one Shopee air waybill PDF (orders, or "Pengiriman Kilat" reservations, of one shop and one courier).
+ * `skipped`: numbers the server left out because the parcel is already on its way (moved to "Dikirim").
+ */
+async function fetchAwb(ids: number[], kind: "order" | "booking" = "order"): Promise<{ bytes: Uint8Array; skipped: string[] }> {
   const res = await fetch(`${API_URL}/labels/shopee/${kind === "booking" ? "booking-pdf" : "pdf"}`, {
     method: "POST",
     headers: { Authorization: `Bearer ${getToken()}`, "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(kind === "booking" ? { booking_ids: ids } : { order_ids: ids }),
   });
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? "Resi Shopee belum bisa diambil");
-  return new Uint8Array(await res.arrayBuffer());
+  const skipped = (res.headers.get("X-Awb-Skipped") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  return { bytes: new Uint8Array(await res.arrayBuffer()), skipped };
 }
+
+/** What a print left out: parcels already shipped (skipped) and groups that failed (errors). */
+export type AwbResult = { skipped: string[]; errors: string[] };
 
 /**
  * Remove product names from Shopee's AWB: the item table is redrawn as "# | SKU | Variasi | Qty"
@@ -33,6 +40,7 @@ async function hideProductNames(bytes: Uint8Array, group: AwbOrder[] = []): Prom
   const fonts = { regular: await out.embedFont(StandardFonts.Helvetica), bold: await out.embedFont(StandardFonts.HelveticaBold) };
   const skuRows = (o: AwbOrder): SkuRow[] => (o.items ?? []).map((it) => ({
     parent: (it.item_sku ?? it.sku ?? "") || "-", variant: (it.model_sku ?? "") || "-",
+    label: it.name ? (it.variant ? `${it.name} (${it.variant})` : it.name) : undefined,
   }));
   // Shopee doesn't always return pages in the order requested, so find each page's order by the number printed on it.
   const keyed = group.flatMap((o) => [o.external_order_sn, o.booking_sn, o.order_sn].filter((sn): sn is string => !!sn).map((sn) => [sn.toUpperCase(), o] as const));
@@ -64,13 +72,18 @@ async function hideProductNames(bytes: Uint8Array, group: AwbOrder[] = []): Prom
  * document), product names hidden, all merged into a single PDF opened in a new tab.
  * Call it directly from a click so the new tab isn't blocked as a pop-up.
  */
-export async function openShopeeAwb(orders: AwbOrder[], kind: "order" | "booking" = "order"): Promise<void> {
+export async function openShopeeAwb(orders: AwbOrder[], kind: "order" | "booking" = "order"): Promise<AwbResult> {
   return openShopeeAwbMerged(kind === "booking" ? { bookings: orders } : { orders });
 }
 
-/** Print orders and "Pengiriman Kilat" reservations together in a single merged PDF / tab. */
-export async function openShopeeAwbMerged({ orders = [], bookings = [] }: { orders?: AwbOrder[]; bookings?: AwbOrder[] }): Promise<void> {
-  if (!orders.length && !bookings.length) return;
+/**
+ * Print orders and "Pengiriman Kilat" reservations together in a single merged PDF / tab. Labels that can't be
+ * printed any more (already shipped) are left out and reported; a failing shop/courier group doesn't stop the
+ * others. Throws only when nothing at all could be printed.
+ */
+export async function openShopeeAwbMerged({ orders = [], bookings = [] }: { orders?: AwbOrder[]; bookings?: AwbOrder[] }): Promise<AwbResult> {
+  const result: AwbResult = { skipped: [], errors: [] };
+  if (!orders.length && !bookings.length) return result;
   const win = window.open("", "_blank");
   if (win) win.document.write("<p style='font-family:sans-serif;padding:24px;color:#475569'>Menyiapkan resi Shopee…</p>");
   try {
@@ -82,14 +95,22 @@ export async function openShopeeAwbMerged({ orders = [], bookings = [] }: { orde
         return acc;
       }, {}));
       for (const group of groups) {
-        const src = await hideProductNames(await fetchAwb(group.map((o) => o.id), kind), group);
-        const pages = await merged.copyPages(src, src.getPageIndices());
-        pages.forEach((p) => merged.addPage(p));
+        try {
+          const { bytes, skipped } = await fetchAwb(group.map((o) => o.id), kind);
+          result.skipped.push(...skipped);
+          const src = await hideProductNames(bytes, group);
+          const pages = await merged.copyPages(src, src.getPageIndices());
+          pages.forEach((p) => merged.addPage(p));
+        } catch (e) {
+          result.errors.push((e as Error).message);
+        }
       }
     }
+    if (!merged.getPageCount()) throw new Error(result.errors.join(" ") || "Tidak ada resi yang bisa dicetak.");
     const url = URL.createObjectURL(new Blob([(await merged.save()).slice().buffer as ArrayBuffer], { type: "application/pdf" }));
     if (win) win.location.href = url;
     else window.open(url, "_blank");
+    return result;
   } catch (e) {
     win?.close();
     throw e;

@@ -3,7 +3,7 @@ import { ORDERS_EVENT } from "@/components/NotificationBell";
 import { ArrowDownUp, FileText, Info, Loader2, PackageCheck, PackageSearch, Printer, RefreshCcw, Search, Store, Truck } from "lucide-react";
 import { TrackingModal } from "@/components/TrackingModal";
 import { ShipModal } from "@/components/marketplace/ShipModal";
-import { openShopeeAwb, openShopeeAwbMerged } from "@/lib/awb";
+import { openShopeeAwb, openShopeeAwbMerged, type AwbResult } from "@/lib/awb";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ShopeeMark } from "@/components/ChannelBadge";
@@ -223,24 +223,37 @@ export default function ShopeeOrders() {
   const allChosen = anySelectable && selectableRows.every((o) => selected.includes(o.id)) && printableBk.every((b) => selectedBk.includes(b.id));
   const selectAll = (on: boolean) => { setSelected(on ? selectableRows.map((o) => o.id) : []); setSelectedBk(on ? printableBk.map((b) => b.id) : []); };
 
+  /**
+   * After a print: tell which labels were left out (already shipped — the server moved them to "Dikirim") or failed,
+   * and reload so those orders leave this tab.
+   */
+  function afterPrint(r: AwbResult | null, error?: unknown) {
+    const parts: string[] = [];
+    if (r?.skipped.length) parts.push(`${r.skipped.length} resi tidak dicetak karena pesanannya sudah dikirim dan dipindah ke tab Dikirim: ${r.skipped.join(", ")}.`);
+    if (r?.errors.length) parts.push(`Sebagian gagal dicetak: ${r.errors.join(" ")}`);
+    if (error) parts.push((error as Error).message);
+    setNotice(parts.join(" "));
+    if (r?.skipped.length || error) load();
+  }
+  const bookingAwb = (b: Booking) => ({ id: b.id, marketplace_shop_id: b.marketplace_shop_id, courier: b.shipping_carrier, items: b.items ?? undefined, booking_sn: b.booking_sn, order_sn: b.order_sn });
   async function print(list: Order[]) {
     setBusy("print"); setNotice("");
-    try { await openShopeeAwb(list); } catch (e) { setNotice((e as Error).message); } finally { setBusy(""); }
+    try { afterPrint(await openShopeeAwb(list)); } catch (e) { afterPrint(null, e); } finally { setBusy(""); }
   }
   /** Print orders and Pengiriman Kilat reservations together in one merged PDF. */
   async function printMixed(ords: Order[], bks: Booking[]) {
     if (!ords.length && !bks.length) return;
     setBusy("print"); setNotice("");
     try {
-      await openShopeeAwbMerged({ orders: ords, bookings: bks.map((b) => ({ id: b.id, marketplace_shop_id: b.marketplace_shop_id, courier: b.shipping_carrier, items: b.items ?? undefined, booking_sn: b.booking_sn, order_sn: b.order_sn })) });
+      afterPrint(await openShopeeAwbMerged({ orders: ords, bookings: bks.map(bookingAwb) }));
       setSelected([]); setSelectedBk([]);
-    } catch (e) { setNotice((e as Error).message); } finally { setBusy(""); }
+    } catch (e) { afterPrint(null, e); } finally { setBusy(""); }
   }
   async function printBookings(list: Booking[]) {
     if (!list.length) return;
     setBusy(list.length > 1 ? "printbk" : `kb${list[0].id}`); setNotice("");
-    try { await openShopeeAwb(list.map((b) => ({ id: b.id, marketplace_shop_id: b.marketplace_shop_id, courier: b.shipping_carrier, items: b.items ?? undefined, booking_sn: b.booking_sn, order_sn: b.order_sn })), "booking"); setSelectedBk([]); }
-    catch (e) { setNotice((e as Error).message); } finally { setBusy(""); }
+    try { afterPrint(await openShopeeAwb(list.map(bookingAwb), "booking")); setSelectedBk([]); }
+    catch (e) { afterPrint(null, e); } finally { setBusy(""); }
   }
   const toggleBk = (id: number, on: boolean) => setSelectedBk(on ? [...selectedBk, id] : selectedBk.filter((x) => x !== id));
   async function refreshAwb(ids: number[], tries = 3) {

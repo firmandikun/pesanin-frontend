@@ -2,7 +2,7 @@ import { PDFFont, PDFPage, rgb } from "pdf-lib";
 
 export type TextItem = { str: string; transform: number[]; width: number; height: number };
 type Fonts = { regular: PDFFont; bold: PDFFont };
-type Row = { no: string; sku: string; qty: string };
+type Row = { no: string; sku: string; qty: string; label: string };
 
 const HEADER = /^(Nama\s*Produk|Product\s*Name)$/i;
 
@@ -14,7 +14,10 @@ const HEADER = /^(Nama\s*Produk|Product\s*Name)$/i;
  * Returns false (page left untouched) when the table layout isn't recognised.
  */
 /** Per-row SKU data from Pesanin's order, used to print "SKU Induk" and "SKU Variasi" separately. */
-export type SkuRow = { parent: string; variant: string };
+export type SkuRow = { parent: string; variant: string; /** "Nama Produk (Variasi)", printed when the item has no SKU. */ label?: string };
+
+/** "Nama Produk (Variasi)", or just the name. */
+const nameWithVariant = (name: string, variant: string) => (name ? (variant ? `${name} (${variant})` : name) : "");
 
 export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, rowData?: SkuRow[]): boolean {
   const name = items.find((i) => HEADER.test(i.str.trim()));
@@ -36,7 +39,7 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
   if (!numbers.length) return false;
 
   // Split each run into characters positioned with Helvetica metrics scaled to the run's real width.
-  const cells = numbers.map((n) => ({ y: n.transform[5], no: n.str.trim(), sku: [] as [number, string][], qty: [] as [number, string][] }));
+  const cells = numbers.map((n) => ({ y: n.transform[5], no: n.str.trim(), name: [] as [number, string][], sku: [] as [number, string][], vname: [] as [number, string][], qty: [] as [number, string][] }));
   for (const it of body) {
     if (numbers.includes(it)) continue;
     const y = it.transform[5];
@@ -49,8 +52,8 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
     chars.forEach((c, k) => {
       const mid = cx + (widths[k] * scale) / 2;
       cx += widths[k] * scale;
-      // Characters between the Variasi and Qty columns are the variant name — dropped on purpose.
-      const col = mid >= x.qty ? "qty" : mid >= x.variant ? null : mid >= x.sku ? "sku" : null;
+      // Product and variant names are only printed when the item has no SKU.
+      const col = mid >= x.qty ? "qty" : mid >= x.variant ? "vname" : mid >= x.sku ? "sku" : mid >= x.name ? "name" : null;
       if (col) row[col].push([y, c]);
     });
   }
@@ -65,7 +68,7 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
     // A wrapped SKU breaks after "-": glue those lines back without a space.
     return lines.map((l) => l.trim()).filter(Boolean).reduce((acc, l) => (acc && !acc.endsWith("-") ? `${acc} ${l}` : acc + l), "");
   };
-  const rows: Row[] = cells.map((c) => ({ no: c.no, sku: join(c.sku) || "-", qty: join(c.qty) || "1" }));
+  const rows: Row[] = cells.map((c) => ({ no: c.no, sku: join(c.sku) || "-", qty: join(c.qty) || "1", label: nameWithVariant(join(c.name), join(c.vname)) }));
 
   // Clear the old table (header included) across the page, from the header top to just above the next block.
   const { width: pw } = page.getSize();
@@ -76,10 +79,12 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
 
   // "# | SKU | Qty". With Pesanin's own order items (matched 1:1 to the label's rows) the SKU is the variation SKU
   // (or the product SKU when it has no variations); otherwise it comes from the label text. Qty always from the label.
+  // No SKU at all → "Nama Produk (Variasi)" (from Pesanin's order, else as printed on Shopee's label).
   const own = !!rowData && rowData.length === rows.length && rows.length > 0;
-  const pick = (d: SkuRow) => (d.variant && d.variant !== "-" ? d.variant : d.parent) || "-";
+  const has = (s?: string) => !!s && s !== "-";
+  const pick = (d: SkuRow, r: Row) => (has(d.variant) ? d.variant : has(d.parent) ? d.parent : d.label || r.label || "-");
   const heads = ["SKU", "Qty"];
-  const body2 = rows.map((r, i) => ({ no: r.no, cells: [own ? pick(rowData![i]) : r.sku], qty: r.qty }));
+  const body2 = rows.map((r, i) => ({ no: r.no, cells: [own ? pick(rowData![i], r) : has(r.sku) ? r.sku : r.label || "-"], qty: r.qty }));
 
   const left = hash.transform[4];
   const right = pw - left;
