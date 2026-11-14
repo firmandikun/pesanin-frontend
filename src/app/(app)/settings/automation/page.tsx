@@ -11,7 +11,7 @@ import { WaTemplate } from "@/lib/broadcast";
 type AwbSlot = { time: string; scope: "new" | "all" };
 type Automation = { auto_ship: boolean; auto_ship_cod: boolean; auto_ship_shopee: boolean; auto_ship_shopee_method: "auto" | "pickup" | "dropoff"; awb_schedule: boolean; awb_times: string[]; awb_slots: AwbSlot[] | null; digital_email: boolean; digital_wa_template: { name: string; language: string; variables: number } | null };
 const DEFAULTS: Automation = { auto_ship: false, auto_ship_cod: false, auto_ship_shopee: false, auto_ship_shopee_method: "auto", awb_schedule: false, awb_times: ["08:00"], awb_slots: null, digital_email: true, digital_wa_template: null };
-type Telegram = { connected: boolean; bot_username: string | null; chat_name: string | null; ready: boolean };
+type Telegram = { connected: boolean; bot_username: string | null; bot_name?: string | null; chat_name: string | null; ready: boolean };
 
 /** Scheduled Shopee AWB PDF → the seller's own Telegram bot. */
 function TelegramAwbPanel({ a, save }: { a: Automation; save: (next: Automation) => void }) {
@@ -61,7 +61,8 @@ function TelegramAwbPanel({ a, save }: { a: Automation; save: (next: Automation)
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-3 text-sm">
-          <span className="mr-auto text-slate-700">Bot <b>@{tg.bot_username}</b>{tg.ready ? <> · kirim ke <b>{tg.chat_name}</b></> : <span className="text-amber-700"> · chat belum terdeteksi</span>}</span>
+          <span className="mr-auto text-slate-700">Bot <b>{tg.bot_name ? `${tg.bot_name} ` : ""}(@{tg.bot_username})</b>{tg.ready ? <> · kirim ke <b>{tg.chat_name}</b></> : <span className="text-amber-700"> · chat belum terdeteksi</span>}</span>
+          {!tg.ready && tg.bot_username && <a href={`https://t.me/${tg.bot_username}`} target="_blank" rel="noopener noreferrer" className={btn}><Send size={14} />Buka bot di Telegram</a>}
           {!tg.ready && <button className={btn} disabled={!!busy} onClick={() => run("detect", async () => { setTg(await api<Telegram>("/telegram/detect", { method: "POST" })); return "Chat terdeteksi."; })}>{spin("detect")}Deteksi chat</button>}
           {tg.ready && <button className={btn} disabled={!!busy} onClick={() => run("test", async () => { await api("/telegram/test", { method: "POST" }); return "Pesan tes terkirim, cek Telegram."; })}>{spin("test")}Kirim tes</button>}
           {tg.ready && <button className={btn} disabled={!!busy} onClick={() => run("now", async () => { await api("/telegram/send-awb", { method: "POST", json: { scope: "new" } }); return "Sedang menyiapkan resi yang belum tercetak… PDF masuk ke Telegram dalam 1–2 menit."; })}>{spin("now")}Kirim yang belum tercetak</button>}
