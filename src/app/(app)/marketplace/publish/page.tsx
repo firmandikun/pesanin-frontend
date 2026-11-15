@@ -256,7 +256,7 @@ function Publish() {
     const body = {
       product_id: productId ? Number(productId) : null, name: name.trim(), description: desc.trim(), category_id: cat!.id,
       brand_id: brandId, brand_name: (brandId && info?.brands.list.find((b) => b.id === brandId)?.name) || "NoBrand",
-      price, stock, sku: sku || null, weight, image_ids: images.map((i) => i.id), video_upload_id: video?.video_upload_id ?? null,
+      price: hasVariants ? basePrice : price, stock: hasVariants ? totalStock : stock, sku: sku || null, weight, image_ids: images.map((i) => i.id), video_upload_id: video?.video_upload_id ?? null,
       ...(dims.length && dims.width && dims.height ? { length: +dims.length, width: +dims.width, height: +dims.height } : {}),
       attributes: Object.entries(answers).map(([id, a]) => ({ id: +id, value_ids: a.value_ids, text: a.text, unit: a.unit || null })),
       ...(hasVariants ? { tiers: liveTiers, models: models.map((m) => ({ index: m.index, price: m.price, stock: m.stock, sku: m.sku || null })) } : {}),
