@@ -31,7 +31,8 @@ const TABS: { key: string; label: string; count: boolean }[] = [
   { key: "cancelled", label: "Pengembalian/Pembatalan", count: false },
 ];
 // Sub-status inside "Perlu Dikirim", as in Seller Centre.
-const SUB: [string, string][] = [["perlu_kirim", "Semua"], ["to_ship", "Perlu diproses"], ["processed", "Telah diproses"]];
+// "Tertunda": paid orders Shopee is still reviewing (PENDING); shown only while there are any, like Seller Centre.
+const SUB: [string, string][] = [["perlu_kirim", "Semua"], ["to_ship", "Perlu diproses"], ["processed", "Telah diproses"], ["pending", "Tertunda"]];
 const WITH_KILAT = ["", "perlu_kirim", "to_ship", "processed", "shipping"];
 const SEARCH_BY: [string, string][] = [["sn", "No. Pesanan"], ["buyer", "Nama/username pembeli"], ["product", "Produk / SKU"], ["resi", "No. Resi"]];
 
@@ -53,6 +54,7 @@ function statusText(o: Order): [string, string, string] {
   const reason = o.custom_fields?.cancel_reason;
   switch (o.external_status) {
     case "UNPAID": return ["Belum Bayar", "Menunggu pembayaran dari pembeli.", "text-slate-600"];
+    case "PENDING": return ["Menunggu", "Pesanan ini sedang diproses dan ditinjau oleh Tim Shopee. Mohon tunggu dalam 24 jam.", "text-amber-600"];
     case "READY_TO_SHIP": return ["Perlu Dikirim", "Atur pengiriman sebelum batas waktu.", "text-amber-600"];
     case "PROCESSED": return ["Perlu Dikirim", o.tracking_number ? "Menunggu pengiriman diverifikasi oleh jasa kirim." : "Nomor resi sedang diterbitkan Shopee.", "text-amber-600"];
     case "RETRY_SHIP": return ["Kirim Ulang", o.external_note || "Penjemputan gagal, kurir akan datang lagi.", "text-rose-600"];
@@ -343,7 +345,7 @@ export default function ShopeeOrders() {
           {tab === "perlu_kirim" && (
             <div className="flex flex-wrap items-center gap-2">
               <span className="w-28 text-slate-500">Status Pesanan</span>
-              {SUB.map(([k, l]) => <button key={k} onClick={() => { setSub(k); setPage(1); }} className={pill(sub === k)}>{l}{subCounts[k] !== undefined ? ` (${subCounts[k]})` : ""}</button>)}
+              {SUB.filter(([k]) => k !== "pending" || sub === "pending" || (subCounts.pending ?? 0) > 0).map(([k, l]) => <button key={k} onClick={() => { setSub(k); setPage(1); }} className={pill(sub === k)}>{l}{subCounts[k] !== undefined ? ` (${subCounts[k]})` : ""}</button>)}
             </div>
           )}
 
@@ -461,7 +463,7 @@ export default function ShopeeOrders() {
                       <div>
                         <p className={`font-semibold ${tone}`}>{title}</p>
                         <p className="mt-0.5 text-xs leading-snug text-slate-500">{desc}</p>
-                        {shipBy && ["READY_TO_SHIP", "PROCESSED", "RETRY_SHIP"].includes(o.external_status ?? "") && (
+                        {shipBy && ["PENDING", "READY_TO_SHIP", "PROCESSED", "RETRY_SHIP"].includes(o.external_status ?? "") && (
                           <p className={`mt-1.5 text-xs ${new Date(shipBy).getTime() - Date.now() < 864e5 ? "font-semibold text-rose-600" : "text-slate-600"}`}>Kirim sebelum {fmtShort(shipBy)}</p>
                         )}
                       </div>
@@ -472,6 +474,7 @@ export default function ShopeeOrders() {
                       </div>
                       <div className="space-y-2">
                         {needsShipping(o) && <ActionLink icon={Truck} onClick={() => setShipIds([o.id])}>Atur Pengiriman</ActionLink>}
+                        {o.external_status === "PENDING" && <p className="text-[13px] font-medium text-amber-600" title="Atur pengiriman bisa dilakukan setelah Shopee selesai meninjau pesanan ini. Jika atur otomatis aktif, Pesanin mengaturnya begitu Shopee melepasnya.">Tertunda</p>}
                         {canPrint(o) && <ActionLink icon={Printer} busy={busy === "print"} disabled={!!busy} onClick={() => print([o])}>Cetak Label</ActionLink>}
                         {awaitingAwb(o) && <ActionLink icon={RefreshCcw} busy={busy === `awb${o.id}`} onClick={async () => { setBusy(`awb${o.id}`); await refreshAwb([o.id], 1); setBusy(""); }}>Cek resi</ActionLink>}
                         {canTrack(o) && <ActionLink icon={PackageSearch} onClick={() => setTrack(o)}>Lacak Paket</ActionLink>}
