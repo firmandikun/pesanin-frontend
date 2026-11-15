@@ -21,6 +21,12 @@ type Answer = { value_ids: number[]; text: string; unit: string; custom?: boolea
 type Tier = { name: string; options: string[] };
 type Model = { index: number[]; price: number; stock: number; sku: string };
 type Wholesale = { min: number; max: number; price: number };
+type CopySource = {
+  source: { shop_id: number; shop_name: string; item_id: number }; name: string; description: string; category: Cat | null; brand_id: number; images: string[];
+  attributes: { id: number; value_ids: number[]; text: string; unit: string }[]; price: number; stock: number; sku: string;
+  tiers: Tier[]; models: Model[]; wholesale: Wholesale[]; weight: number; dims: { length: string; width: string; height: string };
+  condition: "NEW" | "USED"; dangerous: boolean; pre_order: boolean; days_to_ship: number; gtin: string | null;
+};
 type Result = { state: "wait" | "run" | "ok" | "fail"; message?: string; item_id?: number; status?: string; shopee_status?: string; seller_centre_url?: string; checking?: boolean };
 type Live = { item_id: number; status?: string; shopee_status?: string; seller_centre_url?: string };
 /** Shopee's item_status in the seller's words, with a tone. */
@@ -114,11 +120,42 @@ function Publish() {
   const [section, setSection] = useState<string>("info");
   const [tried, setTried] = useState(false);
 
+  // "Salin ke toko lain": ?copy_shop=<shop>&copy_item=<item> prefills the form from an existing Shopee product.
+  const copyShop = Number(sp.get("copy_shop") || 0);
+  const copyItem = Number(sp.get("copy_item") || 0);
+  const [copying, setCopying] = useState(!!(copyShop && copyItem));
+  const [copyFrom, setCopyFrom] = useState<{ shop_name: string; item_id: number } | null>(null);
+  // Brand/attributes/pre-order days wait for the category's attribute list, which resets them when it loads.
+  const pendingCopy = useRef<{ brand_id: number; answers: Record<number, Answer>; dts: number } | null>(null);
+
   useEffect(() => {
     api("/products?per_page=100&type=physical").then((r) => setProducts(r.products.data)).catch(() => {});
     api<Cat[]>("/marketplace/publish/categories").then(setCats).catch((e) => setErr(e instanceof ApiError ? e.message : "Gagal memuat kategori Shopee"));
-    api<ShopOpt[]>("/marketplace/publish/shops").then((s) => { setShops(s); setPicked(s.filter((x) => !x.error).map((x) => x.id)); }).catch(() => setShops([]));
-  }, []);
+    // When copying, every shop except the source one is picked.
+    api<ShopOpt[]>("/marketplace/publish/shops").then((s) => { setShops(s); setPicked(s.filter((x) => !x.error && x.id !== copyShop).map((x) => x.id)); }).catch(() => setShops([]));
+  }, [copyShop]);
+
+  useEffect(() => {
+    if (!copyShop || !copyItem) return;
+    api<CopySource>(`/marketplace/publish/${copyShop}/items/${copyItem}/source`).then((c) => {
+      setCopyFrom({ shop_name: c.source.shop_name, item_id: c.source.item_id });
+      setName(c.name); setDesc(c.description); setPrice(c.price); setStock(c.stock); setSku(c.sku ?? "");
+      setWeight(c.weight); setDims(c.dims); setCondition(c.condition); setDangerous(c.dangerous); setPreOrder(c.pre_order);
+      setWholesale(c.wholesale);
+      if (c.gtin) { setGtin(c.gtin); setNoGtin(false); }
+      setTiers(c.tiers); setModels(c.tiers.length ? c.models : []);
+      pendingCopy.current = {
+        brand_id: c.brand_id, dts: c.days_to_ship,
+        answers: Object.fromEntries(c.attributes.map((a) => [a.id, { value_ids: a.value_ids, text: a.text ?? "", unit: a.unit ?? "", custom: !a.value_ids.length && !!a.text }])),
+      };
+      if (c.category) setCat(c.category);
+      if (c.images.length) {
+        setUploading(true);
+        api<Img[]>("/marketplace/publish/images", { method: "POST", json: { urls: c.images } }).then(setImages)
+          .catch((e) => setErr(e instanceof ApiError ? e.message : "Foto produk gagal disalin, tambahkan ulang.")).finally(() => setUploading(false));
+      }
+    }).catch((e) => setErr(e instanceof ApiError ? e.message : "Gagal mengambil produk sumber dari Shopee")).finally(() => setCopying(false));
+  }, [copyShop, copyItem]);
 
   // Prefill from a Pesanin product.
   useEffect(() => {
@@ -144,7 +181,19 @@ function Publish() {
   useEffect(() => {
     if (!cat) return setInfo(null);
     setInfo(null); setAnswers({}); setBrandId(0); setMoreAttrs(false);
-    api<CatInfo>(`/marketplace/publish/categories/${cat.id}`).then((i) => { setInfo(i); setDts(Math.max(i.limits.dts_min, Math.min(7, i.limits.dts_max))); })
+    api<CatInfo>(`/marketplace/publish/categories/${cat.id}`).then((i) => {
+      setInfo(i);
+      const pc = pendingCopy.current;
+      pendingCopy.current = null;
+      // Keep only the copied answers this category still knows; a brand outside its list falls back to "Tidak Ada Merek".
+      if (pc) {
+        const known = new Set(i.attributes.map((a) => a.id));
+        setAnswers(Object.fromEntries(Object.entries(pc.answers).filter(([id]) => known.has(+id))));
+        setBrandId(i.brands.list.some((b) => b.id === pc.brand_id) ? pc.brand_id : 0);
+      }
+      const want = pc?.dts || 7;
+      setDts(Math.max(i.limits.dts_min, Math.min(want, i.limits.dts_max)));
+    })
       .catch((e) => setErr(e instanceof ApiError ? e.message : "Gagal memuat atribut"));
   }, [cat]);
 
@@ -366,7 +415,13 @@ function Publish() {
 
   return (
     <div className="space-y-5">
-      <PageHead title="Tambah Produk Baru" tutorial={false} crumbs={[["Marketplace"], ["Produk Shopee", "/marketplace/products"], ["Tambah Produk"]]} />
+      <PageHead title={copyShop ? "Salin Produk ke Toko Lain" : "Tambah Produk Baru"} tutorial={false} crumbs={[["Marketplace"], ["Produk Shopee", "/marketplace/products"], [copyShop ? "Salin Produk" : "Tambah Produk"]]} />
+      {copying && <p className="flex items-center gap-2 rounded-xl bg-orange-50 p-3 text-sm text-orange-800"><Loader2 size={15} className="animate-spin" />Mengambil data produk dari Shopee…</p>}
+      {copyFrom && (
+        <p className="rounded-xl bg-orange-50 p-3 text-sm text-orange-800">
+          Disalin dari <b>{copyFrom.shop_name}</b> (item {copyFrom.item_id}). Periksa lagi isinya, pilih toko tujuan di kanan, lalu simpan. Toko asal tidak dicentang agar tidak dobel.
+        </p>
+      )}
       {err && <p className="flex items-start justify-between gap-3 rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{err}<button onClick={() => setErr("")} aria-label="Tutup"><X size={15} /></button></p>}
 
       <div className="grid gap-5 xl:grid-cols-[200px_minmax(0,1fr)] 2xl:grid-cols-[200px_minmax(0,1fr)_300px]">

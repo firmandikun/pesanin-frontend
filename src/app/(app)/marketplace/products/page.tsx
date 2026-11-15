@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { AlertTriangle, Calculator, Check, CheckCircle2, ChevronDown, ChevronRight, Package, Pencil, Upload, X } from "lucide-react";
+import { AlertTriangle, Calculator, Check, CheckCircle2, ChevronDown, ChevronRight, Copy, Package, Pencil, Upload, X } from "lucide-react";
 import { BulkCostDialog } from "@/components/marketplace/BulkCostDialog";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
@@ -144,7 +144,7 @@ function Products() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] text-sm">
             <thead className="bg-slate-50/60 text-left text-xs uppercase tracking-wide text-slate-500">
-              <tr>{["Produk / variasi", "Toko", "SKU", "Harga jual", "HPP (modal/unit)", "Stok"].map((h) => <th key={h} className="px-3 py-3 font-semibold">{h}</th>)}</tr>
+              <tr>{["Produk / variasi", "Toko", "SKU", "Harga jual", "HPP (modal/unit)", "Stok", ""].map((h) => <th key={h} className="px-3 py-3 font-semibold">{h}</th>)}</tr>
             </thead>
             <tbody>
               {groups.map((g) => {
@@ -155,6 +155,17 @@ function Products() {
                     <span className="min-w-0"><span className="block max-w-[130px] truncate">{first.shop.shop_name.replace(/^Contoh: /, "")}</span><span className="block text-[11px] text-slate-400">ID {first.shop.shop_id}</span></span></span></td>
                 );
                 const thumb = first.image ? <img src={first.image} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" /> : <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400"><Package size={18} /></span>;
+                // "Salin": open the upload form prefilled from this Shopee product, for the seller's other shops.
+                const copyCell = (
+                  <td className="px-3 py-3 text-right">
+                    {!first.shop.is_demo && (
+                      <Link href={`/marketplace/publish?copy_shop=${first.marketplace_shop_id}&copy_item=${first.item_id}`} onClick={(e) => e.stopPropagation()}
+                        title="Salin produk ini untuk diupload ke toko lain" className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:border-[#ee4d2d] hover:text-[#ee4d2d]">
+                        <Copy size={13} />Salin
+                      </Link>
+                    )}
+                  </td>
+                );
                 const statusNote = first.status !== "NORMAL" ? (first.status === "UNLIST" ? "Diarsipkan" : first.status) : null;
 
                 // Single product without variations: one row, as before.
@@ -167,6 +178,7 @@ function Products() {
                     <td className="px-3 py-3 font-medium text-navy">{rupiah(first.price)}</td>
                     <td className="px-3 py-3"><CostCell l={first} onSaved={(v) => patch(first.id, { cost_price: v })} /></td>
                     <td className="px-3 py-3"><StockCell l={first} onSaved={(v) => patch(first.id, { stock: v })} /></td>
+                    {copyCell}
                   </tr>
                 );
 
@@ -186,6 +198,7 @@ function Products() {
                     <td className="whitespace-nowrap px-3 py-3 font-medium text-navy">{lo === hi ? rupiah(lo) : `${rupiah(lo)} – ${rupiah(hi)}`}</td>
                     <td className="px-3 py-3 text-xs">{costFilled === g.length ? <span className="font-semibold text-emerald-600">HPP lengkap</span> : <span className="rounded-md bg-amber-50 px-2 py-1 font-semibold text-amber-700">{costFilled}/{g.length} variasi terisi</span>}</td>
                     <td className="px-3 py-3"><span className="font-semibold text-navy">{stock.toLocaleString("id-ID")}</span><span className="block text-[11px] text-slate-400">total</span></td>
+                    {copyCell}
                   </tr>,
                   ...(open ? g.map((l, i) => (
                     <tr key={l.id} className="hover:bg-slate-50/60">
@@ -201,6 +214,7 @@ function Products() {
                       <td className="px-3 py-2.5 text-navy">{rupiah(l.price)}</td>
                       <td className="px-3 py-2.5"><CostCell l={l} onSaved={(v) => patch(l.id, { cost_price: v })} /></td>
                       <td className="px-3 py-2.5"><StockCell l={l} onSaved={(v) => patch(l.id, { stock: v })} /></td>
+                      <td className="px-3 py-2.5" />
                     </tr>
                   )) : []),
                 ];
