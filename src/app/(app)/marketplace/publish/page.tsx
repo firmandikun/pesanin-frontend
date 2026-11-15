@@ -1,11 +1,11 @@
 "use client";
 import { CheckCircle2, ChevronRight, Circle, Film, FolderTree, ImagePlus, Loader2, Megaphone, Plus, RotateCcw, Search, Sparkles, Trash2, X, XCircle } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { ShopeeMark } from "@/components/ChannelBadge";
 import { DateTimePicker } from "@/components/DatePicker";
-import { PageHead, Panel, Toggle } from "@/components/kit";
+import { Dialog, PageHead, Panel, Toggle } from "@/components/kit";
 import { Select } from "@/components/Select";
 import { api, ApiError, rupiah } from "@/lib/api";
 
@@ -100,6 +100,16 @@ function Publish() {
   const [picked, setPicked] = useState<number[]>([]);
   const [results, setResults] = useState<Record<number, Result>>({});
   const [running, setRunning] = useState(false);
+  const router = useRouter();
+  // Success modal: every target shop got the product → summary, then back to the product list.
+  const [success, setSuccess] = useState<{ shop: string; r: Result }[] | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown <= 0) { router.push("/marketplace/products"); return; }
+    const t = setTimeout(() => setCountdown(countdown - 1), 1000);
+    return () => clearTimeout(t);
+  }, [countdown, router]);
   const [err, setErr] = useState("");
   const [section, setSection] = useState<string>("info");
   const [tried, setTried] = useState(false);
@@ -272,16 +282,23 @@ function Publish() {
       wholesale: samePrice ? wholesale : [], channels: onChannels, status,
       ...(schedule && publishAt ? { publish_at: publishAt } : {}),
     };
+    const outcome: Record<number, Result> = { ...results };
     for (const id of targets) {
       setResults((r) => ({ ...r, [id]: { state: "run" } }));
       try {
         const r = await api<Live>(`/marketplace/publish/${id}`, { method: "POST", json: body });
-        setResults((x) => ({ ...x, [id]: { state: "ok", ...r } }));
+        outcome[id] = { state: "ok", ...r };
       } catch (e) {
-        setResults((x) => ({ ...x, [id]: { state: "fail", message: e instanceof ApiError ? e.message : "Gagal" } }));
+        outcome[id] = { state: "fail", message: e instanceof ApiError ? e.message : "Gagal" };
       }
+      setResults((x) => ({ ...x, [id]: outcome[id] }));
     }
     setRunning(false);
+    // All selected shops done → success modal (failures stay on the page so they can be retried).
+    if (picked.every((id) => outcome[id]?.state === "ok")) {
+      setSuccess(picked.map((id) => ({ shop: shops?.find((x) => x.id === id)?.name ?? "Toko", r: outcome[id] })));
+      setCountdown(5);
+    }
   };
 
   const check = async (shopId: number) => {
@@ -714,6 +731,34 @@ function Publish() {
 
       {catOpen && cats && (
         <CategoryPicker categories={cats} current={cat} recommendations={recs} onClose={() => setCatOpen(false)} onConfirm={(next) => { setCat(next); setCatOpen(false); }} />
+      )}
+
+      {success && (
+        <Dialog title="Produk berhasil disimpan" icon={CheckCircle2} onClose={() => { setSuccess(null); setCountdown(null); }}>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 rounded-xl bg-emerald-50 p-3">
+              <CheckCircle2 size={28} className="shrink-0 text-emerald-500" />
+              <p className="text-sm text-emerald-800"><b>{name.trim()}</b> sudah dikirim ke {success.length} toko Shopee.</p>
+            </div>
+            <ul className="divide-y divide-slate-100 rounded-xl border border-slate-100 text-sm">
+              {success.map(({ shop, r }) => {
+                const [label, tone] = r.shopee_status ? SHOPEE_STATUS[r.shopee_status] ?? [r.shopee_status, "text-slate-600"] : [r.status === "UNLIST" ? (schedule ? "Dijadwalkan" : "Diarsipkan") : "Terkirim ke Shopee", "text-emerald-600"];
+                return (
+                  <li key={shop} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                    <span className="min-w-0"><b className="block truncate text-navy">{shop}</b><span className={`text-xs ${tone}`}>{label} · item {r.item_id}</span></span>
+                    {r.seller_centre_url && <a href={r.seller_centre_url} target="_blank" rel="noreferrer" onClick={() => setCountdown(null)} className="shrink-0 text-xs font-semibold text-[#ee4d2d]">Buka di Seller Centre</a>}
+                  </li>
+                );
+              })}
+            </ul>
+            {success.some(({ r }) => r.shopee_status && r.shopee_status !== "NORMAL") && <p className="text-xs text-slate-500">Produk yang belum &quot;Tayang&quot; ada di Seller Centre → Produk Saya, tab Sedang Diperiksa / Diarsipkan / Pelanggaran.</p>}
+            {countdown !== null && <p className="text-xs text-slate-400">Kembali ke daftar produk dalam {countdown} detik…</p>}
+            <div className="flex flex-wrap justify-end gap-2">
+              <button onClick={() => window.location.assign("/marketplace/publish")} className="h-10 rounded-lg border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50">Tambah Produk Lain</button>
+              <button onClick={() => router.push("/marketplace/products")} className="h-10 rounded-lg bg-[#ee4d2d] px-5 text-sm font-semibold text-white hover:bg-[#d73f22]">Kembali ke Daftar Produk</button>
+            </div>
+          </div>
+        </Dialog>
       )}
 
       {/* Action bar */}
