@@ -1,5 +1,5 @@
 "use client";
-import { CheckCircle2, ChevronRight, Circle, FolderTree, ImagePlus, Loader2, Megaphone, Plus, RotateCcw, Search, Sparkles, Trash2, X, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronRight, Circle, Film, FolderTree, ImagePlus, Loader2, Megaphone, Plus, RotateCcw, Search, Sparkles, Trash2, X, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
@@ -16,6 +16,7 @@ type Limits = { images_min: number; images_max: number; name_min: number; name_m
 type CatInfo = { attributes: Attr[]; brands: { mandatory: boolean; list: { id: number; name: string }[] }; limits: Limits };
 type ShopOpt = { id: number; shop_id: number; name: string; channels: { id: number; name: string }[]; error: string | null };
 type Img = { id: string; url: string; name: string };
+type VideoUpload = { video_upload_id: string; name: string; size: number };
 type Answer = { value_ids: number[]; text: string; unit: string; custom?: boolean };
 type Tier = { name: string; options: string[] };
 type Model = { index: number[]; price: number; stock: number; sku: string };
@@ -49,6 +50,9 @@ function Publish() {
   const [desc, setDesc] = useState("");
   const [images, setImages] = useState<Img[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [video, setVideo] = useState<VideoUpload | null>(null);
+  const [videoPreview, setVideoPreview] = useState("");
+  const [uploadingVideo, setUploadingVideo] = useState(false);
 
   // Informasi Penjualan
   const [price, setPrice] = useState(0);
@@ -146,6 +150,21 @@ function Publish() {
     catch (e) { setErr(e instanceof ApiError ? e.message : "Upload foto gagal"); } finally { setUploading(false); }
   };
 
+  const uploadVideo = async (file: File | null) => {
+    if (!file) return;
+    if (file.size > 30 * 1024 * 1024) { setErr("Ukuran video maksimal 30 MB."); return; }
+    const fd = new FormData(); fd.append("file", file);
+    setUploadingVideo(true); setErr("");
+    try {
+      const result = await api<VideoUpload>("/marketplace/publish/video", { method: "POST", body: fd });
+      if (videoPreview) URL.revokeObjectURL(videoPreview);
+      setVideoPreview(URL.createObjectURL(file)); setVideo(result);
+    } catch (e) { setErr(e instanceof ApiError ? e.message : "Upload video gagal"); }
+    finally { setUploadingVideo(false); }
+  };
+
+  useEffect(() => () => { if (videoPreview) URL.revokeObjectURL(videoPreview); }, [videoPreview]);
+
   /* ---------- Variasi ---------- */
   const keyOf = (t: Tier[], index: number[]) => index.map((ti, k) => t[k]?.options[ti]).join("\u0001");
   /** Change the tiers and rebuild the combination table, keeping what was typed for combinations that still exist. */
@@ -236,7 +255,7 @@ function Publish() {
     const body = {
       product_id: productId ? Number(productId) : null, name: name.trim(), description: desc.trim(), category_id: cat!.id,
       brand_id: brandId, brand_name: (brandId && info?.brands.list.find((b) => b.id === brandId)?.name) || "NoBrand",
-      price, stock, sku: sku || null, weight, image_ids: images.map((i) => i.id),
+      price, stock, sku: sku || null, weight, image_ids: images.map((i) => i.id), video_upload_id: video?.video_upload_id ?? null,
       ...(dims.length && dims.width && dims.height ? { length: +dims.length, width: +dims.width, height: +dims.height } : {}),
       attributes: Object.entries(answers).map(([id, a]) => ({ id: +id, value_ids: a.value_ids, text: a.text, unit: a.unit || null })),
       ...(hasVariants ? { tiers: liveTiers, models: models.map((m) => ({ index: m.index, price: m.price, stock: m.stock, sku: m.sku || null })) } : {}),
@@ -350,8 +369,11 @@ function Publish() {
                 {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </Select>
             </Row>
-            <Row label="Foto Produk" req hint={`Rasio 1:1. Foto pertama jadi foto sampul. ${images.length}/${lim?.images_max ?? 9}`}>
-              <div className="flex flex-wrap gap-2">
+            <Row label="Media Produk" req hint="Foto wajib. Video opsional dan akan diproses (transcoding) oleh Shopee sebelum produk tayang.">
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_220px]">
+                <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3">
+                  <div className="mb-3 flex items-center justify-between gap-3"><div><p className="text-sm font-semibold text-slate-700">Foto Produk</p><p className="text-xs text-slate-400">Rasio 1:1 · foto pertama menjadi sampul</p></div><span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-500 shadow-sm">{images.length}/{lim?.images_max ?? 9}</span></div>
+                  <div className="flex flex-wrap gap-2">
                 {images.map((im, i) => (
                   <div key={im.id} className="group relative h-24 w-24 overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
                     <img src={im.url} alt="" className="h-full w-full object-cover" />
@@ -363,11 +385,31 @@ function Publish() {
                   </div>
                 ))}
                 {images.length < (lim?.images_max ?? 9) && (
-                  <label className="flex h-24 w-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-[#ee4d2d]/60 text-xs text-[#ee4d2d] hover:bg-orange-50">
+                  <label className="flex h-24 w-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-[#ee4d2d]/60 bg-white text-center text-xs text-[#ee4d2d] hover:bg-orange-50">
                     {uploading ? <Loader2 size={20} className="animate-spin" /> : <ImagePlus size={20} />}{uploading ? "Mengunggah…" : `Tambah Foto (${images.length}/${lim?.images_max ?? 9})`}
                     <input type="file" accept="image/jpeg,image/png" multiple className="hidden" onChange={(e) => { upload(e.target.files); e.target.value = ""; }} />
                   </label>
                 )}
+                  </div>
+                  <p className="mt-2 text-[11px] text-slate-400">JPG/PNG, maksimal 10 MB per foto.</p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3">
+                  <div className="mb-3"><p className="text-sm font-semibold text-slate-700">Video Produk <span className="font-normal text-slate-400">(opsional)</span></p><p className="text-xs text-slate-400">MP4/MOV · maksimal 30 MB</p></div>
+                  {video ? (
+                    <div className="group relative overflow-hidden rounded-lg border border-slate-200 bg-slate-950">
+                      {videoPreview ? <video src={videoPreview} className="aspect-video w-full object-cover" controls preload="metadata" /> : <div className="grid aspect-video place-items-center text-white"><Film size={28} /></div>}
+                      <button type="button" onClick={() => { if (videoPreview) URL.revokeObjectURL(videoPreview); setVideoPreview(""); setVideo(null); }} className="absolute right-2 top-2 rounded-md bg-white/90 p-1.5 text-rose-600 shadow" aria-label="Hapus video"><Trash2 size={14} /></button>
+                      <div className="bg-white px-2.5 py-2"><p className="truncate text-xs font-medium text-slate-700">{video.name}</p><p className="mt-0.5 flex items-center gap-1 text-[11px] text-emerald-600"><CheckCircle2 size={12} />Upload selesai · diproses Shopee</p></div>
+                    </div>
+                  ) : (
+                    <label className={`flex min-h-32 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-300 bg-white px-4 text-center transition hover:border-[#ee4d2d] hover:bg-orange-50 ${uploadingVideo ? "pointer-events-none opacity-70" : ""}`}>
+                      {uploadingVideo ? <Loader2 size={25} className="animate-spin text-[#ee4d2d]" /> : <span className="grid h-10 w-10 place-items-center rounded-full bg-orange-50 text-[#ee4d2d]"><Film size={20} /></span>}
+                      <span className="text-xs font-semibold text-slate-700">{uploadingVideo ? "Mengunggah dan menyelesaikan video…" : "Tambah Video"}</span>
+                      <span className="text-[11px] text-slate-400">Video diunggah per bagian lalu ditranscoding</span>
+                      <input type="file" accept="video/mp4,video/quicktime" className="hidden" disabled={uploadingVideo} onChange={(e) => { uploadVideo(e.target.files?.[0] ?? null); e.target.value = ""; }} />
+                    </label>
+                  )}
+                </div>
               </div>
             </Row>
             <Row label="Nama Produk" req>
@@ -650,8 +692,8 @@ function Publish() {
           {tried && problems.length > 0 && <button onClick={() => go(problems[0][0])} className="mr-auto truncate text-left text-xs text-rose-600">{problems[0][1]}{problems.length > 1 && ` (+${problems.length - 1} lagi)`}</button>}
           {failed.length > 0 && !running && <button onClick={() => publish(schedule ? "UNLIST" : "NORMAL", failed)} className="flex h-10 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-sm font-semibold text-navy"><RotateCcw size={15} />Ulangi yang gagal</button>}
           <Link href="/marketplace/products" className="hidden h-10 items-center rounded-lg border border-slate-200 px-4 sm:flex text-sm font-medium text-slate-700 hover:bg-slate-50">Kembali</Link>
-          <button onClick={() => publish("UNLIST")} disabled={running || uploading || allDone} className="h-10 rounded-lg border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">Simpan & Arsipkan</button>
-          <button onClick={() => publish("NORMAL")} disabled={running || uploading || allDone} className="flex h-10 items-center gap-2 rounded-lg bg-[#ee4d2d] px-5 text-sm font-semibold text-white hover:bg-[#d73f22] disabled:opacity-50">
+          <button onClick={() => publish("UNLIST")} disabled={running || uploading || uploadingVideo || allDone} className="h-10 rounded-lg border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">Simpan & Arsipkan</button>
+          <button onClick={() => publish("NORMAL")} disabled={running || uploading || uploadingVideo || allDone} className="flex h-10 items-center gap-2 rounded-lg bg-[#ee4d2d] px-5 text-sm font-semibold text-white hover:bg-[#d73f22] disabled:opacity-50">
             {running && <Loader2 size={15} className="animate-spin" />}{running ? "Menyimpan…" : allDone ? "Tersimpan" : schedule ? "Simpan & Jadwalkan" : "Simpan & Tampilkan"}{picked.length > 1 && !running && !allDone ? ` (${picked.filter((id) => results[id]?.state !== "ok").length} toko)` : ""}
           </button>
         </div>
