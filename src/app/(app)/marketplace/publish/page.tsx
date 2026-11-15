@@ -53,6 +53,7 @@ function Publish() {
   const [video, setVideo] = useState<VideoUpload | null>(null);
   const [videoPreview, setVideoPreview] = useState("");
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [videoError, setVideoError] = useState("");
 
   // Informasi Penjualan
   const [price, setPrice] = useState(0);
@@ -152,14 +153,14 @@ function Publish() {
 
   const uploadVideo = async (file: File | null) => {
     if (!file) return;
-    if (file.size > 30 * 1024 * 1024) { setErr("Ukuran video maksimal 30 MB."); return; }
+    if (file.size > 30 * 1024 * 1024) { setVideoError("Ukuran video maksimal 30 MB."); return; }
     const fd = new FormData(); fd.append("file", file);
-    setUploadingVideo(true); setErr("");
+    setUploadingVideo(true); setVideoError(""); setErr("");
     try {
       const result = await api<VideoUpload>("/marketplace/publish/video", { method: "POST", body: fd });
       if (videoPreview) URL.revokeObjectURL(videoPreview);
       setVideoPreview(URL.createObjectURL(file)); setVideo(result);
-    } catch (e) { setErr(e instanceof ApiError ? e.message : "Upload video gagal"); }
+    } catch (e) { setVideoError(e instanceof ApiError ? e.message : "Upload video gagal"); }
     finally { setUploadingVideo(false); }
   };
 
@@ -409,6 +410,7 @@ function Publish() {
                       <input type="file" accept="video/mp4,video/quicktime" className="hidden" disabled={uploadingVideo} onChange={(e) => { uploadVideo(e.target.files?.[0] ?? null); e.target.value = ""; }} />
                     </label>
                   )}
+                  {videoError && <div className="mt-2 rounded-lg border border-rose-100 bg-rose-50 px-2.5 py-2 text-xs leading-relaxed text-rose-700">{videoError}</div>}
                 </div>
               </div>
             </Row>
