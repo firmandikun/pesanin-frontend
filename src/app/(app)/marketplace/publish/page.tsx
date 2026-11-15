@@ -21,7 +21,14 @@ type Answer = { value_ids: number[]; text: string; unit: string; custom?: boolea
 type Tier = { name: string; options: string[] };
 type Model = { index: number[]; price: number; stock: number; sku: string };
 type Wholesale = { min: number; max: number; price: number };
-type Result = { state: "wait" | "run" | "ok" | "fail"; message?: string; item_id?: number; status?: string };
+type Result = { state: "wait" | "run" | "ok" | "fail"; message?: string; item_id?: number; status?: string; shopee_status?: string; seller_centre_url?: string; checking?: boolean };
+type Live = { item_id: number; status?: string; shopee_status?: string; seller_centre_url?: string };
+/** Shopee's item_status in the seller's words, with a tone. */
+const SHOPEE_STATUS: Record<string, [string, string]> = {
+  NORMAL: ["Tayang di Shopee", "text-emerald-600"], UNLIST: ["Diarsipkan (belum tampil ke pembeli)", "text-amber-600"],
+  REVIEWING: ["Sedang diperiksa Shopee", "text-amber-600"], BANNED: ["Diblokir Shopee", "text-rose-600"],
+  SHOPEE_DELETE: ["Dihapus Shopee", "text-rose-600"], SELLER_DELETE: ["Dihapus", "text-rose-600"], NOT_FOUND: ["Belum ditemukan di Shopee, cek lagi sebentar", "text-amber-600"],
+};
 type Prod = { id: number; name: string; description: string | null; price: number; stock: number | null; sku: string | null; weight: number | null; images: string[] | null;
   variants: { name: string; price: number; stock?: number; sku?: string }[] | null; variant_options: { type: string; values: string[] }[] | null };
 
@@ -268,13 +275,23 @@ function Publish() {
     for (const id of targets) {
       setResults((r) => ({ ...r, [id]: { state: "run" } }));
       try {
-        const r = await api<{ item_id: number; status: string }>(`/marketplace/publish/${id}`, { method: "POST", json: body });
-        setResults((x) => ({ ...x, [id]: { state: "ok", item_id: r.item_id, status: r.status } }));
+        const r = await api<Live>(`/marketplace/publish/${id}`, { method: "POST", json: body });
+        setResults((x) => ({ ...x, [id]: { state: "ok", ...r } }));
       } catch (e) {
         setResults((x) => ({ ...x, [id]: { state: "fail", message: e instanceof ApiError ? e.message : "Gagal" } }));
       }
     }
     setRunning(false);
+  };
+
+  const check = async (shopId: number) => {
+    const cur = results[shopId];
+    if (!cur?.item_id) return;
+    setResults((x) => ({ ...x, [shopId]: { ...cur, checking: true } }));
+    try {
+      const r = await api<Live>(`/marketplace/publish/${shopId}/items/${cur.item_id}`);
+      setResults((x) => ({ ...x, [shopId]: { ...x[shopId], ...r, checking: false } }));
+    } catch { setResults((x) => ({ ...x, [shopId]: { ...x[shopId], checking: false } })); }
   };
 
   const refs = useRef<Record<string, HTMLElement | null>>({});
@@ -664,7 +681,18 @@ function Publish() {
                           <b className="block truncate text-navy">{s.name}</b>
                           {s.error && <span className="block truncate text-xs text-slate-400">{s.error}</span>}
                           {r?.state === "fail" && <span className="block text-xs text-rose-600">{r.message}</span>}
-                          {r?.state === "ok" && <span className="block text-xs text-emerald-600">{r.status === "UNLIST" ? (schedule ? "Dijadwalkan" : "Diarsipkan") : "Tayang"} · item {r.item_id}</span>}
+                          {r?.state === "ok" && (() => {
+                            const [label, tone] = r.shopee_status ? SHOPEE_STATUS[r.shopee_status] ?? [r.shopee_status, "text-slate-600"] : [r.status === "UNLIST" ? (schedule ? "Dijadwalkan" : "Diarsipkan") : "Terkirim ke Shopee", "text-emerald-600"];
+                            return (
+                              <span className="block text-xs">
+                                <span className={`block ${tone}`}>{label} · item {r.item_id}</span>
+                                <span className="mt-0.5 flex gap-3">
+                                  {r.seller_centre_url && <a href={r.seller_centre_url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="font-semibold text-[#ee4d2d]">Buka di Seller Centre</a>}
+                                  <button type="button" onClick={(e) => { e.preventDefault(); check(s.id); }} className="font-semibold text-slate-500 hover:text-navy">{r.checking ? "Mengecek…" : "Cek status"}</button>
+                                </span>
+                              </span>
+                            );
+                          })()}
                         </span>
                         {r?.state === "run" && <Loader2 size={16} className="mt-0.5 shrink-0 animate-spin text-[#ee4d2d]" />}
                         {r?.state === "ok" && <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-500" />}
