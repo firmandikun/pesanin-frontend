@@ -82,7 +82,7 @@ function StockCell({ l, onSaved }: { l: Listing; onSaved: (v: number) => void })
 
 function Products() {
   const sp = useSearchParams();
-  const [filters, setFilters] = useState({ shop_id: sp.get("shop_id") ?? "", cost: sp.get("cost") ?? "", search: "" });
+  const [filters, setFilters] = useState({ shop_id: sp.get("shop_id") ?? "", cost: sp.get("cost") ?? "", stock: sp.get("stock") ?? "", search: "" });
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
   const [d, setD] = useState<Data | null>(null);
@@ -120,7 +120,11 @@ function Products() {
       {s && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[["Total listing", s.total, "text-navy"], ["HPP terisi", `${s.with_cost} / ${s.total}`, s.with_cost < s.total ? "text-amber-600" : "text-emerald-600"], ["Stok habis", s.out_of_stock, "text-rose-600"], ["Total stok", s.stock.toLocaleString("id-ID"), "text-navy"]].map(([l, v, c]) => (
-            <div key={l as string} className="surface p-4"><p className="text-xs font-medium text-slate-500">{l}</p><p className={`mt-1 text-xl font-bold ${c}`}>{v}</p></div>
+            l === "Stok habis"
+              // Click to show only the sold-out variations (toggles the Stok filter).
+              ? <button key={l} onClick={() => set("stock", filters.stock === "out" ? "" : "out")} className={`surface p-4 text-left transition hover:ring-2 hover:ring-rose-100 ${filters.stock === "out" ? "ring-2 ring-rose-300" : ""}`}>
+                  <p className="text-xs font-medium text-slate-500">{l}{filters.stock === "out" ? " · ditampilkan" : ""}</p><p className={`mt-1 text-xl font-bold ${c}`}>{v}</p></button>
+              : <div key={l as string} className="surface p-4"><p className="text-xs font-medium text-slate-500">{l}</p><p className={`mt-1 text-xl font-bold ${c}`}>{v}</p></div>
           ))}
         </div>
       )}
@@ -139,6 +143,9 @@ function Products() {
           </Select>
           <Select className="input w-48" value={filters.cost} onChange={(e) => set("cost", e.target.value)}>
             <option value="">Semua listing</option><option value="filled">HPP sudah diisi</option><option value="empty">HPP belum diisi</option>
+          </Select>
+          <Select className="input w-44" value={filters.stock} onChange={(e) => set("stock", e.target.value)}>
+            <option value="">Semua stok</option><option value="out">Stok habis</option><option value="in">Stok tersedia</option>
           </Select>
         </div>
         <div className="overflow-x-auto">
@@ -221,7 +228,7 @@ function Products() {
               })}
             </tbody>
           </table>
-          {d && d.listings.data.length === 0 && <p className="py-14 text-center text-sm text-slate-500">Belum ada listing. Hubungkan toko Shopee lalu klik Sinkronkan.</p>}
+          {d && d.listings.data.length === 0 && <p className="py-14 text-center text-sm text-slate-500">{filters.stock === "out" ? "Tidak ada produk yang stoknya habis." : filters.search || filters.shop_id || filters.cost || filters.stock ? "Tidak ada listing yang cocok dengan filter." : "Belum ada listing. Hubungkan toko Shopee lalu klik Sinkronkan."}</p>}
         </div>
         {d && <Pager page={d.listings.current_page} last={d.listings.last_page} onPage={setPage} total={d.listings.total} perPage={perPage} onPerPage={setPerPage} />}
       </Panel>
