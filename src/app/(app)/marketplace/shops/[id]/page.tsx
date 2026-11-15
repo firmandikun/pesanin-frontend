@@ -21,6 +21,7 @@ type ListingData = { stats: { total: number; with_cost: number; out_of_stock: nu
 type Profit = { summary: { orders: number; items: number; gmv: number; revenue: number; fees: number; cogs: number; ads: number; opex: number; net_profit: number; margin: number; pending_fee_orders: number; missing_cost_orders: number } };
 
 const statusLabel: Record<string, [string, string]> = {
+  PENDING: ["Tertunda", "bg-amber-50 text-amber-700"],
   READY_TO_SHIP: ["Perlu dikirim", "bg-blue-50 text-blue-700"],
   PROCESSED: ["Siap diserahkan", "bg-amber-50 text-amber-700"],
   SHIPPED: ["Dalam pengiriman", "bg-indigo-50 text-indigo-700"],
