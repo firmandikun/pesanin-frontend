@@ -23,7 +23,9 @@ type Row = {
   profit: number; margin: number;
   fee_final: boolean; missing_cost: boolean; fee_breakdown: { key: string; label: string; amount: number }[]; fee_source: "shopee" | "summary" | "estimate";
 };
+
 type Data = {
+  rows?: Row[];
   transactions: Paginated<Row>;
   summary: { gmv: number; revenue: number; fees: number; net_revenue: number; cogs: number; ads?: number; gross_profit?: number; profit: number; missing_cost: number };
   tab_counts?: Record<string, number>;
@@ -63,6 +65,29 @@ const statusLabels: Record<string, string> = {
   TO_RETURN: "Retur",
 };
 
+/** Exact same tab-matching logic as MarketplaceController::matchTransactionTab so client-side tab switching is 0ms & 100% consistent. */
+function matchTab(r: Row, tab: string): boolean {
+  if (!tab) return true;
+  const st = r.status ?? "";
+  const hasResi = Boolean(r.tracking_number);
+  switch (tab) {
+    case "READY_TO_SHIP":
+      return st === "READY_TO_SHIP" || st === "PENDING" || (st === "IN_CANCEL" && !hasResi);
+    case "PROCESSED":
+      return st === "PROCESSED" || st === "RETRY_SHIP" || (st === "IN_CANCEL" && hasResi);
+    case "SHIPPED":
+      return st === "SHIPPED" || st === "TO_CONFIRM_RECEIVE";
+    case "COMPLETED":
+      return st === "COMPLETED";
+    case "CANCELLED":
+      return st === "CANCELLED" || st === "IN_CANCEL";
+    case "TO_RETURN":
+      return st === "TO_RETURN";
+    default:
+      return st === tab;
+  }
+}
+
 const fmtRpDec = (n: number) =>
   "Rp" + n.toLocaleString("id-ID", { minimumFractionDigits: n % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 });
 
@@ -73,55 +98,17 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
   const [range, setRange] = useState(todayRange());
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [data, setData] = useState<Data | null>(null);
+  const [allRows, setAllRows] = useState<Row[]>([]);
+  const [backfilling, setBackfilling] = useState(false);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState("");
   const [notice, setNotice] = useState("");
 
   const reqId = useRef(0);
-  const syncId = useRef(0);
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search), 200);
-    return () => clearTimeout(t);
-  }, [search]);
-
-  const query = useMemo(
-    () =>
-      new URLSearchParams({
-        ...range,
-        page: String(page),
-        per_page: String(perPage),
-        ...(status ? { status } : {}),
-        ...(debouncedSearch ? { search: debouncedSearch } : {}),
-      }).toString(),
-    [range, page, perPage, status, debouncedSearch],
-  );
-
-  const load = useCallback(async () => {
-    const cur = ++reqId.current;
-    setLoading(true);
-    try {
-      const res = await api<Data>(`/marketplace/shops/${shopId}/transactions?${query}`);
-      if (cur === reqId.current) {
-        setData(res);
-      }
-    } finally {
-      if (cur === reqId.current) {
-        setLoading(false);
-      }
-    }
-  }, [shopId, query]);
-
-  // Keep a ref to the latest `load` so background sync completion always reloads with current tab/date/search state.
-  const loadRef = useRef(load);
-  useEffect(() => {
-    loadRef.current = load;
-  }, [load]);
 
   useEffect(() => {
     api<{ shops: Shop[] }>("/marketplace/shops").then((x) =>
@@ -129,62 +116,169 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
     );
   }, [shopId]);
 
-  // Load immediately (0ms delay) on pagination, tab switch, or range change; search is already debounced above.
-  useEffect(() => {
-    load();
-  }, [load]);
+  /**
+   * Fetch all rows for the chosen date range [range.from, range.to], then progressively sync all missing/changed
+   * orders and escrow breakdowns from Shopee in batches until 100% of the month's data is pulled.
+   */
+  const fetchRange = useCallback(
+    async (syncAfter = true, forceSync = false) => {
+      const cur = ++reqId.current;
+      setLoading(true);
+      setSyncProgress("");
+      try {
+        const q = new URLSearchParams({
+          from: range.from,
+          to: range.to,
+          page: "1",
+          per_page: "20000",
+          all_rows: "1",
+        }).toString();
+        const res = await api<Data>(`/marketplace/shops/${shopId}/transactions?${q}`);
+        if (cur !== reqId.current) return;
+        setAllRows(res.rows ?? res.transactions.data ?? []);
+        setBackfilling(Boolean(res.backfilling));
+        setLoading(false);
 
-  // Every time the user changes the date filter (range.from / range.to), pull updated orders for that range from Shopee.
-  useEffect(() => {
-    const sid = ++syncId.current;
-    setSyncing(true);
-    api(`/marketplace/shops/${shopId}/sync`, {
-      method: "POST",
-      json: { what: "orders", from: range.from, to: range.to },
-    })
-      .then(() => {
-        if (sid === syncId.current) {
-          loadRef.current();
+        if (syncAfter) {
+          setSyncing(true);
+          try {
+            for (let step = 0; step < 30; step++) {
+              if (cur !== reqId.current) return;
+              const syncRes = await api<{
+                result?: {
+                  orders?: number;
+                  settled?: number;
+                  remaining?: number;
+                  remaining_orders?: number;
+                  remaining_escrow?: number;
+                  shopee_total?: number;
+                };
+              }>(`/marketplace/shops/${shopId}/sync`, {
+                method: "POST",
+                json: {
+                  what: "orders",
+                  from: range.from,
+                  to: range.to,
+                  ...(forceSync && step === 0 ? { force: true } : {}),
+                },
+              });
+              if (cur !== reqId.current) return;
+              const r = syncRes?.result;
+              const pulled = (r?.orders ?? 0) + (r?.settled ?? 0);
+              const remOrders = r?.remaining_orders ?? 0;
+              const remEscrow = r?.remaining_escrow ?? 0;
+              const rem = r?.remaining ?? 0;
+
+              if (pulled > 0 || (forceSync && step === 0)) {
+                const fresh = await api<Data>(`/marketplace/shops/${shopId}/transactions?${q}`);
+                if (cur !== reqId.current) return;
+                setAllRows(fresh.rows ?? fresh.transactions.data ?? []);
+                setBackfilling(Boolean(fresh.backfilling));
+              }
+
+              if (remOrders > 0) {
+                setSyncProgress(`Menarik ${remOrders} pesanan lagi dari Shopee (total ${r?.shopee_total ?? 0} pesanan di periode ini)…`);
+              } else if (remEscrow > 0) {
+                setSyncProgress(`Melengkapi rincian biaya & escrow ${remEscrow} pesanan lagi dari Shopee…`);
+              } else {
+                setSyncProgress("");
+              }
+
+              if (rem <= 0 || pulled === 0) {
+                break;
+              }
+            }
+          } catch {
+            // keep already-loaded local rows
+          } finally {
+            if (cur === reqId.current) {
+              setSyncing(false);
+              setSyncProgress("");
+            }
+          }
         }
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (sid === syncId.current) {
+      } catch {
+        if (cur === reqId.current) {
+          setLoading(false);
           setSyncing(false);
+          setSyncProgress("");
         }
-      });
-  }, [shopId, range.from, range.to]);
+      }
+    },
+    [shopId, range.from, range.to],
+  );
 
-  useBackfillReload(data?.backfilling, load);
+  useEffect(() => {
+    fetchRange(true, false);
+  }, [fetchRange]);
+
+  const reloadOnly = useCallback(() => {
+    fetchRange(false, false);
+  }, [fetchRange]);
+
+  useBackfillReload(backfilling, reloadOnly);
 
   const reloadFromShopee = async () => {
-    const sid = ++syncId.current;
-    setSyncing(true);
-    setLoading(true);
     setNotice("");
-    try {
-      await api(`/marketplace/shops/${shopId}/sync`, {
-        method: "POST",
-        json: { what: "orders", from: range.from, to: range.to },
-      });
-      await loadRef.current();
-      if (sid === syncId.current) {
-        setNotice("Data transaksi & status pesanan berhasil diperbarui dari Shopee.");
-      }
-    } catch {
-      await loadRef.current();
-      if (sid === syncId.current) {
-        setNotice("Data transaksi dimuat ulang.");
-      }
-    } finally {
-      if (sid === syncId.current) {
-        setSyncing(false);
-      }
-    }
+    await fetchRange(true, true);
+    setNotice("Data transaksi & status pesanan berhasil diperbarui dari Shopee.");
   };
 
+  // 1. Filter by search query first (so tab counts reflect the search filter, matching backend behavior).
+  const searchedRows = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return allRows;
+    return allRows.filter((r) =>
+      `${r.order_sn ?? ""} ${r.customer_name ?? ""} ${r.tracking_number ?? ""}`.toLowerCase().includes(needle),
+    );
+  }, [allRows, search]);
+
+  // 2. Compute exact counts per status tab synchronously from searchedRows.
+  const tabCounts = useMemo(() => {
+    const counts: Record<string, number> = { "": searchedRows.length };
+    for (const [k] of FILTERS) {
+      if (k) counts[k] = searchedRows.filter((r) => matchTab(r, k)).length;
+    }
+    return counts;
+  }, [searchedRows]);
+
+  // 3. Filter rows for the currently active status tab synchronously (0ms, never out-of-sync!).
+  const tabRows = useMemo(
+    () => (status ? searchedRows.filter((r) => matchTab(r, status)) : searchedRows),
+    [searchedRows, status],
+  );
+
+  // 4. Compute summary cards synchronously from the active tab's rows.
+  const s = useMemo(() => {
+    let revenue = 0;
+    let fees = 0;
+    let net_revenue = 0;
+    let cogs = 0;
+    let ads = 0;
+    let profit = 0;
+    let missing_cost = 0;
+    for (const r of tabRows) {
+      revenue += r.revenue;
+      fees += r.fees;
+      net_revenue += r.net_revenue;
+      cogs += r.cogs;
+      ads += r.ad_cost ?? 0;
+      profit += r.profit;
+      if (r.missing_cost) missing_cost += 1;
+    }
+    return { revenue, fees, net_revenue, cogs, ads, profit, missing_cost };
+  }, [tabRows]);
+
+  // 5. Slice current page synchronously (0ms pagination!).
+  const total = tabRows.length;
+  const lastPage = Math.max(1, Math.ceil(total / perPage));
+  const safePage = Math.min(page, lastPage);
+  const pageRows = useMemo(
+    () => tabRows.slice((safePage - 1) * perPage, safePage * perPage),
+    [tabRows, safePage, perPage],
+  );
+
   if (!shop) return <div className="py-24 text-center text-sm text-slate-400">Memuat transaksi toko…</div>;
-  const s = data?.summary;
   const activeTabLabel = FILTERS.find(([v]) => v === status)?.[1] ?? "Semua transaksi";
 
   return (
@@ -210,11 +304,11 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
         </button>
         <button
           onClick={reloadFromShopee}
-          disabled={syncing}
+          disabled={loading || syncing}
           className="flex h-10 items-center gap-2 rounded-lg bg-navy px-4 text-sm font-semibold text-white disabled:opacity-60"
         >
-          <RefreshCcw size={16} className={syncing ? "animate-spin" : ""} />
-          {syncing ? "Menyinkronkan…" : "Muat ulang"}
+          <RefreshCcw size={16} className={loading || syncing ? "animate-spin" : ""} />
+          {loading || syncing ? "Menyinkronkan…" : "Muat ulang"}
         </button>
       </PageHead>
 
@@ -224,11 +318,13 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
         </div>
       )}
 
-      {syncing && (
+      {(loading || syncing) && (
         <div className="flex items-center gap-2.5 rounded-xl border border-sky-200 bg-sky-50/80 px-4 py-2.5 text-xs font-medium text-sky-800">
-          <Loader2 size={15} className=" shrink-0 animate-spin text-sky-600" />
+          <Loader2 size={15} className="shrink-0 animate-spin text-sky-600" />
           <span>
-            Mengambil pembaruan data transaksi periode <b>{range.from}</b> s/d <b>{range.to}</b> langsung dari Shopee…
+            {loading
+              ? `Memuat data transaksi periode ${range.from} s/d ${range.to}…`
+              : syncProgress || `Menyinkronkan pembaruan status pesanan periode ${range.from} s/d ${range.to} dari Shopee…`}
           </span>
         </div>
       )}
@@ -250,7 +346,7 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
         />
       </div>
 
-      <BackfillNotice show={data?.backfilling} />
+      <BackfillNotice show={backfilling} />
       <ShopWorkspaceNav shopId={shop.id} active="finance" />
 
       <div className="flex gap-2">
@@ -263,25 +359,23 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
         </a>
       </div>
 
-      {s && (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-          {[
-            ["Omzet", s.revenue, "text-navy"],
-            ["Potongan", s.fees, "text-rose-600"],
-            ["Pendapatan bersih", s.net_revenue, "text-blue-600"],
-            ["Total HPP", s.cogs, "text-orange-600"],
-            ["Biaya Iklan (Konversi)", s.ads ?? 0, "text-violet-600"],
-            ["Laba Bersih", s.profit, s.profit >= 0 ? "text-emerald-600" : "text-rose-600"],
-          ].map(([l, v, c]) => (
-            <Panel key={l as string} className="p-4">
-              <p className="text-xs text-slate-500">{l as string}</p>
-              <p className={`mt-1 text-lg font-bold ${c}`}>{rupiah(v as number)}</p>
-            </Panel>
-          ))}
-        </div>
-      )}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        {[
+          ["Omzet", s.revenue, "text-navy"],
+          ["Potongan", s.fees, "text-rose-600"],
+          ["Pendapatan bersih", s.net_revenue, "text-blue-600"],
+          ["Total HPP", s.cogs, "text-orange-600"],
+          ["Biaya Iklan (Konversi)", s.ads, "text-violet-600"],
+          ["Laba Bersih", s.profit, s.profit >= 0 ? "text-emerald-600" : "text-rose-600"],
+        ].map(([l, v, c]) => (
+          <Panel key={l as string} className="p-4">
+            <p className="text-xs text-slate-500">{l as string}</p>
+            <p className={`mt-1 text-lg font-bold ${c}`}>{loading ? "…" : rupiah(v as number)}</p>
+          </Panel>
+        ))}
+      </div>
 
-      {s && s.missing_cost > 0 && (
+      {!loading && s.missing_cost > 0 && (
         <div className="flex items-center gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
           <AlertTriangle size={16} />
           {s.missing_cost} transaksi belum memiliki HPP lengkap sehingga laba belum final.
@@ -305,29 +399,25 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
           </div>
         </div>
 
-        {/* Status Filter Tabs with Counts & Loading Spinner */}
+        {/* Status Filter Tabs — Instant 0ms switching from in-memory rows */}
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-4">
           {FILTERS.map(([v, l]) => {
             const active = status === v;
-            const count = data?.tab_counts?.[v];
+            const count = tabCounts[v] ?? 0;
             return (
               <button
                 key={v}
                 onClick={() => {
-                  if (status !== v) {
-                    setExpanded(null);
-                    setLoading(true);
-                    setStatus(v);
-                    setPage(1);
-                  }
+                  setExpanded(null);
+                  setStatus(v);
+                  setPage(1);
                 }}
-                className={`inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition ${
-                  active ? "border-navy bg-navy text-white" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-                }`}
+                className={`inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition ${active ? "border-navy bg-navy text-white" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                  }`}
               >
                 {active && (loading || syncing) && <Loader2 size={13} className="animate-spin" />}
                 <span>{l}</span>
-                {typeof count === "number" && (
+                {!loading && (
                   <span className={`text-xs ${active ? "text-slate-200" : "text-slate-400"}`}>({count})</span>
                 )}
               </button>
@@ -351,13 +441,13 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
                     <div className="inline-flex items-center gap-2.5">
                       <Loader2 size={18} className="animate-spin text-navy" />
                       <span>
-                        Memuat data tab <b>{activeTabLabel}</b> (halaman {page})…
+                        Memuat data tab <b>{activeTabLabel}</b>…
                       </span>
                     </div>
                   </td>
                 </tr>
               ) : (
-                (data?.transactions.data ?? []).map((r) => {
+                pageRows.map((r) => {
                   const adCost = r.ad_cost ?? 0;
                   const grossProfit = r.gross_profit ?? (r.net_revenue - r.cogs);
                   const createdStr = new Date(r.created_at).toLocaleDateString("id-ID", {
@@ -367,15 +457,15 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
                   });
                   const completedStr = r.completed_at
                     ? new Date(r.completed_at).toLocaleDateString("id-ID", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })
                     : null;
 
                   return (
                     <Fragment key={r.id}>
-                      <tr className={`align-top hover:bg-slate-50/50 ${syncing ? "opacity-80" : ""}`}>
+                      <tr className="align-top hover:bg-slate-50/50">
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-1.5">
                             <p className="font-mono text-xs font-semibold text-navy">{r.order_sn}</p>
@@ -405,9 +495,8 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
                           {r.fees < 0 ? "+ " : "− "}{rupiah(Math.abs(r.fees))}
                           {r.status !== "CANCELLED" && r.status !== "IN_CANCEL" && (
                             <span
-                              className={`mt-0.5 block w-fit rounded px-1.5 text-[10px] font-semibold ${
-                                r.fee_final ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
-                              }`}
+                              className={`mt-0.5 block w-fit rounded px-1.5 text-[10px] font-semibold ${r.fee_final ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+                                }`}
                             >
                               {r.fee_final ? "Sudah cair" : "Estimasi penghasilan"}
                             </span>
@@ -530,9 +619,9 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
                                     ["Total HPP", -r.cogs, false],
                                     ...(r.is_advertised
                                       ? [
-                                          ["Laba sebelum iklan", grossProfit, false],
-                                          ["Biaya Iklan (per Konversi)", -adCost, false],
-                                        ]
+                                        ["Laba sebelum iklan", grossProfit, false],
+                                        ["Biaya Iklan (per Konversi)", -adCost, false],
+                                      ]
                                       : [["Biaya Iklan", 0, false]]),
                                     ["Laba bersih transaksi", r.profit, true],
                                   ].map(([l, v, bold]) => (
@@ -544,9 +633,8 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
                                         )}
                                       </dt>
                                       <dd
-                                        className={`${bold ? "text-sm font-extrabold" : "font-semibold"} ${
-                                          (v as number) < 0 ? "text-rose-600" : bold && (v as number) > 0 ? "text-emerald-600" : "text-navy"
-                                        }`}
+                                        className={`${bold ? "text-sm font-extrabold" : "font-semibold"} ${(v as number) < 0 ? "text-rose-600" : bold && (v as number) > 0 ? "text-emerald-600" : "text-navy"
+                                          }`}
                                       >
                                         {(v as number) < 0 ? "− " : ""}{rupiah(Math.abs(v as number))}
                                       </dd>
@@ -564,36 +652,30 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
               )}
             </tbody>
           </table>
-          {!loading && data && data.transactions.total === 0 && (
+          {!loading && total === 0 && (
             <p className="py-14 text-center text-sm text-slate-500">
               {syncing
-                ? "Sedang menarik data dari Shopee untuk tab ini…"
+                ? "Sedang menarik data dari Shopee untuk periode ini…"
                 : "Tidak ada transaksi pada filter ini."}
             </p>
           )}
         </div>
-        {data && (
-          <Pager
-            page={page}
-            last={data.transactions.last_page}
-            total={data.transactions.total}
-            perPage={perPage}
-            loading={loading}
-            onPage={(p) => {
-              if (p !== page) {
-                setExpanded(null);
-                setLoading(true);
-                setPage(p);
-              }
-            }}
-            onPerPage={(n) => {
-              setExpanded(null);
-              setLoading(true);
-              setPerPage(n);
-              setPage(1);
-            }}
-          />
-        )}
+        <Pager
+          page={safePage}
+          last={lastPage}
+          total={total}
+          perPage={perPage}
+          loading={loading}
+          onPage={(p) => {
+            setExpanded(null);
+            setPage(p);
+          }}
+          onPerPage={(n) => {
+            setExpanded(null);
+            setPerPage(n);
+            setPage(1);
+          }}
+        />
       </Panel>
     </div>
   );
