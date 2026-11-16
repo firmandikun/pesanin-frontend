@@ -1,6 +1,6 @@
 "use client";
 import { Check, ExternalLink, HelpCircle, Loader2, Megaphone, RefreshCcw, Search, ShieldCheck, Wallet } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DateRange, useDefaultRange } from "@/components/DateRange";
 import { PageHead, Panel } from "@/components/kit";
 import { Select } from "@/components/Select";
@@ -105,8 +105,11 @@ export default function ShopeeAds() {
   const [view, setView] = useState<"products" | "campaigns">("products");
   const [statusFilter, setStatusFilter] = useState<string>("ongoing");
   const [q, setQ] = useState("");
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const reqId = useRef(0);
+  const syncId = useRef(0);
 
   useEffect(() => {
     api<{ shops: Shop[] }>("/marketplace/shops").then((r) =>
@@ -115,34 +118,76 @@ export default function ShopeeAds() {
   }, []);
 
   // Load all campaigns so status filter tabs (Semua / Berjalan / Nonaktif / dsb.) work seamlessly client-side
-  const load = useCallback(() => {
-    api<Data>(
-      `/marketplace/ads?${new URLSearchParams({
-        from: range.from,
-        to: range.to,
-        all: "1",
-        ...(shop ? { shop } : {}),
-      })}`,
-    ).then(setD);
+  const load = useCallback(async () => {
+    const cur = ++reqId.current;
+    setLoading(true);
+    try {
+      const res = await api<Data>(
+        `/marketplace/ads?${new URLSearchParams({
+          from: range.from,
+          to: range.to,
+          all: "1",
+          ...(shop ? { shop } : {}),
+        })}`,
+      );
+      if (cur === reqId.current) {
+        setD(res);
+      }
+    } finally {
+      if (cur === reqId.current) {
+        setLoading(false);
+      }
+    }
   }, [range, shop]);
+
+  const loadRef = useRef(load);
+  useEffect(() => {
+    loadRef.current = load;
+  }, [load]);
 
   useEffect(() => {
     load();
   }, [load]);
 
+  // Every time the user changes the date filter or shop, pull fresh Shopee Ads stats from Shopee in the background
+  useEffect(() => {
+    const targets = shops.filter((x) => !x.is_demo && (!shop || String(x.id) === shop));
+    if (!targets.length) return;
+    const sid = ++syncId.current;
+    setBusy(true);
+    Promise.all(targets.map((s) => api(`/marketplace/shops/${s.id}/sync`, { method: "POST", json: { what: "ads" } }).catch(() => null)))
+      .then(() => {
+        if (sid === syncId.current) {
+          loadRef.current();
+        }
+      })
+      .finally(() => {
+        if (sid === syncId.current) {
+          setBusy(false);
+        }
+      });
+  }, [shops, range.from, range.to, shop]);
+
   const sync = async () => {
+    const sid = ++syncId.current;
     setBusy(true);
     setMsg("");
     try {
       for (const s of shops.filter((x) => !x.is_demo && (!shop || String(x.id) === shop))) {
         await api(`/marketplace/shops/${s.id}/sync`, { method: "POST", json: { what: "ads" } });
       }
-      setMsg("Data iklan berhasil diperbarui dari Shopee Ads API.");
-      load();
+      if (sid === syncId.current) {
+        setMsg("Data iklan berhasil diperbarui dari Shopee Ads API.");
+        await loadRef.current();
+      }
     } catch (e) {
-      setMsg(e instanceof ApiError ? e.message : "Gagal mengambil data iklan");
+      if (sid === syncId.current) {
+        setMsg(e instanceof ApiError ? e.message : "Gagal mengambil data iklan");
+      }
     } finally {
-      setBusy(false);
+      if (sid === syncId.current) {
+        setBusy(false);
+      }
     }
   };
 
@@ -213,6 +258,15 @@ export default function ShopeeAds() {
       {msg && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-sm font-medium text-emerald-800">
           {msg}
+        </div>
+      )}
+
+      {(busy || loading) && d && (
+        <div className="flex items-center gap-2.5 rounded-xl border border-sky-200 bg-sky-50/80 px-4 py-2.5 text-xs font-medium text-sky-800">
+          <Loader2 size={15} className="shrink-0 animate-spin text-sky-600" />
+          <span>
+            Memperbarui data performa iklan periode <b>{range.from}</b> s/d <b>{range.to}</b> dari Shopee Ads API…
+          </span>
         </div>
       )}
 
