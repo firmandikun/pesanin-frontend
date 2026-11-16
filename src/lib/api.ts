@@ -1,8 +1,8 @@
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string, public errors: Record<string, string[]> = {}) {
-    super(message);
+  constructor(public status: number, message: string, public errors: Record<string, string[]> = {}, public data: any = {}) {
+    super(message.replace(/\(and (\d+) more errors?\)/i, "(dan $1 kesalahan lainnya)"));
   }
 }
 
@@ -38,7 +38,7 @@ export async function api<T = any>(path: string, options: RequestInit & { json?:
     // Paket & Tagihan stays usable so the store can pay; other widgets there just fail quietly.
     if (!/^\/(langganan|settings\/billing)/.test(location.pathname)) location.href = "/langganan";
   } else if (res.status === 402 && typeof window !== "undefined") window.dispatchEvent(new CustomEvent("pesanin:upgrade", { detail: data.message }));
-  if (!res.ok) throw new ApiError(res.status, data.message ?? "Terjadi kesalahan", data.errors);
+  if (!res.ok) throw new ApiError(res.status, data.message ?? "Terjadi kesalahan", data.errors, data);
   return data;
 }
 

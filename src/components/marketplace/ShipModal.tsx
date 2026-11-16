@@ -8,7 +8,8 @@ import { api, ApiError } from "@/lib/api";
 
 type Method = "pickup" | "dropoff" | "non_integrated";
 type Option = {
-  id: number; code: string; courier: string | null; shop: string; methods: Method[]; needs: Partial<Record<Method, string[]>>;
+  kind?: "order" | "booking"; id: number; order_id?: number | null; booking_id?: number | null;
+  code: string; courier: string | null; shop: string; methods: Method[]; needs: Partial<Record<Method, string[]>>;
   slots: { id: string; date: number | null; text: string | null }[]; address: string | null;
   branches: { id: number; name: string }[]; slugs: { id: string; name: string }[]; error: string | null;
 };
@@ -23,15 +24,16 @@ const METHOD: Record<Method, { icon: typeof Truck; title: string; desc: string }
 };
 
 /**
- * "Atur pengiriman" for one or many Shopee orders. Shopee decides per courier (and per shop setting)
- * whether pickup, drop-off or both are allowed, so orders are grouped by shop + courier and each
- * group gets only the methods it supports: pickup is preferred, otherwise drop-off.
+ * "Atur pengiriman" for one or many Shopee orders and/or Pengiriman Kilat reservations.
+ * Shopee decides per courier (and per shop setting) whether pickup, drop-off or both are allowed,
+ * so items are grouped by shop + courier and each group gets only the methods it supports.
  */
-export function ShipModal({ orderIds, onClose, onDone }: { orderIds: number[]; onClose: () => void; onDone: (msg: string) => void }) {
+export function ShipModal({ orderIds = [], bookingIds = [], onClose, onDone }: { orderIds?: number[]; bookingIds?: number[]; onClose: () => void; onDone: (msg: string) => void }) {
   const [opts, setOpts] = useState<Option[] | null>(null);
   const [choices, setChoices] = useState<Record<string, Choice>>({});
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const totalSelected = orderIds.length + bookingIds.length;
 
   const groups = useMemo(() => {
     const map = new Map<string, Option[]>();
@@ -47,7 +49,11 @@ export function ShipModal({ orderIds, onClose, onDone }: { orderIds: number[]; o
   }, [opts]);
 
   useEffect(() => {
-    api<{ orders: Option[]; sender_name: string }>(`/labels/shopee/options?ids=${orderIds.join(",")}`).then((d) => {
+    const qs = new URLSearchParams({
+      ...(orderIds.length ? { ids: orderIds.join(",") } : {}),
+      ...(bookingIds.length ? { booking_ids: bookingIds.join(",") } : {}),
+    });
+    api<{ orders: Option[]; sender_name: string }>(`/labels/shopee/options?${qs}`).then((d) => {
       setOpts(d.orders);
       const init: Record<string, Choice> = {};
       d.orders.filter((o) => !o.error && o.methods.length).forEach((o) => {
@@ -58,7 +64,7 @@ export function ShipModal({ orderIds, onClose, onDone }: { orderIds: number[]; o
       });
       setChoices(init);
     }).catch((e) => setErr(e instanceof ApiError ? e.message : "Gagal memuat opsi pengiriman"));
-  }, [orderIds]);
+  }, [orderIds, bookingIds]);
 
   const set = (k: string, patch: Partial<Choice>) => setChoices((c) => ({ ...c, [k]: { ...c[k], ...patch } }));
   const skipped = (opts ?? []).filter((o) => o.error || !o.methods.length);
@@ -77,7 +83,9 @@ export function ShipModal({ orderIds, onClose, onDone }: { orderIds: number[]; o
       const items = groups.flatMap((g) => {
         const c = choices[g.key];
         return g.orders.map((o) => ({
-          order_id: o.id, method: c.method,
+          order_id: o.kind === "booking" ? null : (o.order_id ?? o.id),
+          booking_id: o.kind === "booking" ? (o.booking_id ?? o.id) : null,
+          method: c.method,
           pickup_time_id: c.method === "pickup" ? c.slot || null : null,
           branch_id: c.method === "dropoff" && c.branch ? Number(c.branch) : null,
           slug: c.method === "dropoff" ? c.slug || null : null,
@@ -86,13 +94,13 @@ export function ShipModal({ orderIds, onClose, onDone }: { orderIds: number[]; o
         }));
       });
       const r = await api("/labels/shopee/ship", { method: "POST", json: { items } });
-      onDone(`${r.shipped.length} pesanan diatur pengirimannya${r.failed.length ? `, ${r.failed.length} gagal: ${r.failed.map((f: any) => `${f.code} (${f.error})`).join("; ")}` : ""}. Nomor resi terbit dalam beberapa detik, lalu resi bisa dicetak.`);
+      onDone(`${r.shipped.length} pesanan/reservasi diatur pengirimannya${r.failed.length ? `, ${r.failed.length} gagal: ${r.failed.map((f: any) => `${f.code} (${f.error})`).join("; ")}` : ""}. Nomor resi terbit dalam beberapa detik, lalu resi bisa dicetak.`);
     } catch (e) { setErr(e instanceof ApiError ? e.message : "Gagal mengatur pengiriman"); }
     finally { setBusy(false); }
   }
 
   return (
-    <Dialog title={orderIds.length > 1 ? `Atur pengiriman · ${orderIds.length} pesanan` : "Atur pengiriman"} icon={Truck} onClose={onClose} width="max-w-xl">
+    <Dialog title={totalSelected > 1 ? `Atur pengiriman · ${totalSelected} paket` : "Atur pengiriman"} icon={Truck} onClose={onClose} width="max-w-xl">
       {!opts && !err && <p className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500"><Loader2 size={16} className="animate-spin" />Mengecek opsi pengiriman di Shopee…</p>}
       {opts && (
         <div className="max-h-[62vh] space-y-3 overflow-y-auto">

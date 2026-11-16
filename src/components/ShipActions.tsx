@@ -4,12 +4,12 @@ import Link from "next/link";
 import { useState } from "react";
 import { api, ApiError, Order } from "@/lib/api";
 
-const SHOPEE_READY = ["READY_TO_SHIP"];
-
 /** Whether an order still needs its shipment arranged. */
 export function needsShipping(o: Order) {
   // Advance Fulfilment / Shopee-fulfilled orders are shipped by Shopee; the seller can't arrange them manually.
-  if (o.channel === "shopee") return SHOPEE_READY.includes(o.external_status ?? "") && !o.shopee_auto_ship;
+  if (o.channel === "shopee") {
+    return (o.external_status === "READY_TO_SHIP" || (o.external_status === "IN_CANCEL" && !o.tracking_number)) && !o.shopee_auto_ship;
+  }
   return !!o.courier && o.shipping_status === "not_shipped" && !["cancelled", "refunded"].includes(o.status) && (o.payment_method === "cod" || o.payment_status === "paid");
 }
 
@@ -46,7 +46,7 @@ export function ShipActions({ order, onDone, compact }: { order: Order; onDone: 
     }
     return <button disabled={!!busy} onClick={web} className={`inline-flex items-center gap-1.5 rounded-lg bg-navy font-semibold text-white hover:bg-navy-700 disabled:opacity-60 ${btn}`}>{spin("web") ?? <PackageCheck size={14} />}{compact ? "Kirim" : "Serahkan ke kurir"}</button>;
   }
-  if (order.tracking_number || (order.channel === "shopee" && ["PROCESSED", "RETRY_SHIP"].includes(order.external_status ?? ""))) {
+  if (order.tracking_number || (order.channel === "shopee" && ["PROCESSED", "RETRY_SHIP", "IN_CANCEL"].includes(order.external_status ?? ""))) {
     return <Link href={`/orders/labels?ids=${order.id}`} target="_blank" className={`inline-flex items-center gap-1.5 rounded-lg border border-slate-200 font-semibold text-navy hover:bg-slate-50 ${btn}`}><Printer size={14} />Cetak resi</Link>;
   }
   return null;

@@ -1,6 +1,6 @@
 "use client";
 import { ORDERS_EVENT } from "@/components/NotificationBell";
-import { ArrowDownUp, FileText, Info, Loader2, PackageCheck, PackageSearch, Printer, RefreshCcw, Search, Store, Truck } from "lucide-react";
+import { ArrowDownUp, FileText, Info, Loader2, PackageCheck, PackageSearch, Printer, RefreshCcw, Search, Store, Truck, XCircle } from "lucide-react";
 import { TrackingModal } from "@/components/TrackingModal";
 import { ShipModal } from "@/components/marketplace/ShipModal";
 import { openShopeeAwb, openShopeeAwbMerged, type AwbResult } from "@/lib/awb";
@@ -58,7 +58,7 @@ function statusText(o: Order): [string, string, string] {
     case "READY_TO_SHIP": return ["Perlu Dikirim", "Atur pengiriman sebelum batas waktu.", "text-amber-600"];
     case "PROCESSED": return ["Perlu Dikirim", o.tracking_number ? "Menunggu pengiriman diverifikasi oleh jasa kirim." : "Nomor resi sedang diterbitkan Shopee.", "text-amber-600"];
     case "RETRY_SHIP": return ["Kirim Ulang", o.external_note || "Penjemputan gagal, kurir akan datang lagi.", "text-rose-600"];
-    case "IN_CANCEL": return ["Pembatalan Diajukan", reason ? `Pembeli mengajukan batal: ${reason}` : "Pembeli mengajukan pembatalan. Tanggapi di Seller Centre.", "text-rose-600"];
+    case "IN_CANCEL": return ["Pembatalan Diajukan", reason ? `Pembeli mengajukan batal: ${reason}` : "Pembeli mengajukan pembatalan.", "text-rose-600"];
     case "SHIPPED": return ["Sudah Kirim", "Pesanan sedang dikirimkan ke Pembeli.", "text-navy"];
     case "TO_CONFIRM_RECEIVE": return ["Sudah Kirim", "Pesanan sudah sampai, menunggu konfirmasi Pembeli.", "text-navy"];
     case "TO_RETURN": return ["Pengembalian", "Pembeli mengajukan pengembalian barang/dana.", "text-rose-600"];
@@ -71,7 +71,9 @@ function statusText(o: Order): [string, string, string] {
 const ARRANGED = ["PROCESSED", "RETRY_SHIP", "IN_CANCEL"];
 const canPrint = (o: Order) => ARRANGED.includes(o.external_status ?? "") && !!o.tracking_number;
 const awaitingAwb = (o: Order) => ["PROCESSED", "RETRY_SHIP"].includes(o.external_status ?? "") && !o.tracking_number;
-const canTrack = (o: Order) => !!o.tracking_number && ["PROCESSED", "RETRY_SHIP", "SHIPPED", "TO_CONFIRM_RECEIVE", "COMPLETED", "TO_RETURN"].includes(o.external_status ?? "");
+const canTrack = (o: Order) => !!o.tracking_number && ["PROCESSED", "RETRY_SHIP", "IN_CANCEL", "SHIPPED", "TO_CONFIRM_RECEIVE", "COMPLETED", "TO_RETURN"].includes(o.external_status ?? "");
+const needsShipBk = (b: Booking) => b.booking_status === "READY_TO_SHIP";
+const canPrintBk = (b: Booking) => b.booking_status === "PROCESSED";
 const fmtShort = (s: string) => new Date(s).toLocaleString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
 type Booking = { id: number; marketplace_shop_id: number; booking_sn: string; order_sn: string | null; booking_status: string; shipping_carrier: string | null; tracking_number: string | null; booked_at: string | null; items: { name: string; variant: string | null; sku: string | null; item_sku?: string | null; model_sku?: string | null; qty: number; image?: string | null }[] | null; marketplace_shop?: { shop_name: string } };
@@ -117,9 +119,10 @@ function Products({ items }: { items: Item[] }) {
   );
 }
 
-function ActionLink({ children, onClick, busy, disabled, icon: Icon }: { children: React.ReactNode; onClick: () => void; busy?: boolean; disabled?: boolean; icon?: typeof Truck }) {
+function ActionLink({ children, onClick, busy, disabled, icon: Icon, tone = "sky" }: { children: React.ReactNode; onClick: () => void; busy?: boolean; disabled?: boolean; icon?: typeof Truck; tone?: "sky" | "rose" }) {
+  const color = tone === "rose" ? "text-rose-600 hover:text-rose-700" : "text-sky-600 hover:text-sky-700";
   return (
-    <button onClick={onClick} disabled={disabled || busy} className="flex items-center gap-1.5 text-left text-[13px] font-medium text-sky-600 hover:text-sky-700 hover:underline disabled:opacity-50">
+    <button onClick={onClick} disabled={disabled || busy} className={`flex items-center gap-1.5 text-left text-[13px] font-medium hover:underline disabled:opacity-50 ${color}`}>
       {busy ? <Loader2 size={13} className="animate-spin" /> : Icon ? <Icon size={13} /> : null}{children}
     </button>
   );
@@ -156,7 +159,7 @@ export default function ShopeeOrders() {
   const [selectedBk, setSelectedBk] = useState<number[]>([]);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState("");
-  const [shipIds, setShipIds] = useState<number[] | null>(null);
+  const [shipTarget, setShipTarget] = useState<{ orders: number[]; bookings: number[] } | null>(null);
   const [track, setTrack] = useState<Order | null>(null);
   const [detail, setDetail] = useState<Order | null>(null);
 
@@ -217,13 +220,17 @@ export default function ShopeeOrders() {
   const printChosen = chosen.filter(canPrint);
   const total = (data?.total ?? 0) + (page === 1 ? bookings.length : 0);
   const showKilat = WITH_KILAT.includes(state);
-  // Pengiriman Kilat reservations ready to print (bulk / select).
-  const printableBk = bookings.filter((b) => b.booking_status === "PROCESSED");
-  const chosenBk = printableBk.filter((b) => selectedBk.includes(b.id));
+  // Pengiriman Kilat reservations that can be arranged (READY_TO_SHIP) or printed (PROCESSED).
+  const selectableBk = bookings.filter((b) => needsShipBk(b) || canPrintBk(b));
+  const shippableBk = bookings.filter(needsShipBk);
+  const printableBk = bookings.filter(canPrintBk);
+  const chosenBk = selectableBk.filter((b) => selectedBk.includes(b.id));
+  const shipChosenBk = chosenBk.filter(needsShipBk);
+  const printChosenBk = chosenBk.filter(canPrintBk);
   // One master "select all" covers both orders and Pengiriman Kilat reservations.
-  const anySelectable = selectableRows.length > 0 || printableBk.length > 0;
-  const allChosen = anySelectable && selectableRows.every((o) => selected.includes(o.id)) && printableBk.every((b) => selectedBk.includes(b.id));
-  const selectAll = (on: boolean) => { setSelected(on ? selectableRows.map((o) => o.id) : []); setSelectedBk(on ? printableBk.map((b) => b.id) : []); };
+  const anySelectable = selectableRows.length > 0 || selectableBk.length > 0;
+  const allChosen = anySelectable && selectableRows.every((o) => selected.includes(o.id)) && selectableBk.every((b) => selectedBk.includes(b.id));
+  const selectAll = (on: boolean) => { setSelected(on ? selectableRows.map((o) => o.id) : []); setSelectedBk(on ? selectableBk.map((b) => b.id) : []); };
 
   /**
    * After a print: tell which labels were left out (already shipped — the server moved them to "Dikirim") or failed,
@@ -257,11 +264,28 @@ export default function ShopeeOrders() {
     try { afterPrint(await openShopeeAwb(list.map(bookingAwb), "booking")); setSelectedBk([]); }
     catch (e) { afterPrint(null, e); } finally { setBusy(""); }
   }
+  async function handleCancel(o: Order, operation: "REJECT" | "ACCEPT" = "REJECT") {
+    setBusy(`cancel${o.id}`); setNotice("");
+    try {
+      const r = await api<{ order: Order; message: string }>("/labels/shopee/cancel", {
+        method: "POST",
+        json: { order_id: o.id, operation },
+      });
+      setNotice(r.message);
+      if (detail?.id === o.id) setDetail(r.order);
+      load();
+    } catch (e) {
+      setNotice(e instanceof ApiError ? e.message : "Gagal memproses pengajuan pembatalan di Shopee.");
+    } finally {
+      setBusy("");
+    }
+  }
   const toggleBk = (id: number, on: boolean) => setSelectedBk(on ? [...selectedBk, id] : selectedBk.filter((x) => x !== id));
-  async function refreshAwb(ids: number[], tries = 3) {
+  async function refreshAwb(orderIds: number[] = [], bookingIds: number[] = [], tries = 3) {
+    if (!orderIds.length && !bookingIds.length) { load(); return; }
     for (let i = 0; i < tries; i++) {
       await new Promise((r) => setTimeout(r, i === 0 && tries > 1 ? 4000 : 1500));
-      const r = await api("/labels/shopee/refresh", { method: "POST", json: { order_ids: ids } }).catch(() => null);
+      const r = await api("/labels/shopee/refresh", { method: "POST", json: { order_ids: orderIds, booking_ids: bookingIds } }).catch(() => null);
       if (r && r.ready >= r.total) break;
     }
     load();
@@ -380,10 +404,10 @@ export default function ShopeeOrders() {
           <button onClick={() => { setDir(dir === "desc" ? "asc" : "desc"); setPage(1); }} className="ml-auto flex items-center gap-1.5 text-sm text-slate-600 hover:text-navy">
             <ArrowDownUp size={15} />Urutkan: Tanggal pesanan ({dir === "desc" ? "terbaru ke terlama" : "terlama ke terbaru"})
           </button>
-          {state === "to_ship" && rows.some(needsShipping) && (
-            <button onClick={() => setShipIds(rows.filter(needsShipping).map((o) => o.id))} className="flex h-9 items-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700"><Truck size={15} />Atur Pengiriman Massal</button>
+          {(state === "to_ship" || (state === "perlu_kirim" && kind === "kilat")) && (rows.some(needsShipping) || shippableBk.length > 0) && (
+            <button onClick={() => setShipTarget({ orders: rows.filter(needsShipping).map((o) => o.id), bookings: shippableBk.map((b) => b.id) })} className="flex h-9 items-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700"><Truck size={15} />Atur Pengiriman Massal</button>
           )}
-          {(state === "processed" || state === "advance") && (rows.some(canPrint) || printableBk.length > 0) && (
+          {(state === "processed" || state === "advance" || (state === "perlu_kirim" && kind === "kilat")) && (rows.some(canPrint) || printableBk.length > 0) && (
             <button onClick={() => printMixed(rows.filter(canPrint), printableBk)} disabled={!!busy} className="flex h-9 items-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">{busy === "print" ? <Loader2 size={15} className="animate-spin" /> : <Printer size={15} />}Cetak Resi Massal</button>
           )}
         </div>
@@ -391,8 +415,8 @@ export default function ShopeeOrders() {
         {(selected.length > 0 || selectedBk.length > 0) && (
           <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-brand-100 bg-brand-50 px-4 py-2.5 text-sm">
             <b>{selected.length + selectedBk.length} dipilih{selectedBk.length > 0 ? ` (${selected.length} pesanan + ${selectedBk.length} Kilat)` : ""}</b>
-            {shipChosen.length > 0 && <button onClick={() => setShipIds(shipChosen.map((o) => o.id))} className="flex items-center gap-1.5 font-semibold text-brand-700 hover:underline"><Truck size={14} />Atur pengiriman ({shipChosen.length})</button>}
-            {printChosen.length + chosenBk.length > 0 && <button onClick={() => printMixed(printChosen, chosenBk)} disabled={!!busy} className="flex items-center gap-1.5 font-semibold text-brand-700 hover:underline">{busy === "print" ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}Cetak Resi Massal ({printChosen.length + chosenBk.length})</button>}
+            {shipChosen.length + shipChosenBk.length > 0 && <button onClick={() => setShipTarget({ orders: shipChosen.map((o) => o.id), bookings: shipChosenBk.map((b) => b.id) })} className="flex items-center gap-1.5 font-semibold text-brand-700 hover:underline"><Truck size={14} />Atur pengiriman ({shipChosen.length + shipChosenBk.length})</button>}
+            {printChosen.length + printChosenBk.length > 0 && <button onClick={() => printMixed(printChosen, printChosenBk)} disabled={!!busy} className="flex items-center gap-1.5 font-semibold text-brand-700 hover:underline">{busy === "print" ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}Cetak Resi Massal ({printChosen.length + printChosenBk.length})</button>}
             <button onClick={() => { setSelected([]); setSelectedBk([]); }} className="ml-auto text-xs font-semibold text-slate-500 hover:text-navy">Batal pilih</button>
           </div>
         )}
@@ -411,33 +435,39 @@ export default function ShopeeOrders() {
             </div>
 
             <div className="mt-3 space-y-3">
-              {page === 1 && bookings.map((b) => (
-                <div key={`b${b.id}`} className={`overflow-hidden rounded-lg border ${selectedBk.includes(b.id) ? "border-teal-300 ring-1 ring-teal-200" : "border-slate-200"}`}>
-                  <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5 text-[13px]">
-                    {b.booking_status === "PROCESSED" && <input type="checkbox" className="h-4 w-4 accent-teal-600" checked={selectedBk.includes(b.id)} onChange={(e) => toggleBk(b.id, e.target.checked)} />}
-                    <span className="flex items-center gap-1.5 text-slate-700"><Store size={14} className="text-slate-400" />Dibuat oleh Shopee</span>
-                    <span className="flex items-center gap-1 rounded bg-teal-50 px-1.5 py-0.5 text-[11px] font-semibold text-teal-700 ring-1 ring-teal-100"><KilatIcon size={13} />Pengiriman Kilat</span>
-                    {!shopId && <span className="flex items-center gap-1 text-xs text-slate-400"><ShopeeMark size={12} />{b.marketplace_shop?.shop_name}</span>}
-                    <span className="ml-auto text-slate-500">No. Reservasi <b className="font-medium text-slate-700">{b.booking_sn}</b>{b.order_sn && <> · No. Pesanan <b className="font-medium text-slate-700">{b.order_sn}</b></>}</span>
+              {page === 1 && bookings.map((b) => {
+                const selectable = needsShipBk(b) || canPrintBk(b);
+                return (
+                  <div key={`b${b.id}`} className={`overflow-hidden rounded-lg border ${selectedBk.includes(b.id) ? "border-teal-300 ring-1 ring-teal-200" : "border-slate-200"}`}>
+                    <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5 text-[13px]">
+                      {selectable && <input type="checkbox" className="h-4 w-4 accent-teal-600" checked={selectedBk.includes(b.id)} onChange={(e) => toggleBk(b.id, e.target.checked)} />}
+                      <span className="flex items-center gap-1.5 text-slate-700"><Store size={14} className="text-slate-400" />Dibuat oleh Shopee</span>
+                      <span className="flex items-center gap-1 rounded bg-teal-50 px-1.5 py-0.5 text-[11px] font-semibold text-teal-700 ring-1 ring-teal-100"><KilatIcon size={13} />Pengiriman Kilat</span>
+                      {!shopId && <span className="flex items-center gap-1 text-xs text-slate-400"><ShopeeMark size={12} />{b.marketplace_shop?.shop_name}</span>}
+                      <span className="ml-auto text-slate-500">No. Reservasi <b className="font-medium text-slate-700">{b.booking_sn}</b>{b.order_sn && <> · No. Pesanan <b className="font-medium text-slate-700">{b.order_sn}</b></>}</span>
+                    </div>
+                    <div className={`${COLS} px-4 py-4 text-[13px]`}>
+                      <Products items={(b.items ?? []) as Item[]} />
+                      <div className="text-slate-400">-</div>
+                      <div>
+                        <p className="font-semibold text-navy">{b.booking_status === "SHIPPED" ? "Sudah Kirim" : "Perlu Dikirim"}</p>
+                        <p className="mt-0.5 text-xs leading-snug text-slate-500">{b.booking_status === "SHIPPED" ? "Paket sedang dikirim." : b.booking_status === "PROCESSED" ? (b.tracking_number ? "Menunggu pengiriman diverifikasi oleh jasa kirim." : "Nomor resi sedang diterbitkan Shopee.") : "Atur pengiriman sebelum reservasi dibatalkan otomatis oleh Shopee."}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-slate-800">{cleanCourier(b.shipping_carrier)}</p>
+                        <p className="mt-0.5 font-mono text-[11px] text-slate-400">{b.tracking_number || "resi belum terbit"}</p>
+                      </div>
+                      <div className="space-y-2">
+                        {needsShipBk(b) && <ActionLink icon={Truck} disabled={!!busy} onClick={() => setShipTarget({ orders: [], bookings: [b.id] })}>Atur Pengiriman</ActionLink>}
+                        {canPrintBk(b) && <ActionLink icon={Printer} busy={busy === `kb${b.id}`} disabled={!!busy} onClick={() => printBookings([b])}>Cetak Label</ActionLink>}
+                        {b.booking_status === "PROCESSED" && !b.tracking_number && (
+                          <ActionLink icon={RefreshCcw} busy={busy === `awbbk${b.id}`} disabled={!!busy} onClick={async () => { setBusy(`awbbk${b.id}`); await refreshAwb([], [b.id], 1); setBusy(""); }}>Cek resi</ActionLink>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className={`${COLS} px-4 py-4 text-[13px]`}>
-                    <Products items={(b.items ?? []) as Item[]} />
-                    <div className="text-slate-400">-</div>
-                    <div>
-                      <p className="font-semibold text-navy">{b.booking_status === "SHIPPED" ? "Sudah Kirim" : "Perlu Dikirim"}</p>
-                      <p className="mt-0.5 text-xs leading-snug text-slate-500">{b.booking_status === "SHIPPED" ? "Paket sedang dikirim." : "Kirim sebelum reservasi dibatalkan otomatis oleh Shopee."}</p>
-                    </div>
-                    <div>
-                      <p className="font-medium text-slate-800">{cleanCourier(b.shipping_carrier)}</p>
-                      <p className="mt-0.5 font-mono text-[11px] text-slate-400">{b.tracking_number || "resi belum terbit"}</p>
-                    </div>
-                    <div className="space-y-2">
-                      {b.booking_status === "PROCESSED" && <ActionLink icon={Printer} busy={busy === `kb${b.id}`} disabled={!!busy} onClick={() => printBookings([b])}>Cetak Label</ActionLink>}
-                      {b.booking_status === "READY_TO_SHIP" && <a href="https://seller.shopee.co.id/portal/sale/order?type=toship" target="_blank" rel="noopener noreferrer" className="block text-[13px] font-medium text-sky-600 hover:underline">Atur di Seller Centre</a>}
-                    </div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
 
               {rows.map((o) => {
                 const [title, desc, tone] = statusText(o);
@@ -463,7 +493,7 @@ export default function ShopeeOrders() {
                       <div>
                         <p className={`font-semibold ${tone}`}>{title}</p>
                         <p className="mt-0.5 text-xs leading-snug text-slate-500">{desc}</p>
-                        {shipBy && ["PENDING", "READY_TO_SHIP", "PROCESSED", "RETRY_SHIP"].includes(o.external_status ?? "") && (
+                        {shipBy && ["PENDING", "READY_TO_SHIP", "PROCESSED", "RETRY_SHIP", "IN_CANCEL"].includes(o.external_status ?? "") && (
                           <p className={`mt-1.5 text-xs ${new Date(shipBy).getTime() - Date.now() < 864e5 ? "font-semibold text-rose-600" : "text-slate-600"}`}>Kirim sebelum {fmtShort(shipBy)}</p>
                         )}
                       </div>
@@ -473,10 +503,13 @@ export default function ShopeeOrders() {
                         <p className="mt-0.5 font-mono text-[11px] text-slate-400">{o.tracking_number || "resi belum terbit"}</p>
                       </div>
                       <div className="space-y-2">
-                        {needsShipping(o) && <ActionLink icon={Truck} onClick={() => setShipIds([o.id])}>Atur Pengiriman</ActionLink>}
+                        {o.external_status === "IN_CANCEL" && (
+                          <ActionLink icon={XCircle} tone="rose" busy={busy === `cancel${o.id}`} disabled={!!busy} onClick={() => handleCancel(o, "REJECT")}>Tolak Pembatalan</ActionLink>
+                        )}
+                        {needsShipping(o) && <ActionLink icon={Truck} disabled={!!busy} onClick={() => setShipTarget({ orders: [o.id], bookings: [] })}>Atur Pengiriman</ActionLink>}
                         {o.external_status === "PENDING" && <p className="text-[13px] font-medium text-amber-600" title="Atur pengiriman bisa dilakukan setelah Shopee selesai meninjau pesanan ini. Jika atur otomatis aktif, Pesanin mengaturnya begitu Shopee melepasnya.">Tertunda</p>}
                         {canPrint(o) && <ActionLink icon={Printer} busy={busy === "print"} disabled={!!busy} onClick={() => print([o])}>Cetak Label</ActionLink>}
-                        {awaitingAwb(o) && <ActionLink icon={RefreshCcw} busy={busy === `awb${o.id}`} onClick={async () => { setBusy(`awb${o.id}`); await refreshAwb([o.id], 1); setBusy(""); }}>Cek resi</ActionLink>}
+                        {awaitingAwb(o) && <ActionLink icon={RefreshCcw} busy={busy === `awb${o.id}`} onClick={async () => { setBusy(`awb${o.id}`); await refreshAwb([o.id], [], 1); setBusy(""); }}>Cek resi</ActionLink>}
                         {canTrack(o) && <ActionLink icon={PackageSearch} onClick={() => setTrack(o)}>Lacak Paket</ActionLink>}
                         <ActionLink icon={FileText} onClick={() => setDetail(o)}>Periksa Rincian</ActionLink>
                       </div>
@@ -496,9 +529,30 @@ export default function ShopeeOrders() {
         </>)}
       </Panel>
 
-      {detail && <OrderDetail order={detail} onClose={() => setDetail(null)} />}
+      {detail && (
+        <OrderDetail
+          order={detail}
+          busy={busy}
+          onRejectCancel={() => handleCancel(detail, "REJECT")}
+          onPrint={() => print([detail])}
+          onClose={() => setDetail(null)}
+        />
+      )}
       {track && <TrackingModal orderId={track.id} title={`Lacak · ${track.external_order_sn}`} onClose={() => setTrack(null)} />}
-      {shipIds && <ShipModal orderIds={shipIds} onClose={() => setShipIds(null)} onDone={(m) => { const ids = shipIds; setShipIds(null); setNotice(m); load(); refreshAwb(ids); }} />}
+      {shipTarget && (
+        <ShipModal
+          orderIds={shipTarget.orders}
+          bookingIds={shipTarget.bookings}
+          onClose={() => setShipTarget(null)}
+          onDone={(m) => {
+            const target = shipTarget;
+            setShipTarget(null);
+            setNotice(m);
+            load();
+            refreshAwb(target.orders, target.bookings);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -554,7 +608,7 @@ function ReturnsList({ data, onPage, perPage, onPerPage, showShop }: { data: Pag
 }
 
 /** "Periksa Rincian": buyer, address, items and money for one Shopee order. */
-function OrderDetail({ order: o, onClose }: { order: Order; onClose: () => void }) {
+function OrderDetail({ order: o, busy, onRejectCancel, onPrint, onClose }: { order: Order; busy?: string; onRejectCancel?: () => void; onPrint?: () => void; onClose: () => void }) {
   const [title, desc, tone] = statusText(o);
   const items = (o.items ?? []) as Item[];
   const rows: [string, string][] = [
@@ -578,6 +632,20 @@ function OrderDetail({ order: o, onClose }: { order: Order; onClose: () => void 
         <dl className="space-y-1.5 rounded-lg bg-slate-50 p-3">
           {rows.map(([l, v]) => <div key={l} className="flex justify-between"><dt className="text-slate-500">{l}</dt><dd className="font-semibold text-navy">{v}</dd></div>)}
         </dl>
+        {(o.external_status === "IN_CANCEL" || canPrint(o)) && (
+          <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4">
+            {canPrint(o) && onPrint && (
+              <button onClick={onPrint} disabled={!!busy} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 text-xs font-semibold text-navy hover:bg-slate-50 disabled:opacity-50">
+                {busy === "print" ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}Cetak Label
+              </button>
+            )}
+            {o.external_status === "IN_CANCEL" && onRejectCancel && (
+              <button onClick={onRejectCancel} disabled={!!busy} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-rose-600 px-4 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50">
+                {busy === `cancel${o.id}` ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}Tolak Pembatalan
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </Dialog>
   );

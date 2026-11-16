@@ -11,8 +11,10 @@ import { api, ApiError, rupiah } from "@/lib/api";
 
 type Cat = { id: number; name: string; path: string };
 type Attr = { id: number; name: string; mandatory: boolean; input_type: number; validation: number; units: string[]; values: { id: number; name: string }[] };
-type Limits = { images_min: number; images_max: number; name_min: number; name_max: number; description_max: number; price_min: number;
-  dts_min: number; dts_max: number; dts_normal: number; weight_mandatory: boolean; dimension_mandatory: boolean; gtin_rule: "Mandatory" | "Flexible" | "Optional" | string };
+type Limits = {
+  images_min: number; images_max: number; name_min: number; name_max: number; description_max: number; price_min: number;
+  dts_min: number; dts_max: number; dts_normal: number; weight_mandatory: boolean; dimension_mandatory: boolean; gtin_rule: "Mandatory" | "Flexible" | "Optional" | string
+};
 type CatInfo = { attributes: Attr[]; brands: { mandatory: boolean; list: { id: number; name: string }[] }; limits: Limits };
 type ShopOpt = { id: number; shop_id: number; name: string; channels: { id: number; name: string }[]; error: string | null };
 type Img = { id: string; url: string; name: string };
@@ -35,8 +37,10 @@ const SHOPEE_STATUS: Record<string, [string, string]> = {
   REVIEWING: ["Sedang diperiksa Shopee", "text-amber-600"], BANNED: ["Diblokir Shopee", "text-rose-600"],
   SHOPEE_DELETE: ["Dihapus Shopee", "text-rose-600"], SELLER_DELETE: ["Dihapus", "text-rose-600"], NOT_FOUND: ["Belum ditemukan di Shopee, cek lagi sebentar", "text-amber-600"],
 };
-type Prod = { id: number; name: string; description: string | null; price: number; stock: number | null; sku: string | null; weight: number | null; images: string[] | null;
-  variants: { name: string; price: number; stock?: number; sku?: string }[] | null; variant_options: { type: string; values: string[] }[] | null };
+type Prod = {
+  id: number; name: string; description: string | null; price: number; stock: number | null; sku: string | null; weight: number | null; images: string[] | null;
+  variants: { name: string; price: number; stock?: number; sku?: string }[] | null; variant_options: { type: string; values: string[] }[] | null
+};
 
 /** yyyy-mm-dd in the browser's timezone (toISOString would shift WIB midnight back a day). */
 const localDay = (ts: number) => { const d = new Date(ts * 1000); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
@@ -129,7 +133,7 @@ function Publish() {
   const pendingCopy = useRef<{ brand_id: number; answers: Record<number, Answer>; dts: number } | null>(null);
 
   useEffect(() => {
-    api("/products?per_page=100&type=physical").then((r) => setProducts(r.products.data)).catch(() => {});
+    api("/products?per_page=100&type=physical").then((r) => setProducts(r.products.data)).catch(() => { });
     api<Cat[]>("/marketplace/publish/categories").then(setCats).catch((e) => setErr(e instanceof ApiError ? e.message : "Gagal memuat kategori Shopee"));
     // When copying, every shop except the source one is picked.
     api<ShopOpt[]>("/marketplace/publish/shops").then((s) => { setShops(s); setPicked(s.filter((x) => !x.error && x.id !== copyShop).map((x) => x.id)); }).catch(() => setShops([]));
@@ -464,22 +468,22 @@ function Publish() {
                 <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3">
                   <div className="mb-3 flex items-center justify-between gap-3"><div><p className="text-sm font-semibold text-slate-700">Foto Produk</p><p className="text-xs text-slate-400">Rasio 1:1 · foto pertama menjadi sampul</p></div><span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-500 shadow-sm">{images.length}/{lim?.images_max ?? 9}</span></div>
                   <div className="flex flex-wrap gap-2">
-                {images.map((im, i) => (
-                  <div key={im.id} className="group relative h-24 w-24 overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
-                    <img src={im.url} alt="" className="h-full w-full object-cover" />
-                    {i === 0 && <span className="absolute inset-x-0 bottom-0 bg-black/55 py-0.5 text-center text-[10px] font-semibold text-white">Foto Sampul</span>}
-                    <div className="absolute right-1 top-1 hidden gap-1 group-hover:flex">
-                      {i > 0 && <button onClick={() => setImages([im, ...images.filter((x) => x.id !== im.id)])} className="rounded-md bg-white/90 px-1 text-[10px] font-semibold text-navy" title="Jadikan sampul">Sampul</button>}
-                      <button onClick={() => setImages(images.filter((x) => x.id !== im.id))} className="rounded-md bg-white/90 p-1 text-rose-600" aria-label="Hapus foto"><Trash2 size={12} /></button>
-                    </div>
-                  </div>
-                ))}
-                {images.length < (lim?.images_max ?? 9) && (
-                  <label className="flex h-24 w-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-[#ee4d2d]/60 bg-white text-center text-xs text-[#ee4d2d] hover:bg-orange-50">
-                    {uploading ? <Loader2 size={20} className="animate-spin" /> : <ImagePlus size={20} />}{uploading ? "Mengunggah…" : `Tambah Foto (${images.length}/${lim?.images_max ?? 9})`}
-                    <input type="file" accept="image/jpeg,image/png" multiple className="hidden" onChange={(e) => { upload(e.target.files); e.target.value = ""; }} />
-                  </label>
-                )}
+                    {images.map((im, i) => (
+                      <div key={im.id} className="group relative h-24 w-24 overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+                        <img src={im.url} alt="" className="h-full w-full object-cover" />
+                        {i === 0 && <span className="absolute inset-x-0 bottom-0 bg-black/55 py-0.5 text-center text-[10px] font-semibold text-white">Foto Sampul</span>}
+                        <div className="absolute right-1 top-1 hidden gap-1 group-hover:flex">
+                          {i > 0 && <button onClick={() => setImages([im, ...images.filter((x) => x.id !== im.id)])} className="rounded-md bg-white/90 px-1 text-[10px] font-semibold text-navy" title="Jadikan sampul">Sampul</button>}
+                          <button onClick={() => setImages(images.filter((x) => x.id !== im.id))} className="rounded-md bg-white/90 p-1 text-rose-600" aria-label="Hapus foto"><Trash2 size={12} /></button>
+                        </div>
+                      </div>
+                    ))}
+                    {images.length < (lim?.images_max ?? 9) && (
+                      <label className="flex h-24 w-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-[#ee4d2d]/60 bg-white text-center text-xs text-[#ee4d2d] hover:bg-orange-50">
+                        {uploading ? <Loader2 size={20} className="animate-spin" /> : <ImagePlus size={20} />}{uploading ? "Mengunggah…" : `Tambah Foto (${images.length}/${lim?.images_max ?? 9})`}
+                        <input type="file" accept="image/jpeg,image/png" multiple className="hidden" onChange={(e) => { upload(e.target.files); e.target.value = ""; }} />
+                      </label>
+                    )}
                   </div>
                   <p className="mt-2 text-[11px] text-slate-400">JPG/PNG, maksimal 10 MB per foto.</p>
                 </div>
@@ -539,28 +543,28 @@ function Publish() {
           <Section id="spec" sref={(el) => { refs.current["spec"] = el; }} issues={tried ? sectionProblems("spec") : []} title="Spesifikasi" sub="Lengkapi spesifikasi produk agar mudah ditemukan pembeli.">
             {!cat ? <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">Pilih kategori dulu untuk mengisi spesifikasi.</p>
               : !info ? <p className="flex items-center gap-2 text-sm text-slate-400"><Loader2 size={15} className="animate-spin" />Memuat atribut…</p>
-              : <>
-                <div>
-                  <p className="mb-3 text-sm font-semibold text-navy">Atribut Utama</p>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="text-sm">
-                      <span className="mb-1 block text-xs font-medium text-slate-600">{info.brands.mandatory && <span className="text-rose-500">* </span>}Merek</span>
-                      <Select className="input h-10" searchable value={brandId} onChange={(e) => setBrandId(+e.target.value)}>
-                        {!info.brands.list.some((b) => b.id === 0) && <option value={0}>{info.brands.mandatory ? "Mohon pilih" : "Tidak Ada Merek"}</option>}
-                        {info.brands.list.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                      </Select>
+                : <>
+                  <div>
+                    <p className="mb-3 text-sm font-semibold text-navy">Atribut Utama</p>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="text-sm">
+                        <span className="mb-1 block text-xs font-medium text-slate-600">{info.brands.mandatory && <span className="text-rose-500">* </span>}Merek</span>
+                        <Select className="input h-10" searchable value={brandId} onChange={(e) => setBrandId(+e.target.value)}>
+                          {!info.brands.list.some((b) => b.id === 0) && <option value={0}>{info.brands.mandatory ? "Mohon pilih" : "Tidak Ada Merek"}</option>}
+                          {info.brands.list.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                        </Select>
+                      </div>
+                      {mainAttrs.map(attrField)}
                     </div>
-                    {mainAttrs.map(attrField)}
                   </div>
-                </div>
-                {otherAttrs.length > 0 && (
-                  <div className="border-t border-slate-100 pt-4">
-                    <p className="mb-3 text-sm font-semibold text-navy">Atribut Lainnya <span className="font-normal text-slate-400">({otherAttrs.filter(filled).length}/{otherAttrs.length})</span></p>
-                    <div className="grid gap-4 sm:grid-cols-2">{(moreAttrs ? otherAttrs : otherAttrs.slice(0, 6)).map(attrField)}</div>
-                    {otherAttrs.length > 6 && <button onClick={() => setMoreAttrs(!moreAttrs)} className="mt-3 text-sm font-semibold text-[#ee4d2d]">{moreAttrs ? "Tampilkan lebih sedikit" : `Tampilkan ${otherAttrs.length - 6} atribut lainnya`}</button>}
-                  </div>
-                )}
-              </>}
+                  {otherAttrs.length > 0 && (
+                    <div className="border-t border-slate-100 pt-4">
+                      <p className="mb-3 text-sm font-semibold text-navy">Atribut Lainnya <span className="font-normal text-slate-400">({otherAttrs.filter(filled).length}/{otherAttrs.length})</span></p>
+                      <div className="grid gap-4 sm:grid-cols-2">{(moreAttrs ? otherAttrs : otherAttrs.slice(0, 6)).map(attrField)}</div>
+                      {otherAttrs.length > 6 && <button onClick={() => setMoreAttrs(!moreAttrs)} className="mt-3 text-sm font-semibold text-[#ee4d2d]">{moreAttrs ? "Tampilkan lebih sedikit" : `Tampilkan ${otherAttrs.length - 6} atribut lainnya`}</button>}
+                    </div>
+                  )}
+                </>}
           </Section>
 
           <Section id="sales" sref={(el) => { refs.current["sales"] = el; }} issues={tried ? sectionProblems("sales") : []} title="Informasi Penjualan">
@@ -665,21 +669,21 @@ function Publish() {
             <Row label="Ongkos Kirim" req>
               {!pickedShops.length ? <p className="pt-2 text-sm text-slate-400">Pilih toko tujuan untuk melihat jasa kirim.</p>
                 : !channelNames.length ? <p className="pt-2 text-sm text-rose-600">Belum ada jasa kirim aktif di toko terpilih. Aktifkan di Seller Centre → Pengaturan Pengiriman.</p>
-                : (
-                  <div className="divide-y divide-slate-100 rounded-lg border border-slate-200">
-                    {channelNames.map((n) => {
-                      const on = !offChannels.includes(n);
-                      const owners = pickedShops.filter((s) => s.channels.some((c) => c.name === n));
-                      return (
-                        <div key={n} className="flex items-center justify-between gap-3 px-4 py-3">
-                          <div className="min-w-0"><p className="text-sm font-medium text-slate-700">{clean(n)}</p>
-                            {pickedShops.length > 1 && <p className="truncate text-xs text-slate-400">{owners.length === pickedShops.length ? "Semua toko terpilih" : owners.map((s) => s.name).join(", ")}</p>}</div>
-                          <Toggle checked={on} onChange={(v) => setOffChannels(v ? offChannels.filter((x) => x !== n) : [...offChannels, n])} />
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                  : (
+                    <div className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+                      {channelNames.map((n) => {
+                        const on = !offChannels.includes(n);
+                        const owners = pickedShops.filter((s) => s.channels.some((c) => c.name === n));
+                        return (
+                          <div key={n} className="flex items-center justify-between gap-3 px-4 py-3">
+                            <div className="min-w-0"><p className="text-sm font-medium text-slate-700">{clean(n)}</p>
+                              {pickedShops.length > 1 && <p className="truncate text-xs text-slate-400">{owners.length === pickedShops.length ? "Semua toko terpilih" : owners.map((s) => s.name).join(", ")}</p>}</div>
+                            <Toggle checked={on} onChange={(v) => setOffChannels(v ? offChannels.filter((x) => x !== n) : [...offChannels, n])} />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
               <p className="mt-1.5 text-xs text-slate-400">Produk tidak dapat disimpan jika tidak ada jasa kirim yang aktif.{shopsWithoutCourier.length > 0 && pickedShops.length > 1 && <span className="text-rose-600"> Tanpa jasa kirim: {shopsWithoutCourier.map((s) => s.name).join(", ")}.</span>}</p>
             </Row>
             <Row label="Pre-Order">
@@ -743,35 +747,35 @@ function Publish() {
               <div className="mt-2 max-h-72 space-y-1 overflow-y-auto">
                 {!shops ? <p className="flex items-center gap-2 py-4 text-sm text-slate-400"><Loader2 size={14} className="animate-spin" />Memuat toko…</p>
                   : !shops.length ? <p className="py-4 text-sm text-slate-500">Belum ada toko. <Link href="/marketplace/shops" className="font-semibold text-[#ee4d2d]">Hubungkan toko</Link></p>
-                  : shops.map((s) => {
-                    const r = results[s.id];
-                    return (
-                      <label key={s.id} className={`flex items-start gap-2.5 rounded-lg px-2 py-2 text-sm ${s.error ? "opacity-60" : "cursor-pointer hover:bg-slate-50"}`}>
-                        <input type="checkbox" className="mt-1" disabled={!!s.error || running} checked={picked.includes(s.id)} onChange={(e) => setPicked(e.target.checked ? [...picked, s.id] : picked.filter((x) => x !== s.id))} />
-                        <ShopeeMark size={18} />
-                        <span className="min-w-0 flex-1">
-                          <b className="block truncate text-navy">{s.name}</b>
-                          {s.error && <span className="block truncate text-xs text-slate-400">{s.error}</span>}
-                          {r?.state === "fail" && <span className="block text-xs text-rose-600">{r.message}</span>}
-                          {r?.state === "ok" && (() => {
-                            const [label, tone] = r.shopee_status ? SHOPEE_STATUS[r.shopee_status] ?? [r.shopee_status, "text-slate-600"] : [r.status === "UNLIST" ? (schedule ? "Dijadwalkan" : "Diarsipkan") : "Terkirim ke Shopee", "text-emerald-600"];
-                            return (
-                              <span className="block text-xs">
-                                <span className={`block ${tone}`}>{label} · item {r.item_id}</span>
-                                <span className="mt-0.5 flex gap-3">
-                                  {r.seller_centre_url && <a href={r.seller_centre_url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="font-semibold text-[#ee4d2d]">Buka di Seller Centre</a>}
-                                  <button type="button" onClick={(e) => { e.preventDefault(); check(s.id); }} className="font-semibold text-slate-500 hover:text-navy">{r.checking ? "Mengecek…" : "Cek status"}</button>
+                    : shops.map((s) => {
+                      const r = results[s.id];
+                      return (
+                        <label key={s.id} className={`flex items-start gap-2.5 rounded-lg px-2 py-2 text-sm ${s.error ? "opacity-60" : "cursor-pointer hover:bg-slate-50"}`}>
+                          <input type="checkbox" className="mt-1" disabled={!!s.error || running} checked={picked.includes(s.id)} onChange={(e) => setPicked(e.target.checked ? [...picked, s.id] : picked.filter((x) => x !== s.id))} />
+                          <ShopeeMark size={18} />
+                          <span className="min-w-0 flex-1">
+                            <b className="block truncate text-navy">{s.name}</b>
+                            {s.error && <span className="block truncate text-xs text-slate-400">{s.error}</span>}
+                            {r?.state === "fail" && <span className="block text-xs text-rose-600">{r.message}</span>}
+                            {r?.state === "ok" && (() => {
+                              const [label, tone] = r.shopee_status ? SHOPEE_STATUS[r.shopee_status] ?? [r.shopee_status, "text-slate-600"] : [r.status === "UNLIST" ? (schedule ? "Dijadwalkan" : "Diarsipkan") : "Terkirim ke Shopee", "text-emerald-600"];
+                              return (
+                                <span className="block text-xs">
+                                  <span className={`block ${tone}`}>{label} · item {r.item_id}</span>
+                                  <span className="mt-0.5 flex gap-3">
+                                    {r.seller_centre_url && <a href={r.seller_centre_url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="font-semibold text-[#ee4d2d]">Buka di Seller Centre</a>}
+                                    <button type="button" onClick={(e) => { e.preventDefault(); check(s.id); }} className="font-semibold text-slate-500 hover:text-navy">{r.checking ? "Mengecek…" : "Cek status"}</button>
+                                  </span>
                                 </span>
-                              </span>
-                            );
-                          })()}
-                        </span>
-                        {r?.state === "run" && <Loader2 size={16} className="mt-0.5 shrink-0 animate-spin text-[#ee4d2d]" />}
-                        {r?.state === "ok" && <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-500" />}
-                        {r?.state === "fail" && <XCircle size={16} className="mt-0.5 shrink-0 text-rose-500" />}
-                      </label>
-                    );
-                  })}
+                              );
+                            })()}
+                          </span>
+                          {r?.state === "run" && <Loader2 size={16} className="mt-0.5 shrink-0 animate-spin text-[#ee4d2d]" />}
+                          {r?.state === "ok" && <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-500" />}
+                          {r?.state === "fail" && <XCircle size={16} className="mt-0.5 shrink-0 text-rose-500" />}
+                        </label>
+                      );
+                    })}
               </div>
               {Object.keys(results).length > 0 && !running && (
                 <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 text-sm text-slate-600">
