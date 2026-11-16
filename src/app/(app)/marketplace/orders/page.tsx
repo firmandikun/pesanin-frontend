@@ -203,13 +203,22 @@ export default function ShopeeOrders() {
     Promise.all(TABS.filter((t) => t.count).map((t) => api<ListRes>(`/orders?${base({ shopee_state: t.key, per_page: "1" })}`)
       .then((d) => [t.key, d.stats.total_orders + (d.bookings?.total ?? 0)] as const)))
       .then((r) => { if (id === reqId.current) setCounts(Object.fromEntries(r)); });
-    api<ListRes>(`/orders?${base({ ...st, per_page: "1" })}`).then((d) => { if (id === reqId.current) setSplit({ order: d.stats.total_orders, kilat: d.bookings?.total ?? 0 }); });
+    const splitState = tab === "perlu_kirim" ? "perlu_kirim" : state;
+    api<ListRes>(`/orders?${base({ ...(splitState ? { shopee_state: splitState } : {}), per_page: "1" })}`).then((d) => { if (id === reqId.current) setSplit({ order: d.stats.total_orders, kilat: d.bookings?.total ?? 0 }); });
     setSelected([]);
     setSelectedBk([]);
   }, [base, state, kind, stock, doneScope, tab, showingReturns, shopId, filters.search, dir, page, perPage]);
   useEffect(() => { const t = setTimeout(load, 150); return () => clearTimeout(t); }, [load]);
   useEffect(() => { window.addEventListener(ORDERS_EVENT, load); return () => window.removeEventListener(ORDERS_EVENT, load); }, [load]);
-  useEffect(() => { api("/marketplace/shops").then((d) => setShops(d.shops.filter((s: any) => s.status !== "disconnected"))).catch(() => setShops([])); }, []);
+  useEffect(() => {
+    api("/marketplace/shops").then((d) => {
+      const active = d.shops.filter((s: any) => s.status !== "disconnected");
+      setShops(active);
+      // Fast background poll on page open so newly created Pengiriman Kilat reservations & orders appear immediately
+      Promise.all(active.filter((s: any) => !s.is_demo).map((s: any) => api(`/marketplace/shops/${s.id}/sync`, { method: "POST", json: { what: "recent" } }).catch(() => null)))
+        .then((res) => { if (res.some((r: any) => (r?.result?.recent ?? 0) > 0)) load(); });
+    }).catch(() => setShops([]));
+  }, []);
   const shopList = shops ?? [];
 
   const rows = data?.data ?? [];
@@ -341,7 +350,7 @@ export default function ShopeeOrders() {
               <span className="w-28 text-slate-500">Tipe Pesanan</span>
               {tab !== "shipping" && <button onClick={() => { setKind(""); setPage(1); }} className={pill(kind === "")}>Semua</button>}
               <button onClick={() => { setKind("order"); setPage(1); }} className={pill(kind === "order")}>Pesanan ({split.order})</button>
-              <button onClick={() => { setKind("kilat"); setPage(1); }} className={pill(kind === "kilat")}><span className="flex items-center gap-1.5"><KilatIcon size={15} />Pengiriman Kilat ({split.kilat})</span></button>
+              <button onClick={() => { setKind("kilat"); if (tab === "perlu_kirim" && sub !== "perlu_kirim") setSub("perlu_kirim"); setPage(1); }} className={pill(kind === "kilat")}><span className="flex items-center gap-1.5"><KilatIcon size={15} />Pengiriman Kilat ({split.kilat})</span></button>
             </div>
           )}
           {tab === "shipping" && kind === "order" && (

@@ -49,11 +49,28 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
   const [status, setStatus] = useState(""); const [search, setSearch] = useState("");
   const [page, setPage] = useState(1); const [perPage, setPerPage] = useState(10);
   const [data, setData] = useState<Data | null>(null); const [expanded, setExpanded] = useState<number | null>(null);
+  const [reloading, setReloading] = useState(false); const [notice, setNotice] = useState("");
   const query = useMemo(() => new URLSearchParams({ ...range, page: String(page), per_page: String(perPage), ...(status ? { status } : {}), ...(search ? { search } : {}) }).toString(), [range, page, perPage, status, search]);
   const load = useCallback(() => api<Data>(`/marketplace/shops/${shopId}/transactions?${query}`).then(setData), [shopId, query]);
-  useEffect(() => { api<{ shops: Shop[] }>("/marketplace/shops").then((x) => setShop(x.shops.find((s) => s.id === shopId) ?? null)); }, [shopId]);
+  useEffect(() => {
+    api<{ shops: Shop[] }>("/marketplace/shops").then((x) => setShop(x.shops.find((s) => s.id === shopId) ?? null));
+    api(`/marketplace/shops/${shopId}/sync`, { method: "POST", json: { what: "recent" } }).then(() => load()).catch(() => {});
+  }, [shopId]);
   useEffect(() => { const t = setTimeout(load, 180); return () => clearTimeout(t); }, [load]);
   useBackfillReload(data?.backfilling, load);
+  const reloadFromShopee = async () => {
+    setReloading(true); setNotice("");
+    try {
+      await api(`/marketplace/shops/${shopId}/sync`, { method: "POST", json: { what: "orders" } });
+      await load();
+      setNotice("Data transaksi & pesanan selesai berhasil diperbarui dari Shopee.");
+    } catch {
+      await load();
+      setNotice("Data transaksi dimuat ulang.");
+    } finally {
+      setReloading(false);
+    }
+  };
   if (!shop) return <div className="py-24 text-center text-sm text-slate-400">Memuat transaksi toko…</div>;
   const s = data?.summary;
   return (
@@ -61,8 +78,9 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
       <PageHead title="Transaksi" tutorial={false} crumbs={[["Marketplace", "/marketplace/shops"], [shop.shop_name, `/marketplace/shops/${shop.id}`], ["Transaksi"]]}>
         <button onClick={() => download(`/marketplace/shops/${shopId}/transactions/export?${new URLSearchParams({ ...range, ...(status ? { status } : {}), ...(search ? { search } : {}) })}`, `transaksi-${range.from}-${range.to}.csv`)} className="flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-sm font-semibold text-navy"><Download size={16} />Ekspor Excel</button>
         <button onClick={() => window.print()} className="flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-sm font-semibold text-navy"><Printer size={16} />Cetak</button>
-        <button onClick={load} className="flex h-10 items-center gap-2 rounded-lg bg-navy px-4 text-sm font-semibold text-white"><RefreshCcw size={16} />Muat ulang</button>
+        <button onClick={reloadFromShopee} disabled={reloading} className="flex h-10 items-center gap-2 rounded-lg bg-navy px-4 text-sm font-semibold text-white disabled:opacity-60"><RefreshCcw size={16} className={reloading ? "animate-spin" : ""} />{reloading ? "Menyinkronkan…" : "Muat ulang"}</button>
       </PageHead>
+      {notice && <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm font-medium text-emerald-800">{notice}</div>}
       <div className="flex items-center gap-3 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800"><ShopeeMark size={28} /><span><b className="block">Terhubung ke {shop.shop_name}</b><span className="text-xs">Transaksi keuangan dipisahkan dari halaman pengaturan pengiriman.</span></span><DateRangePicker value={range} onChange={(v) => { setRange(v); setPage(1); }} /></div>
       <BackfillNotice show={data?.backfilling} />
       <ShopWorkspaceNav shopId={shop.id} active="finance" />
