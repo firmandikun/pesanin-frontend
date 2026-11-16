@@ -73,6 +73,7 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
   const [range, setRange] = useState(todayRange());
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
   const [data, setData] = useState<Data | null>(null);
@@ -84,6 +85,11 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
   const reqId = useRef(0);
   const syncId = useRef(0);
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 200);
+    return () => clearTimeout(t);
+  }, [search]);
+
   const query = useMemo(
     () =>
       new URLSearchParams({
@@ -91,9 +97,9 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
         page: String(page),
         per_page: String(perPage),
         ...(status ? { status } : {}),
-        ...(search ? { search } : {}),
+        ...(debouncedSearch ? { search: debouncedSearch } : {}),
       }).toString(),
-    [range, page, perPage, status, search],
+    [range, page, perPage, status, debouncedSearch],
   );
 
   const load = useCallback(async () => {
@@ -123,13 +129,9 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
     );
   }, [shopId]);
 
-  // Load local data immediately on tab/search/page/range change, guarded by reqId.
+  // Load immediately (0ms delay) on pagination, tab switch, or range change; search is already debounced above.
   useEffect(() => {
-    setLoading(true);
-    const t = setTimeout(() => {
-      load();
-    }, 100);
-    return () => clearTimeout(t);
+    load();
   }, [load]);
 
   // Every time the user changes the date filter (range.from / range.to), pull updated orders for that range from Shopee.
@@ -349,7 +351,7 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
                     <div className="inline-flex items-center gap-2.5">
                       <Loader2 size={18} className="animate-spin text-navy" />
                       <span>
-                        Memuat data tab <b>{activeTabLabel}</b>…
+                        Memuat data tab <b>{activeTabLabel}</b> (halaman {page})…
                       </span>
                     </div>
                   </td>
@@ -570,14 +572,26 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
             </p>
           )}
         </div>
-        {data && !loading && (
+        {data && (
           <Pager
-            page={data.transactions.current_page}
+            page={page}
             last={data.transactions.last_page}
             total={data.transactions.total}
             perPage={perPage}
-            onPage={setPage}
-            onPerPage={setPerPage}
+            loading={loading}
+            onPage={(p) => {
+              if (p !== page) {
+                setExpanded(null);
+                setLoading(true);
+                setPage(p);
+              }
+            }}
+            onPerPage={(n) => {
+              setExpanded(null);
+              setLoading(true);
+              setPerPage(n);
+              setPage(1);
+            }}
           />
         )}
       </Panel>

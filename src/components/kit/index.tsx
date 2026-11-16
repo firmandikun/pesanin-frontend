@@ -1,5 +1,5 @@
 "use client";
-import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, PlusCircle, Search, X } from "lucide-react";
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Loader2, PlusCircle, Search, X } from "lucide-react";
 import { DateRangePicker, todayRange } from "@/components/DatePicker";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
@@ -108,24 +108,35 @@ export const PER_PAGE = 10;
  * Table footer pagination: "Menampilkan 1–10 dari 37", page numbers and rows per page.
  * Always shown (even on a single page) so the list size and page size stay visible.
  */
-export function Pager({ page, last, onPage, perPage, onPerPage, total }: { page: number; last: number; onPage: (p: number) => void; perPage?: number; onPerPage?: (n: number) => void; total?: number }) {
+export function Pager({ page, last, onPage, perPage, onPerPage, total, loading }: { page: number; last: number; onPage: (p: number) => void; perPage?: number; onPerPage?: (n: number) => void; total?: number; loading?: boolean }) {
   const lastPage = Math.max(1, last);
   const from = total && perPage ? (page - 1) * perPage + 1 : null;
   const to = total && perPage ? Math.min(total, page * perPage) : null;
-  const btn = "flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-sm transition";
+  const btn = "flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-sm transition disabled:opacity-40";
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 text-sm text-slate-500">
-      <span>{total === undefined ? `Halaman ${page} dari ${lastPage}` : total === 0 ? "Tidak ada data" : <>Menampilkan <b className="text-slate-700">{from}–{to}</b> dari <b className="text-slate-700">{total}</b></>}</span>
+      <span className="inline-flex items-center gap-2">
+        {loading && <Loader2 size={14} className="animate-spin text-navy" />}
+        {loading ? (
+          <span className="font-medium text-navy">Memuat halaman {page}…</span>
+        ) : total === undefined ? (
+          `Halaman ${page} dari ${lastPage}`
+        ) : total === 0 ? (
+          "Tidak ada data"
+        ) : (
+          <>Menampilkan <b className="text-slate-700">{from}–{to}</b> dari <b className="text-slate-700">{total}</b></>
+        )}
+      </span>
       <div className="flex items-center gap-1">
-        <button disabled={page <= 1} onClick={() => onPage(page - 1)} className={`${btn} text-slate-500 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent`} aria-label="Sebelumnya"><ChevronLeft size={16} /></button>
+        <button disabled={loading || page <= 1} onClick={() => onPage(page - 1)} className={`${btn} text-slate-500 hover:bg-slate-100 disabled:hover:bg-transparent`} aria-label="Sebelumnya"><ChevronLeft size={16} /></button>
         {pageList(page, lastPage).map((n, i) => n === "…"
           ? <span key={`g${i}`} className="px-1 text-slate-400">…</span>
-          : <button key={n} onClick={() => onPage(n)} className={`${btn} ${n === page ? "bg-navy font-semibold text-white" : "text-slate-600 hover:bg-slate-100"}`}>{n}</button>)}
-        <button disabled={page >= lastPage} onClick={() => onPage(page + 1)} className={`${btn} text-slate-500 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent`} aria-label="Berikutnya"><ChevronRight size={16} /></button>
+          : <button key={n} disabled={loading} onClick={() => onPage(n)} className={`${btn} ${n === page ? "bg-navy font-semibold text-white" : "text-slate-600 hover:bg-slate-100"}`}>{n}</button>)}
+        <button disabled={loading || page >= lastPage} onClick={() => onPage(page + 1)} className={`${btn} text-slate-500 hover:bg-slate-100 disabled:hover:bg-transparent`} aria-label="Berikutnya"><ChevronRight size={16} /></button>
       </div>
       {onPerPage ? (
         <label className="flex items-center gap-2">Per halaman
-          <Select className="h-8 w-20 rounded-lg px-2" value={String(perPage ?? PER_PAGE)} onChange={(e) => { onPerPage(Number(e.target.value)); onPage(1); }}>{[10, 50, 500, 1000].map((n) => <option key={n} value={n}>{n}</option>)}</Select>
+          <Select disabled={loading} className="h-8 w-20 rounded-lg px-2" value={String(perPage ?? PER_PAGE)} onChange={(e) => { onPerPage(Number(e.target.value)); onPage(1); }}>{[10, 50, 500, 1000].map((n) => <option key={n} value={n}>{n}</option>)}</Select>
         </label>
       ) : <span className="hidden sm:block" />}
     </div>
