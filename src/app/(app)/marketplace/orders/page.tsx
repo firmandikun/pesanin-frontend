@@ -289,18 +289,6 @@ export default function ShopeeOrders() {
       setBusy("");
     }
   }
-  async function sendShopeeFollowup(o: Order) {
-    setBusy(`followup${o.id}`); setNotice("");
-    try {
-      const res = await api<{ ok: boolean; message: string; order: Order }>(`/marketplace/orders/${o.id}/shopee-followup`, { method: "POST" });
-      setNotice(res.message || "Pesan pengingat berhasil dikirim ke Shopee.");
-      load();
-    } catch (e) {
-      setNotice(e instanceof ApiError ? e.message : "Gagal mengirim pengingat");
-    } finally {
-      setBusy("");
-    }
-  }
   const toggleBk = (id: number, on: boolean) => setSelectedBk(on ? [...selectedBk, id] : selectedBk.filter((x) => x !== id));
   async function refreshAwb(orderIds: number[] = [], bookingIds: number[] = [], tries = 3) {
     if (!orderIds.length && !bookingIds.length) { load(); return; }
@@ -524,11 +512,6 @@ export default function ShopeeOrders() {
                         <p className="mt-0.5 font-mono text-[11px] text-slate-400">{o.tracking_number || "resi belum terbit"}</p>
                       </div>
                       <div className="space-y-2">
-                        {(o.external_status === "UNPAID" || o.payment_status === "unpaid") && o.channel === "shopee" && (
-                          <ActionLink icon={MessageSquare} tone="amber" busy={busy === `followup${o.id}`} disabled={!!busy} onClick={() => sendShopeeFollowup(o)}>
-                            {o.followup_count ? `Pengingat (${o.followup_count}x)` : "Kirim Pengingat Bayar"}
-                          </ActionLink>
-                        )}
                         {o.external_status === "IN_CANCEL" && (
                           <ActionLink icon={XCircle} tone="rose" busy={busy === `cancel${o.id}`} disabled={!!busy} onClick={() => handleCancel(o, "REJECT")}>Tolak Pembatalan</ActionLink>
                         )}
