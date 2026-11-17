@@ -273,8 +273,6 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
     return { revenue, fees, net_revenue, cogs, ads, gross_profit, profit, missing_cost };
   }, [tabRows]);
 
-  const cardProfit = includeAds ? s.profit : s.gross_profit;
-
   // 5. Slice current page synchronously (0ms pagination!).
   const total = tabRows.length;
   const lastPage = Math.max(1, Math.ceil(total / perPage));
@@ -355,13 +353,16 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
       <BackfillNotice show={backfilling} />
       <ShopWorkspaceNav shopId={shop.id} active="finance" />
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <span className="rounded-lg bg-navy px-4 py-2 text-sm font-semibold text-white">Transaksi</span>
-        <a href={`/marketplace/shops/${shop.id}/expenses`} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-600">
+        <a href={`/marketplace/shops/${shop.id}/expenses`} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">
           Pengeluaran
         </a>
-        <a href={`/marketplace/shops/${shop.id}/finance`} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-600">
+        <a href={`/marketplace/shops/${shop.id}/finance`} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">
           Laba Rugi &amp; Arus Kas
+        </a>
+        <a href={`/marketplace/shops/${shop.id}/statement`} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">
+          Laporan Laba Rugi (FinKami)
         </a>
       </div>
 
@@ -387,41 +388,24 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
               className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium transition ${
                 includeAds
                   ? "bg-violet-100 text-violet-700 hover:bg-violet-200"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  : "bg-slate-100 text-slate-500 hover:bg-slate-200"
               }`}
-              title={
-                includeAds
-                  ? "Saat ini: memotong laba bersih card di atas. Klik untuk sembunyikan potongan iklan."
-                  : "Saat ini: hanya info acuan. Klik untuk melihat laba bersih card di atas setelah dipotong iklan."
-              }
+              title="Klik untuk ubah mode potong iklan di rincian pesanan"
             >
               {includeAds ? <Eye size={11} className="text-violet-600" /> : <EyeOff size={11} className="text-slate-400" />}
-              <span>{includeAds ? "Potong di card" : "Hanya info"}</span>
+              <span>{includeAds ? "Potong di detail" : "Hanya info"}</span>
             </button>
           </div>
           <p className="mt-1 text-lg font-bold text-violet-600">{loading ? "…" : rupiah(s.ads)}</p>
-          <span className="text-[10px] text-slate-400">
-            {includeAds ? "Memotong laba bersih card di atas" : "Hanya info acuan"}
-          </span>
+          <span className="text-[10px] text-slate-400">Hanya info acuan</span>
         </Panel>
 
         <Panel className="p-4">
-          <div className="flex items-center justify-between gap-1">
-            <p className="text-xs text-slate-500">Laba Bersih</p>
-            <span
-              className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                includeAds ? "bg-violet-50 text-violet-700" : "bg-slate-100 text-slate-500"
-              }`}
-            >
-              {includeAds ? "Setelah Iklan" : "Tanpa Iklan"}
-            </span>
-          </div>
-          <p className={`mt-1 text-lg font-bold ${cardProfit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-            {loading ? "…" : rupiah(cardProfit)}
+          <p className="text-xs text-slate-500">Laba Bersih</p>
+          <p className={`mt-1 text-lg font-bold ${s.gross_profit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+            {loading ? "…" : rupiah(s.gross_profit)}
           </p>
-          <span className="text-[10px] text-slate-400">
-            {includeAds ? "Setelah dipotong biaya iklan" : "Sebelum dipotong biaya iklan"}
-          </span>
+          <span className="text-[10px] text-slate-400">Sebelum dipotong biaya iklan</span>
         </Panel>
       </div>
 
@@ -669,26 +653,13 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
                                     ["Total biaya", -r.fees, false],
                                     ["Pendapatan bersih", r.net_revenue, false],
                                     ["Total HPP", -r.cogs, false],
-                                    ...(r.is_advertised
-                                      ? [
-                                        ["Biaya Iklan (per Konversi)", -adCost, false],
-                                      ]
-                                      : [["Biaya Iklan", 0, false]]),
                                   ].map(([l, v, bold]) => (
                                     <div key={l as string} className={`flex justify-between border-b border-slate-100 pb-2 ${bold ? "pt-1" : ""}`}>
                                       <dt className={bold ? "font-bold text-navy" : "text-slate-500"}>
                                         {l as string}
-                                        {l === "Biaya Iklan (per Konversi)" && (
-                                          <span className="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">
-                                            Hanya info
-                                          </span>
-                                        )}
-                                        {l === "Biaya Iklan" && !r.is_advertised && (
-                                          <span className="ml-1 text-[10px] text-slate-400">(tidak diiklankan)</span>
-                                        )}
                                       </dt>
                                       <dd
-                                        className={`${bold ? "text-sm font-extrabold" : "font-semibold"} ${(v as number) < 0 ? (l === "Biaya Iklan (per Konversi)" ? "text-slate-600" : "text-rose-600") : bold && (v as number) > 0 ? "text-emerald-600" : "text-navy"
+                                        className={`${bold ? "text-sm font-extrabold" : "font-semibold"} ${(v as number) < 0 ? "text-rose-600" : bold && (v as number) > 0 ? "text-emerald-600" : "text-navy"
                                           }`}
                                       >
                                         {(v as number) < 0 ? "− " : ""}{rupiah(Math.abs(v as number))}
@@ -696,16 +667,56 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
                                     </div>
                                   ))}
 
+                                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                                    <dt className="flex items-center gap-1.5 text-slate-500">
+                                      <span>Biaya Iklan (per Konversi)</span>
+                                      {r.is_advertised ? (
+                                        <button
+                                          type="button"
+                                          onClick={handleToggleIncludeAds}
+                                          className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium transition ${
+                                            includeAds
+                                              ? "bg-violet-100 text-violet-700 hover:bg-violet-200"
+                                              : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                                          }`}
+                                          title={
+                                            includeAds
+                                              ? "Saat ini: memotong laba transaksi ini. Klik untuk mode hanya info."
+                                              : "Saat ini: hanya info acuan. Klik untuk memotong biaya iklan dari laba transaksi ini."
+                                          }
+                                        >
+                                          {includeAds ? <Eye size={12} className="text-violet-600" /> : <EyeOff size={12} className="text-slate-400" />}
+                                          <span>{includeAds ? "Potong laba" : "Hanya info"}</span>
+                                        </button>
+                                      ) : (
+                                        <span className="text-[10px] text-slate-400">(tidak diiklankan)</span>
+                                      )}
+                                    </dt>
+                                    <dd className={`font-semibold ${r.is_advertised && adCost > 0 ? (includeAds ? "text-rose-600" : "text-slate-600") : "text-slate-400"}`}>
+                                      {r.is_advertised && adCost > 0 ? `− ${rupiah(adCost)}` : rupiah(0)}
+                                    </dd>
+                                  </div>
+
                                   <div className="flex justify-between border-b border-slate-100 pt-1 pb-2">
                                     <dt className="font-bold text-navy">
                                       Laba bersih transaksi
+                                      {r.is_advertised && !includeAds && (
+                                        <span className="block text-[10px] font-normal text-slate-400">
+                                          (tanpa potongan iklan)
+                                        </span>
+                                      )}
+                                      {r.is_advertised && includeAds && (
+                                        <span className="block text-[10px] font-normal text-violet-600">
+                                          (setelah dipotong iklan)
+                                        </span>
+                                      )}
                                     </dt>
                                     <dd
                                       className={`text-sm font-extrabold ${
-                                        grossProfit >= 0 ? "text-emerald-600" : "text-rose-600"
+                                        (includeAds && r.is_advertised ? r.profit : grossProfit) >= 0 ? "text-emerald-600" : "text-rose-600"
                                       }`}
                                     >
-                                      {grossProfit < 0 ? "− " : ""}{rupiah(Math.abs(grossProfit))}
+                                      {(includeAds && r.is_advertised ? r.profit : grossProfit) < 0 ? "− " : ""}{rupiah(Math.abs(includeAds && r.is_advertised ? r.profit : grossProfit))}
                                     </dd>
                                   </div>
                                 </dl>

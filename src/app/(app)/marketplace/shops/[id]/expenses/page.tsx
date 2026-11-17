@@ -18,9 +18,10 @@ export default function ShopExpenses({ params }: { params: Promise<{ id: string 
     <PageHead title="Pengeluaran" tutorial={false} crumbs={[["Marketplace", "/marketplace/shops"], [shop.shop_name, `/marketplace/shops/${shop.id}`], ["Pengeluaran"]]} />
     <ShopWorkspaceNav shopId={shop.id} active="finance" />
     <div className="flex flex-wrap gap-2">
-      <Link href={`/marketplace/shops/${shop.id}/transactions`} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-600">Transaksi</Link>
+      <Link href={`/marketplace/shops/${shop.id}/transactions`} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">Transaksi</Link>
       <span className="rounded-lg bg-navy px-4 py-2 text-sm font-semibold text-white">Pengeluaran</span>
-      <Link href={`/marketplace/shops/${shop.id}/finance`} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-600">Laba Rugi & Arus Kas</Link>
+      <Link href={`/marketplace/shops/${shop.id}/finance`} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">Laba Rugi &amp; Arus Kas</Link>
+      <Link href={`/marketplace/shops/${shop.id}/statement`} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">Laporan Laba Rugi (FinKami)</Link>
     </div>
     <ExpensesView shopId={shop.id} />
   </div>;
