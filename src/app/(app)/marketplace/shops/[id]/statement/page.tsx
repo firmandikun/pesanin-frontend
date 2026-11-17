@@ -185,6 +185,7 @@ export default function ShopStatement({ params }: { params: Promise<{ id: string
 
   return (
     <div className="space-y-5">
+      <div className="space-y-5 print:hidden">
       <PageHead
         title="Laporan Laba Rugi"
         tutorial={false}
@@ -321,6 +322,7 @@ export default function ShopStatement({ params }: { params: Promise<{ id: string
             </button>
           );
         })}
+      </div>
       </div>
 
       {loading ? (

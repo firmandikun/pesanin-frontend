@@ -79,7 +79,19 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
   const [syncProgress, setSyncProgress] = useState("");
   const [notice, setNotice] = useState("");
   const [includeAds, setIncludeAds] = useState(false);
+  const [printing, setPrinting] = useState(false);
   const handleToggleIncludeAds = () => setIncludeAds((prev) => !prev);
+
+  useEffect(() => {
+    if (!printing) return;
+    const onAfter = () => setPrinting(false);
+    window.addEventListener("afterprint", onAfter);
+    const t = setTimeout(() => window.print(), 60);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("afterprint", onAfter);
+    };
+  }, [printing]);
 
   const reqId = useRef(0);
 
@@ -242,87 +254,110 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
     () => searchedRows.slice((safePage - 1) * perPage, safePage * perPage),
     [searchedRows, safePage, perPage],
   );
+  const displayRows = printing ? searchedRows : pageRows;
 
   if (!shop) return <div className="py-24 text-center text-sm text-slate-400">Memuat transaksi toko…</div>;
 
   return (
-    <div className="space-y-5">
-      <PageHead title="Transaksi" tutorial={false} crumbs={[["Marketplace", "/marketplace/shops"], [shop.shop_name, `/marketplace/shops/${shop.id}`], ["Transaksi"]]}>
-        <button
-          onClick={() =>
-            download(
-              `/marketplace/shops/${shopId}/transactions/export?${new URLSearchParams({
-                ...range,
-                ...(search ? { search } : {}),
-              })}`,
-              `transaksi-${range.from}-${range.to}.csv`,
-            )
-          }
-          className="flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-sm font-semibold text-navy"
-        >
-          <Download size={16} />Ekspor Excel
-        </button>
-        <button onClick={() => window.print()} className="flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-sm font-semibold text-navy">
-          <Printer size={16} />Cetak
-        </button>
-        <button
-          onClick={reloadFromShopee}
-          disabled={loading || syncing}
-          className="flex h-10 items-center gap-2 rounded-lg bg-navy px-4 text-sm font-semibold text-white disabled:opacity-60"
-        >
-          <RefreshCcw size={16} className={loading || syncing ? "animate-spin" : ""} />
-          {loading || syncing ? "Menyinkronkan…" : "Muat ulang"}
-        </button>
-      </PageHead>
+    <div className="space-y-5 print:space-y-3">
+      <div className="space-y-5 print:hidden">
+        <PageHead title="Transaksi" tutorial={false} crumbs={[["Marketplace", "/marketplace/shops"], [shop.shop_name, `/marketplace/shops/${shop.id}`], ["Transaksi"]]}>
+          <button
+            onClick={() =>
+              download(
+                `/marketplace/shops/${shopId}/transactions/export?${new URLSearchParams({
+                  ...range,
+                  ...(search ? { search } : {}),
+                })}`,
+                `transaksi-${range.from}-${range.to}.csv`,
+              )
+            }
+            className="flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-sm font-semibold text-navy"
+          >
+            <Download size={16} />Ekspor Excel
+          </button>
+          <button onClick={() => setPrinting(true)} className="flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-sm font-semibold text-navy">
+            <Printer size={16} />Cetak / PDF
+          </button>
+          <button
+            onClick={reloadFromShopee}
+            disabled={loading || syncing}
+            className="flex h-10 items-center gap-2 rounded-lg bg-navy px-4 text-sm font-semibold text-white disabled:opacity-60"
+          >
+            <RefreshCcw size={16} className={loading || syncing ? "animate-spin" : ""} />
+            {loading || syncing ? "Menyinkronkan…" : "Muat ulang"}
+          </button>
+        </PageHead>
 
-      {notice && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm font-medium text-emerald-800">
-          {notice}
-        </div>
-      )}
+        {notice && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm font-medium text-emerald-800">
+            {notice}
+          </div>
+        )}
 
-      {(loading || syncing) && (
-        <div className="flex items-center gap-2.5 rounded-xl border border-sky-200 bg-sky-50/80 px-4 py-2.5 text-xs font-medium text-sky-800">
-          <Loader2 size={15} className="shrink-0 animate-spin text-sky-600" />
-          <span>
-            {loading
-              ? `Memuat data transaksi periode ${range.from} s/d ${range.to}…`
-              : syncProgress || `Menyinkronkan pembaruan status pesanan periode ${range.from} s/d ${range.to} dari Shopee…`}
+        {(loading || syncing) && (
+          <div className="flex items-center gap-2.5 rounded-xl border border-sky-200 bg-sky-50/80 px-4 py-2.5 text-xs font-medium text-sky-800">
+            <Loader2 size={15} className="shrink-0 animate-spin text-sky-600" />
+            <span>
+              {loading
+                ? `Memuat data transaksi periode ${range.from} s/d ${range.to}…`
+                : syncProgress || `Menyinkronkan pembaruan status pesanan periode ${range.from} s/d ${range.to} dari Shopee…`}
+            </span>
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-3 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">
+          <ShopeeMark size={28} />
+          <span className="flex-1">
+            <b className="block">Terhubung ke {shop.shop_name}</b>
+            <span className="text-xs">Transaksi keuangan dipisahkan dari halaman pengaturan pengiriman.</span>
           </span>
+          <DateRangePicker
+            value={range}
+            onChange={(v) => {
+              setNotice("");
+              setExpanded(null);
+              setRange(v);
+              setPage(1);
+            }}
+          />
         </div>
-      )}
 
-      <div className="flex flex-wrap items-center gap-3 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">
-        <ShopeeMark size={28} />
-        <span className="flex-1">
-          <b className="block">Terhubung ke {shop.shop_name}</b>
-          <span className="text-xs">Transaksi keuangan dipisahkan dari halaman pengaturan pengiriman.</span>
-        </span>
-        <DateRangePicker
-          value={range}
-          onChange={(v) => {
-            setNotice("");
-            setExpanded(null);
-            setRange(v);
-            setPage(1);
-          }}
-        />
+        <BackfillNotice show={backfilling} />
+        <ShopWorkspaceNav shopId={shop.id} active="finance" />
+
+        <div className="flex flex-wrap gap-2">
+          <span className="rounded-lg bg-navy px-4 py-2 text-sm font-semibold text-white">Transaksi</span>
+          <a href={`/marketplace/shops/${shop.id}/expenses`} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">
+            Pengeluaran
+          </a>
+          <a href={`/marketplace/shops/${shop.id}/statement`} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">
+            Laporan Laba Rugi
+          </a>
+        </div>
       </div>
 
-      <BackfillNotice show={backfilling} />
-      <ShopWorkspaceNav shopId={shop.id} active="finance" />
-
-      <div className="flex flex-wrap gap-2">
-        <span className="rounded-lg bg-navy px-4 py-2 text-sm font-semibold text-white">Transaksi</span>
-        <a href={`/marketplace/shops/${shop.id}/expenses`} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">
-          Pengeluaran
-        </a>
-        <a href={`/marketplace/shops/${shop.id}/statement`} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">
-          Laporan Laba Rugi
-        </a>
+      {/* Print-only Formal Report Header */}
+      <div className="hidden print:block border-b-2 border-navy pb-3">
+        <div className="flex items-end justify-between">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Laporan Keuangan Marketplace</p>
+            <h1 className="text-xl font-black text-navy">LAPORAN TRANSAKSI PENJUALAN</h1>
+            <p className="text-xs text-slate-600 mt-0.5">
+              Toko: <b className="text-navy">{shop.shop_name}</b> (Shop ID {shop.shop_id})
+            </p>
+          </div>
+          <div className="text-right text-xs text-slate-600">
+            <p>Periode: <b className="text-navy">{range.from} s/d {range.to}</b></p>
+            <p>Total: <b className="text-navy">{s.active_count} transaksi aktif</b> ({searchedRows.length} total)</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">
+              Dicetak: {new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })} WIB
+            </p>
+          </div>
+        </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6 print:grid-cols-6 print:gap-2">
         {[
           ["Omzet", s.revenue, "text-navy"],
           ["Potongan", s.fees, "text-rose-600"],
@@ -331,22 +366,22 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
           ["Biaya Iklan (Konversi)", s.ads, "text-violet-600"],
           ["Laba Bersih", s.gross_profit, s.gross_profit >= 0 ? "text-emerald-600" : "text-rose-600"],
         ].map(([l, v, c]) => (
-          <Panel key={l as string} className="p-4">
-            <p className="text-xs text-slate-500">{l as string}</p>
-            <p className={`mt-1 text-lg font-bold ${c}`}>{loading ? "…" : rupiah(v as number)}</p>
+          <Panel key={l as string} className="p-4 print:border print:border-slate-200 print:shadow-none print:p-2.5">
+            <p className="text-xs text-slate-500 print:text-[10px]">{l as string}</p>
+            <p className={`mt-1 text-lg font-bold print:text-sm ${c}`}>{loading ? "…" : rupiah(v as number)}</p>
           </Panel>
         ))}
       </div>
 
       {!loading && s.missing_cost > 0 && (
-        <div className="flex items-center gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+        <div className="flex items-center gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-800 print:hidden">
           <AlertTriangle size={16} />
           {s.missing_cost} transaksi belum memiliki HPP lengkap sehingga laba belum final.
         </div>
       )}
 
-      <Panel className="overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-4">
+      <Panel className="overflow-hidden print:border print:border-slate-200 print:shadow-none">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-4 print:hidden">
           <div className="relative min-w-[260px] flex-1 max-w-md">
             <Search size={16} className="absolute top-1/2 left-3 -translate-y-1/2 text-slate-400" />
             <input
@@ -373,8 +408,8 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
           <table className="w-full min-w-[1120px] text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                {["Detail pesanan", "Waktu Pesanan", "Jumlah", "Biaya", "Pendapatan", "HPP", "Biaya Iklan", "Laba Bersih", "Status", ""].map((h) => (
-                  <th key={h} className="px-3 py-3 font-semibold">{h}</th>
+                {["Detail pesanan", "Waktu Pesanan", "Jumlah", "Biaya", "Pendapatan", "HPP", "Biaya Iklan", "Laba Bersih", "Status", ""].map((h, idx) => (
+                  <th key={h || "action"} className={`px-3 py-3 font-semibold ${idx === 9 ? "print:hidden" : ""}`}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -389,7 +424,7 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
                   </td>
                 </tr>
               ) : (
-                pageRows.map((r) => {
+                displayRows.map((r) => {
                   const adCost = r.ad_cost ?? 0;
                   const grossProfit = r.gross_profit ?? (r.net_revenue - r.cogs);
                   const margin = r.revenue > 0 ? Math.round((grossProfit / r.revenue) * 1000) / 10 : 0;
@@ -470,7 +505,7 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
                             {statusLabels[r.status] ?? r.status}
                           </span>
                         </td>
-                        <td className="px-3 py-3">
+                        <td className="px-3 py-3 print:hidden">
                           <button
                             onClick={() => setExpanded(expanded === r.id ? null : r.id)}
                             className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
@@ -636,6 +671,20 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
                 })
               )}
             </tbody>
+            {!loading && total > 0 && (
+              <tfoot className="hidden print:table-footer-group bg-slate-50 border-t-2 border-navy font-bold text-navy">
+                <tr>
+                  <td colSpan={2} className="px-3 py-2.5 uppercase">Total ({s.active_count} transaksi aktif)</td>
+                  <td className="px-3 py-2.5">{rupiah(s.revenue)}</td>
+                  <td className="px-3 py-2.5 text-rose-600">− {rupiah(s.fees)}</td>
+                  <td className="px-3 py-2.5 text-blue-600">{rupiah(s.net_revenue)}</td>
+                  <td className="px-3 py-2.5 text-orange-600">{rupiah(s.cogs)}</td>
+                  <td className="px-3 py-2.5 text-violet-600">− {rupiah(s.ads)}</td>
+                  <td className={`px-3 py-2.5 ${s.gross_profit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>{rupiah(s.gross_profit)}</td>
+                  <td className="px-3 py-2.5"></td>
+                </tr>
+              </tfoot>
+            )}
           </table>
           {!loading && total === 0 && (
             <p className="py-14 text-center text-sm text-slate-500">
@@ -645,22 +694,24 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
             </p>
           )}
         </div>
-        <Pager
-          page={safePage}
-          last={lastPage}
-          total={total}
-          perPage={perPage}
-          loading={loading}
-          onPage={(p) => {
-            setExpanded(null);
-            setPage(p);
-          }}
-          onPerPage={(n) => {
-            setExpanded(null);
-            setPerPage(n);
-            setPage(1);
-          }}
-        />
+        <div className="print:hidden">
+          <Pager
+            page={safePage}
+            last={lastPage}
+            total={total}
+            perPage={perPage}
+            loading={loading}
+            onPage={(p) => {
+              setExpanded(null);
+              setPage(p);
+            }}
+            onPerPage={(n) => {
+              setExpanded(null);
+              setPerPage(n);
+              setPage(1);
+            }}
+          />
+        </div>
       </Panel>
     </div>
   );
