@@ -243,8 +243,9 @@ export default function ShopeeAds() {
   const tableRows = useMemo<TableRow[]>(() => {
     if (!d) return [];
     return d.campaigns.map((c) => {
+      const isAuto = c.kind === "auto" || c.ad_type === "auto" || c.bidding_method === "auto" || c.name?.toLowerCase().includes("otomatis");
       const kind: "manual" | "group" | "auto" =
-        c.kind ?? (c.ad_type === "auto" ? "auto" : c.items.length > 1 ? "group" : "manual");
+        c.kind ?? (isAuto ? "auto" : c.items.length > 1 ? "group" : "manual");
       const childrenItems = kind === "auto" ? (c.auto_items?.length ? c.auto_items : c.items) : c.items;
       const firstItem = childrenItems[0] ?? null;
       const title =
@@ -294,7 +295,7 @@ export default function ShopeeAds() {
 
   const autoCampaigns = useMemo(() => {
     if (!d) return [];
-    return d.campaigns.filter((c) => (c.kind ?? c.ad_type) === "auto" || c.ad_type === "auto");
+    return d.campaigns.filter((c) => (c.kind ?? c.ad_type) === "auto" || c.ad_type === "auto" || c.bidding_method === "auto" || c.name?.toLowerCase().includes("otomatis"));
   }, [d]);
 
   const toggleExpand = (key: string) =>

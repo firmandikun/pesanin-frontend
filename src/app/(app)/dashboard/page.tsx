@@ -24,7 +24,6 @@ type Data = {
 
 const C_REVENUE = "#4263c9";
 const C_NET = "#e05510";
-const RANGES: [number, string][] = [[1, "Hari ini"], [7, "7 hari"], [30, "30 hari"], [90, "90 hari"]];
 const short = (n: number) => {
   const a = Math.abs(n), s = n < 0 ? "-" : "";
   return a >= 1e9 ? `${s}${(a / 1e9).toFixed(1).replace(".", ",")} M` : a >= 1e6 ? `${s}${(a / 1e6).toFixed(1).replace(".", ",")} jt` : a >= 1e3 ? `${s}${Math.round(a / 1e3)} rb` : `${s}${a}`;
@@ -40,11 +39,10 @@ const STEPS: { key: string; title: string; href: string; icon: LucideIcon }[] = 
 ];
 
 export default function Dashboard() {
-  const [days, setDays] = useState(1);
   const [d, setD] = useState<Data | null>(null);
   const [hideSetup, setHideSetup] = useState(true);
 
-  const load = useCallback(() => { api<Data>(`/dashboard?days=${days}`).then(setD); }, [days]);
+  const load = useCallback(() => { api<Data>("/dashboard?days=1").then(setD); }, []);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { window.addEventListener(ORDERS_EVENT, load); return () => window.removeEventListener(ORDERS_EVENT, load); }, [load]);
   useEffect(() => { try { setHideSetup(localStorage.getItem("formku_skip_tutorial") === "1"); } catch { setHideSetup(false); } }, []);
@@ -64,12 +62,14 @@ export default function Dashboard() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[30px] font-bold text-slate-800">Dashboard</h1>
-          <p className="text-sm text-slate-500">Ringkasan semua channel: Checkout Web, input manual, dan Shopee.</p>
+          <p className="text-sm text-slate-500">Ringkasan semua channel hari ini: Checkout Web, input manual, dan Shopee.</p>
         </div>
-        <div className="flex rounded-xl bg-white p-1">
-          {RANGES.map(([n, l]) => (
-            <button key={n} onClick={() => setDays(n)} className={`h-9 rounded-lg px-3.5 text-sm font-semibold transition ${days === n ? "bg-navy text-white" : "text-slate-600 hover:bg-slate-100"}`}>{l}</button>
-          ))}
+        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+          </span>
+          <span>Hari ini</span>
         </div>
       </div>
 
