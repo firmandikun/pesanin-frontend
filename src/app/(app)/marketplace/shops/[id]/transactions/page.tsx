@@ -461,6 +461,7 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
                       year: "numeric",
                     })
                     : null;
+                  const displayDate = r.status === "COMPLETED" && completedStr ? completedStr : createdStr;
 
                   return (
                     <Fragment key={r.id}>
@@ -480,11 +481,11 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
                           <p className="mt-1 max-w-[240px] truncate text-xs text-slate-500">{r.items[0]?.name ?? r.customer_name}</p>
                           <p className="text-[11px] text-slate-400">{r.quantity} item · {r.tracking_number || "Resi belum tersedia"}</p>
                         </td>
-                        <td className="px-3 py-3 text-xs whitespace-nowrap text-slate-600">
-                          {createdStr}
-                          {completedStr && completedStr !== createdStr && r.status === "COMPLETED" && (
-                            <span className="block text-[10px] text-emerald-600">Selesai {completedStr}</span>
-                          )}
+                        <td
+                          className="px-3 py-3 text-xs whitespace-nowrap text-slate-600"
+                          title={r.status === "COMPLETED" && completedStr ? `Dibuat: ${createdStr}` : undefined}
+                        >
+                          {displayDate}
                         </td>
                         <td className="px-3 py-3 font-semibold text-navy">
                           {rupiah(r.revenue)}
