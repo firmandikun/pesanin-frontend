@@ -249,8 +249,8 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
     [searchedRows, status],
   );
 
-  // 4. Summary cards — same basis as Laporan Laba Rugi (HPP Selesai):
-  //    cancelled orders excluded, HPP counted only for completed orders.
+  // 4. Summary cards:
+  //    cancelled orders excluded, HPP counted from active transactions in the current view.
   const s = useMemo(() => {
     let revenue = 0;
     let fees = 0;
@@ -263,11 +263,9 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
       revenue += r.revenue;
       fees += r.fees;
       net_revenue += r.net_revenue;
+      cogs += r.cogs;
       ads += r.ad_cost ?? 0;
-      if (r.status === "COMPLETED") {
-        cogs += r.cogs;
-        if (r.missing_cost) missing_cost += 1;
-      }
+      if (r.missing_cost) missing_cost += 1;
     }
     const gross_profit = net_revenue - cogs;
     return { revenue, fees, net_revenue, cogs, ads, gross_profit, profit: gross_profit - ads, missing_cost };
@@ -368,7 +366,7 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
           ["Omzet", s.revenue, "text-navy"],
           ["Potongan", s.fees, "text-rose-600"],
           ["Pendapatan bersih", s.net_revenue, "text-blue-600"],
-          ["Total HPP (Selesai)", s.cogs, "text-orange-600"],
+          ["Total HPP", s.cogs, "text-orange-600"],
           ["Biaya Iklan (Konversi)", s.ads, "text-violet-600"],
           ["Laba Bersih", s.gross_profit, s.gross_profit >= 0 ? "text-emerald-600" : "text-rose-600"],
         ].map(([l, v, c]) => (

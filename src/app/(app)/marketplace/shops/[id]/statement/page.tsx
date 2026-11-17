@@ -181,20 +181,20 @@ export default function ShopStatement({ params }: { params: Promise<{ id: string
       <div className="grid gap-3 sm:grid-cols-3">
         {[
           {
-            key: "settled",
-            label: "Berbasis Pesanan Sudah Cair",
-            desc: "Laporan dibuat berdasarkan tanggal pesanan dibuat, HPP & biaya hanya pesanan yang sudah cair/selesai.",
-          },
-          {
             key: "settled_cogs_completed",
-            label: "Berbasis Pesanan Sudah Cair & Belum Cair (HPP Selesai)",
-            badge: "DIREKOMENDASIKAN",
-            desc: "Laporan dibuat berdasarkan tanggal pesanan dibuat, HPP hanya dihitung jika status pesanan selesai.",
+            label: "Pesanan Cair & Belum Cair (HPP Selesai)",
+            badge: "REKOMENDASI",
+            desc: "Dihitung dari seluruh pesanan periode ini. HPP dihitung jika status pesanan selesai.",
           },
           {
             key: "all_active",
-            label: "Berbasis Pesanan Sudah Cair + Belum Cair",
-            desc: "Laporan dibuat berdasarkan tanggal pesanan dibuat, menghitung HPP untuk seluruh pesanan aktif.",
+            label: "Semua Pesanan Aktif (HPP Penuh)",
+            desc: "Menghitung HPP untuk seluruh pesanan aktif (baik yang sedang dikirim maupun selesai).",
+          },
+          {
+            key: "settled",
+            label: "Hanya Pesanan Sudah Cair",
+            desc: "Hanya pesanan yang dananya sudah dilepas/cair oleh Shopee ke saldo penjual.",
           },
         ].map((item) => {
           const active = basis === item.key;
@@ -203,21 +203,23 @@ export default function ShopStatement({ params }: { params: Promise<{ id: string
               key={item.key}
               type="button"
               onClick={() => setBasis(item.key as typeof basis)}
-              className={`relative flex flex-col justify-start text-left rounded-xl border p-3.5 transition ${
+              className={`relative flex flex-col justify-start text-left rounded-xl border p-4 transition ${
                 active
-                  ? "border-sky-500 bg-sky-50/60 shadow-sm"
+                  ? "border-navy bg-navy/5 shadow-sm ring-1 ring-navy"
                   : "border-slate-200 bg-white hover:border-slate-300"
               }`}
             >
-              {item.badge && (
-                <span className="mb-1.5 w-fit rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-amber-800 uppercase">
-                  {item.badge}
-                </span>
-              )}
-              <b className={`text-xs ${active ? "text-sky-900" : "text-slate-800"}`}>
-                {item.label}
-              </b>
-              <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{item.desc}</p>
+              <div className="flex items-center justify-between w-full">
+                <b className={`text-xs ${active ? "text-navy" : "text-slate-800"}`}>
+                  {item.label}
+                </b>
+                {item.badge && (
+                  <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-800 uppercase">
+                    {item.badge}
+                  </span>
+                )}
+              </div>
+              <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">{item.desc}</p>
             </button>
           );
         })}
@@ -233,19 +235,60 @@ export default function ShopStatement({ params }: { params: Promise<{ id: string
       ) : !data ? (
         <div className="py-24 text-center text-sm text-rose-500">{error || "Gagal memuat data laporan."}</div>
       ) : (
-        /* Printable statement */
-        <div className="mx-auto max-w-4xl rounded-2xl border border-slate-200/80 bg-white p-6 sm:p-10 shadow-sm print:p-0 print:border-none print:shadow-none">
-          {/* Statement Header */}
-          <div className="border-b border-slate-200 pb-5 text-center">
-            <p className="text-xs uppercase tracking-wider text-slate-400">Proyek / Toko: {shop.shop_name}</p>
-            <h1 className="mt-1 text-xl sm:text-2xl font-black tracking-tight text-navy">
-              LAPORAN LABA RUGI PROYEK ({basisTitle})
-            </h1>
-            <p className="mt-1 text-xs text-slate-500">
-              Periode Pesanan: <b className="text-slate-700">{range.from} s/d {range.to}</b> ·{" "}
-              {data.counts.total_orders} pesanan ({data.counts.completed_orders} selesai)
-            </p>
+        <div className="space-y-5">
+          {/* Summary highlight cards */}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 print:hidden">
+            <Panel className="p-4">
+              <p className="text-xs text-slate-500">Omzet (GMV)</p>
+              <p className="mt-1 text-lg font-bold text-navy">{rupiah(data.revenue.gmv)}</p>
+              <span className="text-[10px] text-slate-400">{data.counts.total_orders} pesanan aktif</span>
+            </Panel>
+            <Panel className="p-4">
+              <p className="text-xs text-slate-500">Biaya Platform</p>
+              <p className="mt-1 text-lg font-bold text-rose-600">
+                {data.fees.total < 0 ? `− ${rupiah(Math.abs(data.fees.total))}` : rupiah(0)}
+              </p>
+              <span className="text-[10px] text-slate-400">{pct(data.fees.total)} dari omzet</span>
+            </Panel>
+            <Panel className="p-4">
+              <p className="text-xs text-slate-500">Total HPP</p>
+              <p className="mt-1 text-lg font-bold text-orange-600">
+                {data.cogs.total > 0 ? `− ${rupiah(data.cogs.total)}` : rupiah(0)}
+              </p>
+              <span className="text-[10px] text-slate-400">{pct(data.cogs.total)} dari omzet</span>
+            </Panel>
+            <Panel className="p-4">
+              <p className="text-xs text-slate-500">Iklan Shopee</p>
+              <p className="mt-1 text-lg font-bold text-violet-600">
+                {data.opex.ads > 0 ? `− ${rupiah(data.opex.ads)}` : rupiah(0)}
+              </p>
+              <span className="text-[10px] text-slate-400">Shopee Ads Manager</span>
+            </Panel>
+            <Panel className="p-4 bg-emerald-50/50 border border-emerald-200">
+              <p className="text-xs text-emerald-800 font-medium">Laba Bersih</p>
+              <p className={`mt-1 text-lg font-extrabold ${data.net_profit >= 0 ? "text-emerald-700" : "text-rose-600"}`}>
+                {rupiah(data.net_profit)}
+              </p>
+              <span className="text-[10px] text-emerald-700 font-medium">{pct(data.net_profit)} margin</span>
+            </Panel>
           </div>
+
+          {/* Printable statement */}
+          <div className="mx-auto max-w-4xl rounded-2xl border border-slate-200/80 bg-white p-6 sm:p-10 shadow-sm print:p-0 print:border-none print:shadow-none">
+            {/* Statement Header */}
+            <div className="border-b border-slate-200 pb-5 text-center">
+              <p className="text-xs uppercase tracking-wider text-slate-400">Toko: {shop.shop_name}</p>
+              <h1 className="mt-1 text-xl sm:text-2xl font-black tracking-tight text-navy">
+                LAPORAN LABA RUGI ({basisTitle})
+              </h1>
+              <p className="mt-1.5 text-xs text-slate-500">
+                Periode Pesanan: <b className="text-slate-700">{range.from} s/d {range.to}</b> ·{" "}
+                <span className="inline-flex items-center gap-1 font-semibold text-slate-700">
+                  {data.counts.total_orders} pesanan
+                </span>{" "}
+                ({data.counts.completed_orders} selesai)
+              </p>
+            </div>
 
           <div className="mt-6 space-y-6 text-xs sm:text-sm">
             {/* 1. PENDAPATAN */}
@@ -461,6 +504,7 @@ export default function ShopStatement({ params }: { params: Promise<{ id: string
               </p>
             )}
           </div>
+        </div>
         </div>
       )}
     </div>
