@@ -1,6 +1,6 @@
 "use client";
 import { ORDERS_EVENT } from "@/components/NotificationBell";
-import { ArrowDownUp, FileText, Info, Loader2, PackageCheck, PackageSearch, Printer, RefreshCcw, Search, Store, Truck, XCircle } from "lucide-react";
+import { ArrowDownUp, FileText, Info, Loader2, MessageSquare, PackageCheck, PackageSearch, Printer, RefreshCcw, Search, Store, Truck, XCircle } from "lucide-react";
 import { TrackingModal } from "@/components/TrackingModal";
 import { ShipModal } from "@/components/marketplace/ShipModal";
 import { openShopeeAwb, openShopeeAwbMerged, type AwbResult } from "@/lib/awb";
@@ -119,8 +119,8 @@ function Products({ items }: { items: Item[] }) {
   );
 }
 
-function ActionLink({ children, onClick, busy, disabled, icon: Icon, tone = "sky" }: { children: React.ReactNode; onClick: () => void; busy?: boolean; disabled?: boolean; icon?: typeof Truck; tone?: "sky" | "rose" }) {
-  const color = tone === "rose" ? "text-rose-600 hover:text-rose-700" : "text-sky-600 hover:text-sky-700";
+function ActionLink({ children, onClick, busy, disabled, icon: Icon, tone = "sky" }: { children: React.ReactNode; onClick: () => void; busy?: boolean; disabled?: boolean; icon?: typeof Truck; tone?: "sky" | "rose" | "amber" }) {
+  const color = tone === "rose" ? "text-rose-600 hover:text-rose-700" : tone === "amber" ? "text-amber-600 hover:text-amber-700" : "text-sky-600 hover:text-sky-700";
   return (
     <button onClick={onClick} disabled={disabled || busy} className={`flex items-center gap-1.5 text-left text-[13px] font-medium hover:underline disabled:opacity-50 ${color}`}>
       {busy ? <Loader2 size={13} className="animate-spin" /> : Icon ? <Icon size={13} /> : null}{children}
@@ -285,6 +285,18 @@ export default function ShopeeOrders() {
       load();
     } catch (e) {
       setNotice(e instanceof ApiError ? e.message : "Gagal memproses pengajuan pembatalan di Shopee.");
+    } finally {
+      setBusy("");
+    }
+  }
+  async function sendShopeeFollowup(o: Order) {
+    setBusy(`followup${o.id}`); setNotice("");
+    try {
+      const res = await api<{ ok: boolean; message: string; order: Order }>(`/marketplace/orders/${o.id}/shopee-followup`, { method: "POST" });
+      setNotice(res.message || "Pesan pengingat berhasil dikirim ke Shopee.");
+      load();
+    } catch (e) {
+      setNotice(e instanceof ApiError ? e.message : "Gagal mengirim pengingat");
     } finally {
       setBusy("");
     }
@@ -512,6 +524,11 @@ export default function ShopeeOrders() {
                         <p className="mt-0.5 font-mono text-[11px] text-slate-400">{o.tracking_number || "resi belum terbit"}</p>
                       </div>
                       <div className="space-y-2">
+                        {(o.external_status === "UNPAID" || o.payment_status === "unpaid") && o.channel === "shopee" && (
+                          <ActionLink icon={MessageSquare} tone="amber" busy={busy === `followup${o.id}`} disabled={!!busy} onClick={() => sendShopeeFollowup(o)}>
+                            {o.followup_count ? `Pengingat (${o.followup_count}x)` : "Kirim Pengingat Bayar"}
+                          </ActionLink>
+                        )}
                         {o.external_status === "IN_CANCEL" && (
                           <ActionLink icon={XCircle} tone="rose" busy={busy === `cancel${o.id}`} disabled={!!busy} onClick={() => handleCancel(o, "REJECT")}>Tolak Pembatalan</ActionLink>
                         )}

@@ -54,6 +54,7 @@ async function hideProductNames(bytes: Uint8Array, group: AwbOrder[] = [], print
     if (redrawItemTable(out.getPage(i), items, fonts, match ? skuRows(match) : undefined, printSettings)) continue;
     const header = items.find((it) => /^Nama\s*Produk/i.test(it.str.trim()) || /^Product\s*Name/i.test(it.str.trim()));
     if (!header) continue;
+    if (printSettings?.product_text_mode === "name_only") continue; // Never cover names when name_only mode is chosen
     const hy = header.transform[5];
     const sku = items.find((it) => it.str.trim() === "SKU" && Math.abs(it.transform[5] - hy) < 12);
     if (!sku) continue; // Never erase product names when there is no SKU on the label

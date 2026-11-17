@@ -3,7 +3,14 @@ import { CheckCircle2, FileText, Loader2, Printer, Sliders } from "lucide-react"
 import { useEffect, useState } from "react";
 import { Panel, Toggle } from "@/components/kit";
 import { api, ApiError } from "@/lib/api";
-import { DEFAULT_PRINT_SETTINGS, getCachedPrintSettings, setCachedPrintSettings, type PaperSize, type PrintSettings } from "@/lib/printSettings";
+import {
+  DEFAULT_PRINT_SETTINGS,
+  getCachedPrintSettings,
+  setCachedPrintSettings,
+  type PaperSize,
+  type PrintSettings,
+  type ProductTextMode,
+} from "@/lib/printSettings";
 
 export function PrintSettingsCard({ onSave }: { onSave?: (settings: PrintSettings) => void }) {
   const [s, setS] = useState<PrintSettings>(getCachedPrintSettings());
@@ -20,6 +27,7 @@ export function PrintSettingsCard({ onSave }: { onSave?: (settings: PrintSetting
             paper_size: remote.paper_size || DEFAULT_PRINT_SETTINGS.paper_size,
             sku_font_size: Number(remote.sku_font_size) || DEFAULT_PRINT_SETTINGS.sku_font_size,
             show_table_border: remote.show_table_border !== false,
+            product_text_mode: remote.product_text_mode || DEFAULT_PRINT_SETTINGS.product_text_mode,
           };
           setS(merged);
           setCachedPrintSettings(merged);
@@ -75,6 +83,27 @@ export function PrintSettingsCard({ onSave }: { onSave?: (settings: PrintSetting
     },
   ];
 
+  const textModeOptions: { id: ProductTextMode; title: string; desc: string; badge: string }[] = [
+    {
+      id: "sku_first",
+      title: "Utamakan SKU (Fallback Nama)",
+      desc: "Mencetak kode SKU. Jika produk belum memiliki SKU, otomatis mencetak Nama Produk.",
+      badge: "Rekomendasi",
+    },
+    {
+      id: "name_only",
+      title: "Nama Produk & Variasi",
+      desc: "Selalu mencetak nama produk dan variasi lengkap seperti resi bawaan Shopee.",
+      badge: "Nama Lengkap",
+    },
+    {
+      id: "sku_only",
+      title: "Hanya Kode SKU",
+      desc: "Hanya mencetak kode SKU (format ringkas # | SKU | Qty). Cocok untuk gudang barcode.",
+      badge: "Hanya SKU",
+    },
+  ];
+
   const fontSizes = [
     { size: 7, label: "7 pt", desc: "Kecil (Standar Shopee)" },
     { size: 8, label: "8 pt", desc: "Standar Rapi (Rekomendasi)" },
@@ -92,7 +121,7 @@ export function PrintSettingsCard({ onSave }: { onSave?: (settings: PrintSetting
         <div className="flex-1">
           <b className="text-slate-800">Format & Ukuran Cetak Resi (Thermal / PDF)</b>
           <p className="text-sm text-slate-500">
-            Atur ukuran kertas, ukuran teks SKU / Nama Produk, dan border tabel resi agar hasil cetak Shopee dan resi toko pas di kertas dan mudah dibaca oleh tim packing.
+            Atur ukuran kertas, mode teks SKU / Nama Produk, ukuran font, dan border tabel resi agar hasil cetak Shopee dan resi toko pas di kertas dan mudah dibaca oleh tim packing.
           </p>
         </div>
       </div>
@@ -103,7 +132,7 @@ export function PrintSettingsCard({ onSave }: { onSave?: (settings: PrintSetting
         </p>
       )}
 
-      {/* Ukuran Kertas */}
+      {/* 1. Ukuran Kertas */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <b className="text-sm text-slate-700">1. Ukuran Kertas Cetak</b>
@@ -139,10 +168,46 @@ export function PrintSettingsCard({ onSave }: { onSave?: (settings: PrintSetting
         </div>
       </div>
 
-      {/* Ukuran Font SKU / Nama Produk */}
+      {/* 2. Mode Teks Produk / SKU */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <b className="text-sm text-slate-700">2. Ukuran Teks SKU / Nama Produk</b>
+          <b className="text-sm text-slate-700">2. Mode Tampilan Produk di Tabel Resi</b>
+          <span className="text-xs text-slate-400">Pilih informasi yang ingin ditampilkan pada kolom barang</span>
+        </div>
+        <div className="grid gap-2.5 sm:grid-cols-3">
+          {textModeOptions.map((opt) => {
+            const active = s.product_text_mode === opt.id;
+            return (
+              <button
+                type="button"
+                key={opt.id}
+                onClick={() => save({ ...s, product_text_mode: opt.id })}
+                className={`relative flex flex-col items-start rounded-xl border p-3.5 text-left transition-all ${
+                  active
+                    ? "border-brand-500 bg-brand-50/40 ring-2 ring-brand-400/20"
+                    : "border-slate-200 bg-white hover:border-slate-300"
+                }`}
+              >
+                <div className="flex w-full items-center justify-between">
+                  <span className={`text-xs font-semibold ${active ? "text-brand-700" : "text-slate-600"}`}>
+                    {opt.badge}
+                  </span>
+                  {active && <CheckCircle2 size={16} className="text-brand-600" />}
+                </div>
+                <b className={`mt-1 text-sm ${active ? "text-brand-900" : "text-slate-800"}`}>
+                  {opt.title}
+                </b>
+                <p className="mt-1 text-xs text-slate-500">{opt.desc}</p>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 3. Ukuran Font SKU / Nama Produk */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <b className="text-sm text-slate-700">3. Ukuran Teks SKU / Nama Produk</b>
           <span className="rounded-full bg-slate-100 px-2.5 py-0.5 font-mono text-xs font-bold text-slate-700">
             {s.sku_font_size} pt
           </span>
@@ -169,13 +234,13 @@ export function PrintSettingsCard({ onSave }: { onSave?: (settings: PrintSetting
         </div>
       </div>
 
-      {/* Border Garis Tabel */}
+      {/* 4. Border Garis Tabel */}
       <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex-1">
-            <b className="block text-sm text-slate-700">Garis Border Kotak & Sekat Tabel Resi</b>
+            <b className="block text-sm text-slate-700">4. Garis Border Kotak & Sekat Tabel Resi</b>
             <span className="text-xs text-slate-500">
-              Menambahkan border luar dan garis sekat vertikal antar kolom (#, SKU, Qty) agar pemisahan tiap produk terlihat tegas dan rapi.
+              Menambahkan border luar dan garis sekat vertikal antar kolom (#, SKU/Nama, Variasi, Qty) agar pemisahan tiap produk terlihat tegas dan rapi.
             </span>
           </div>
           <Toggle
@@ -192,7 +257,7 @@ export function PrintSettingsCard({ onSave }: { onSave?: (settings: PrintSetting
             Pratinjau Hasil Cetak Tabel Resi
           </span>
           <span className="text-xs text-slate-400 font-mono">
-            Kertas: {s.paper_size.toUpperCase()} · Font: {s.sku_font_size}pt
+            Kertas: {s.paper_size.toUpperCase()} · Mode: {s.product_text_mode} · Font: {s.sku_font_size}pt
           </span>
         </div>
 
@@ -204,15 +269,39 @@ export function PrintSettingsCard({ onSave }: { onSave?: (settings: PrintSetting
             }`}
           >
             {/* Header */}
-            <div
-              className={`flex bg-slate-50 text-[10px] font-bold ${
-                s.show_table_border ? "border-b border-black divide-x divide-black" : "border-b border-black"
-              }`}
-            >
-              <div className="w-8 py-1 text-center">#</div>
-              <div className="flex-1 px-2 py-1">SKU</div>
-              <div className="w-12 py-1 text-center">Qty</div>
-            </div>
+            {s.product_text_mode === "sku_only" ? (
+              <div
+                className={`flex bg-slate-50 text-[10px] font-bold ${
+                  s.show_table_border ? "border-b border-black divide-x divide-black" : "border-b border-black"
+                }`}
+              >
+                <div className="w-8 py-1 text-center">#</div>
+                <div className="flex-1 px-2 py-1">SKU</div>
+                <div className="w-12 py-1 text-center">Qty</div>
+              </div>
+            ) : s.product_text_mode === "name_only" ? (
+              <div
+                className={`flex bg-slate-50 text-[10px] font-bold ${
+                  s.show_table_border ? "border-b border-black divide-x divide-black" : "border-b border-black"
+                }`}
+              >
+                <div className="w-8 py-1 text-center">#</div>
+                <div className="flex-[3] px-2 py-1">Nama Produk</div>
+                <div className="flex-[2] px-2 py-1">Variasi</div>
+                <div className="w-12 py-1 text-center">Qty</div>
+              </div>
+            ) : (
+              <div
+                className={`flex bg-slate-50 text-[10px] font-bold ${
+                  s.show_table_border ? "border-b border-black divide-x divide-black" : "border-b border-black"
+                }`}
+              >
+                <div className="w-8 py-1 text-center">#</div>
+                <div className="flex-[3] px-2 py-1">SKU / Nama Produk</div>
+                <div className="flex-[2] px-2 py-1">Variasi</div>
+                <div className="w-12 py-1 text-center">Qty</div>
+              </div>
+            )}
 
             {/* Row 1 */}
             <div
@@ -223,12 +312,34 @@ export function PrintSettingsCard({ onSave }: { onSave?: (settings: PrintSetting
               }`}
             >
               <div className="w-8 py-1.5 text-center text-xs text-slate-700">1</div>
-              <div
-                className="flex-1 px-2 py-1.5 font-bold leading-tight text-slate-900"
-                style={{ fontSize: `${s.sku_font_size}pt` }}
-              >
-                [YKT]-SAGE GREEN FP-L
-              </div>
+              {s.product_text_mode === "sku_only" ? (
+                <div
+                  className="flex-1 px-2 py-1.5 font-bold leading-tight text-slate-900"
+                  style={{ fontSize: `${s.sku_font_size}pt` }}
+                >
+                  [YKT]-SAGE GREEN FP-L
+                </div>
+              ) : s.product_text_mode === "name_only" ? (
+                <>
+                  <div
+                    className="flex-[3] px-2 py-1.5 font-bold leading-tight text-slate-900"
+                    style={{ fontSize: `${s.sku_font_size}pt` }}
+                  >
+                    Helm Bogo Retro Klasik Dewasa
+                  </div>
+                  <div className="flex-[2] px-2 py-1.5 text-xs text-slate-700">Sage Green - L</div>
+                </>
+              ) : (
+                <>
+                  <div
+                    className="flex-[3] px-2 py-1.5 font-bold leading-tight text-slate-900"
+                    style={{ fontSize: `${s.sku_font_size}pt` }}
+                  >
+                    [YKT]-SAGE GREEN FP-L
+                  </div>
+                  <div className="flex-[2] px-2 py-1.5 text-xs text-slate-700">Sage Green - L</div>
+                </>
+              )}
               <div className="w-12 py-1.5 text-center font-bold text-slate-900">1</div>
             </div>
 
@@ -239,12 +350,34 @@ export function PrintSettingsCard({ onSave }: { onSave?: (settings: PrintSetting
               }`}
             >
               <div className="w-8 py-1.5 text-center text-xs text-slate-700">2</div>
-              <div
-                className="flex-1 px-2 py-1.5 font-bold leading-tight text-slate-900"
-                style={{ fontSize: `${s.sku_font_size}pt` }}
-              >
-                [KOS]-KAOS POLOS HITAM-XL
-              </div>
+              {s.product_text_mode === "sku_only" ? (
+                <div
+                  className="flex-1 px-2 py-1.5 font-bold leading-tight text-slate-900"
+                  style={{ fontSize: `${s.sku_font_size}pt` }}
+                >
+                  [BUSA]-CUCI-MOBIL-01
+                </div>
+              ) : s.product_text_mode === "name_only" ? (
+                <>
+                  <div
+                    className="flex-[3] px-2 py-1.5 font-bold leading-tight text-slate-900"
+                    style={{ fontSize: `${s.sku_font_size}pt` }}
+                  >
+                    BAS BUSA FOAM CUCI MOBIL MOTOR SERBAGUNA
+                  </div>
+                  <div className="flex-[2] px-2 py-1.5 text-xs text-slate-400">-</div>
+                </>
+              ) : (
+                <>
+                  <div
+                    className="flex-[3] px-2 py-1.5 font-bold leading-tight text-slate-900"
+                    style={{ fontSize: `${s.sku_font_size}pt` }}
+                  >
+                    BAS BUSA FOAM CUCI MOBIL MOTOR (Tanpa SKU)
+                  </div>
+                  <div className="flex-[2] px-2 py-1.5 text-xs text-slate-400">-</div>
+                </>
+              )}
               <div className="w-12 py-1.5 text-center font-bold text-slate-900">
                 <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-black font-bold">
                   2

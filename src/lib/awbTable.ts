@@ -90,42 +90,86 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
   // With Pesanin's own order items, show all items from the order.
   const own = !!rowData && rowData.length > 0;
   const has = (s?: string) => !!s && s.trim() !== "" && s.trim() !== "-";
+  const textMode = settings?.product_text_mode || "sku_first";
+
   const info = own
     ? rowData!.map((d, i) => {
-        const sku = has(d.variant) ? d.variant : has(d.parent) ? d.parent : "";
+        const skuVal = has(d.variant) ? d.variant : has(d.parent) ? d.parent : "";
+        let primary = "";
+        let variant = (d.varName || "").trim();
+
+        if (textMode === "name_only") {
+          primary = (d.name || "").trim() || skuVal || "-";
+        } else if (textMode === "sku_only") {
+          primary = skuVal || "-";
+          variant = "";
+        } else {
+          // sku_first: utamakan SKU, jika tidak ada baru nama produk
+          primary = skuVal || (d.name || "").trim() || "-";
+        }
+
         return {
           no: String(i + 1),
-          sku,
+          sku: textMode === "name_only" ? "" : skuVal,
           name: (d.name || "").trim(),
-          variant: (d.varName || "").trim(),
+          variant,
           qty: String(d.qty ?? (rows[i]?.qty || "1")),
+          cellMain: primary,
         };
       })
     : rows.map((r, i) => {
-        const sku = has(r.sku) ? r.sku : "";
+        const skuVal = has(r.sku) ? r.sku : "";
+        let primary = "";
+        let variant = (r.vname || "").trim();
+
+        if (textMode === "name_only") {
+          primary = (r.name || "").trim() || skuVal || "-";
+        } else if (textMode === "sku_only") {
+          primary = skuVal || "-";
+          variant = "";
+        } else {
+          primary = skuVal || (r.name || "").trim() || "-";
+        }
+
         return {
           no: r.no || String(i + 1),
-          sku,
+          sku: textMode === "name_only" ? "" : skuVal,
           name: (r.name || "").trim(),
-          variant: (r.vname || "").trim(),
+          variant,
           qty: r.qty || "1",
+          cellMain: primary,
         };
       });
 
-  const allSku = info.every((x) => x.sku);
-  const showVariant = (variant !== undefined) || info.some((x) => has(x.variant));
-  const heads = allSku
-    ? ["SKU", "Qty"]
-    : showVariant
-    ? [info.some((x) => x.sku) ? "SKU / Nama Produk" : "Nama Produk", "Variasi", "Qty"]
-    : [info.some((x) => x.sku) ? "SKU / Nama Produk" : "Nama Produk", "Qty"];
+  let allSku = false;
+  let showVariant = false;
+  let heads: string[] = [];
+
+  if (textMode === "sku_only") {
+    allSku = true;
+    showVariant = false;
+    heads = ["SKU", "Qty"];
+  } else if (textMode === "name_only") {
+    allSku = false;
+    showVariant = (variant !== undefined) || info.some((x) => has(x.variant));
+    heads = showVariant ? ["Nama Produk", "Variasi", "Qty"] : ["Nama Produk", "Qty"];
+  } else {
+    // sku_first: jika semua punya SKU -> 2 kolom (SKU, Qty), jika sebagian tidak ada SKU -> 3 kolom
+    allSku = info.every((x) => has(x.sku));
+    showVariant = !allSku && ((variant !== undefined) || info.some((x) => has(x.variant)));
+    heads = allSku
+      ? ["SKU", "Qty"]
+      : showVariant
+      ? [info.some((x) => has(x.sku)) ? "SKU / Nama Produk" : "Nama Produk", "Variasi", "Qty"]
+      : [info.some((x) => has(x.sku)) ? "SKU / Nama Produk" : "Nama Produk", "Qty"];
+  }
 
   const body2 = info.map((it) => {
     const cells = allSku
-      ? [it.sku]
+      ? [it.cellMain]
       : showVariant
-      ? [it.sku || it.name || "-", it.variant || "-"]
-      : [it.sku || it.name || "-"];
+      ? [it.cellMain, it.variant || "-"]
+      : [it.cellMain];
     return { no: it.no, qty: it.qty, cells };
   });
 

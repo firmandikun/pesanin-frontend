@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { PageHead, Panel, Toggle } from "@/components/kit";
 import { Select } from "@/components/Select";
 import { PrintSettingsCard } from "@/components/PrintSettingsCard";
+import { ShopeeChatAutomationCard } from "@/components/ShopeeChatAutomationCard";
 import { api, ApiError } from "@/lib/api";
 import { WaTemplate } from "@/lib/broadcast";
 
@@ -177,6 +178,8 @@ export default function AutomationSettings() {
           <TelegramAwbPanel a={a} save={save} />
 
           <PrintSettingsCard />
+
+          <ShopeeChatAutomationCard />
 
           <Panel className="space-y-4 p-5">
             <div className="flex items-start gap-3">

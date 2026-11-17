@@ -8,7 +8,13 @@ import { ShopeeMark } from "@/components/ChannelBadge";
 import { Logo } from "@/components/Logo";
 import { API_URL, ApiError, api, getToken, Order, rupiah } from "@/lib/api";
 import { openShopeeAwbMerged } from "@/lib/awb";
-import { getCachedPrintSettings, setCachedPrintSettings, type PaperSize, type PrintSettings } from "@/lib/printSettings";
+import {
+  getCachedPrintSettings,
+  setCachedPrintSettings,
+  type PaperSize,
+  type PrintSettings,
+  type ProductTextMode,
+} from "@/lib/printSettings";
 
 type Data = { sender: { name: string; phone: string | null; address: string | null }; orders: (Order & { product?: { name: string; sku?: string | null; weight?: number } | null })[] };
 
@@ -42,12 +48,27 @@ function Label({ o, sender, settings }: { o: Data["orders"][number]; sender: Dat
         <div className="p-2"><p className="text-[9px] font-bold uppercase">Pengirim</p><b className="block">{sender.name}</b><p>{sender.phone}</p><p className="mt-0.5">{sender.address}</p></div>
       </div>
       <div className="flex-1 border-b border-slate-900 p-2">
-        {/* Content is printed as SKU only, so the product name never shows on the parcel. */}
-        <p className="text-[9px] font-bold uppercase">Isi paket (SKU)</p>
+        <p className="text-[9px] font-bold uppercase">
+          {settings.product_text_mode === "name_only" ? "Isi paket (Nama Produk)" : settings.product_text_mode === "sku_only" ? "Isi paket (SKU)" : "Isi paket (SKU / Nama)"}
+        </p>
         <div className="mt-1 space-y-0.5" style={{ fontSize: skuSize }}>
           {o.items?.length
-            ? o.items.map((i, k) => <p key={k} className="font-mono font-bold">{i.sku || `ITEM-${i.item_id}`} × {i.qty}</p>)
-            : <p className="font-mono font-bold">{o.product?.sku || `ORD-${o.id}`}{o.variant ? ` / ${o.variant}` : ""} × {o.quantity}</p>}
+            ? o.items.map((i, k) => {
+                const text = settings.product_text_mode === "name_only"
+                  ? `${i.name}${i.variant ? ` / ${i.variant}` : ""}`
+                  : settings.product_text_mode === "sku_only"
+                  ? (i.sku || "-")
+                  : (i.sku || `${i.name}${i.variant ? ` / ${i.variant}` : ""}`);
+                return <p key={k} className="font-mono font-bold">{text} × {i.qty}</p>;
+              })
+            : (() => {
+                const text = settings.product_text_mode === "name_only"
+                  ? `${o.product?.name ?? `ORD-${o.id}`}${o.variant ? ` / ${o.variant}` : ""}`
+                  : settings.product_text_mode === "sku_only"
+                  ? (o.product?.sku || "-")
+                  : (o.product?.sku || `${o.product?.name ?? `ORD-${o.id}`}${o.variant ? ` / ${o.variant}` : ""}`);
+                return <p className="font-mono font-bold">{text} × {o.quantity}</p>;
+              })()}
         </div>
         {o.notes && <p className="mt-1 text-[10px] italic">Catatan: {o.notes}</p>}
       </div>
@@ -120,7 +141,22 @@ function Labels() {
             <option value="100x100">100×100mm</option>
             <option value="a4">A4</option>
           </select>
-          <span className="ml-2 text-slate-300">SKU:</span>
+          <span className="ml-2 text-slate-300">Mode:</span>
+          <select
+            aria-label="Mode Teks Produk"
+            className="rounded bg-navy-800 border border-slate-600 px-2 py-1 text-white text-xs outline-none"
+            value={settings.product_text_mode}
+            onChange={(e) => {
+              const next: PrintSettings = { ...settings, product_text_mode: e.target.value as ProductTextMode };
+              setSettings(next);
+              setCachedPrintSettings(next);
+            }}
+          >
+            <option value="sku_first">Utamakan SKU</option>
+            <option value="name_only">Nama Produk</option>
+            <option value="sku_only">Hanya SKU</option>
+          </select>
+          <span className="ml-2 text-slate-300">Font:</span>
           <select
             aria-label="Ukuran Font SKU"
             className="rounded bg-navy-800 border border-slate-600 px-2 py-1 text-white text-xs outline-none"
