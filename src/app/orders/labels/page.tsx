@@ -20,7 +20,9 @@ function Barcode({ value }: { value: string }) {
 /** Thermal label for website, landing page and manual orders with configurable paper & font size. */
 function Label({ o, sender, settings }: { o: Data["orders"][number]; sender: Data["sender"]; settings: PrintSettings }) {
   const cod = o.payment_method === "cod";
-  const dimClass = settings.paper_size === "100x100"
+  const dimClass = settings.paper_size === "78x100"
+    ? "h-[100mm] w-[78mm]"
+    : settings.paper_size === "100x100"
     ? "h-[100mm] w-[100mm]"
     : settings.paper_size === "a4"
     ? "w-[210mm] min-h-[148mm] max-w-full"
@@ -118,6 +120,7 @@ function Labels() {
             }}
           >
             <option value="100x150">100×150mm (A6)</option>
+            <option value="78x100">78×100mm</option>
             <option value="100x100">100×100mm</option>
             <option value="a4">A4</option>
           </select>

@@ -15,7 +15,7 @@ const HEADER = /^(Nama\s*Produk|Product\s*Name)$/i;
  * Returns false (page left untouched) when the table layout isn't recognised.
  */
 /** Per-row SKU data from Pesanin's order, used to print "SKU Induk" and "SKU Variasi" separately. */
-export type SkuRow = { parent: string; variant: string; /** Product and variation names, printed when the item has no SKU. */ name?: string; varName?: string };
+export type SkuRow = { parent: string; variant: string; /** Product and variation names, printed when the item has no SKU. */ name?: string; varName?: string; qty?: number | string };
 
 export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, rowData?: SkuRow[], settings?: Partial<PrintSettings>): boolean {
   const name = items.find((i) => HEADER.test(i.str.trim()));
@@ -23,9 +23,14 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
   const hy = name.transform[5];
   const onHeader = (re: RegExp) => items.find((i) => re.test(i.str.trim()) && Math.abs(i.transform[5] - hy) < 3);
   const hash = onHeader(/^#$/), sku = onHeader(/^SKU$/i), variant = onHeader(/^(Variasi|Variation)$/i), qty = onHeader(/^(Qty|Jumlah)$/i);
-  if (!hash || !sku || !variant || !qty) return false;
+  if (!hash || !qty) return false;
 
-  const x = { name: name.transform[4] - 1, sku: sku.transform[4] - 1, variant: variant.transform[4] - 1, qty: qty.transform[4] - 1 };
+  const x = {
+    name: name.transform[4] - 1,
+    sku: sku ? sku.transform[4] - 1 : null,
+    variant: variant ? variant.transform[4] - 1 : null,
+    qty: qty.transform[4] - 1,
+  };
   const customSize = settings?.sku_font_size ? Number(settings.sku_font_size) : undefined;
   const size = (customSize && customSize >= 5 && customSize <= 16) ? customSize : (name.height || name.transform[3] || 7);
   const headerSize = Math.min(size, 8);
@@ -33,15 +38,14 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
   // Items below the header, top to bottom, until the first line that isn't part of the table
   // (e.g. "Komentar Pembeli" or "Pesan: <no. pesanan>"): text in the # column that isn't a number.
   const below = items.filter((i) => i.str.trim() && i.transform[5] < hy - 1).sort((a, b) => b.transform[5] - a.transform[5]);
-  const stop = below.find((i) => i.transform[4] < x.name && !/^\d+$/.test(i.str.trim()));
+  const stop = below.find((i) =>
+    /^(Pesan|Komentar|Catatan|Note)/i.test(i.str.trim()) ||
+    (i.transform[4] < x.name && !/^\d+$/.test(i.str.trim()) && i.transform[5] < hy - size * 2.5)
+  );
   const body = below.filter((i) => !stop || i.transform[5] > stop.transform[5] + 1);
   const numericCandidates = body.filter((i) => i.transform[4] < x.name && /^\d+$/.test(i.str.trim()));
-  // A Shopee label can print the numeric tracking number immediately below the item table at the
-  // same x-position as the "#" column. It is not another item row. When the page has been matched
-  // to an order, the API item count is the authoritative row count; without this cap a one-item
-  // parcel could be redrawn with its tracking number as a fake second SKU.
   const numbers = rowData?.length ? numericCandidates.slice(0, rowData.length) : numericCandidates;
-  if (!numbers.length) return false;
+  if (!numbers.length && (!rowData || !rowData.length)) return false;
 
   // Split each run into characters positioned with Helvetica metrics scaled to the run's real width.
   const cells = numbers.map((n) => ({ y: n.transform[5], no: n.str.trim(), name: [] as [number, string][], sku: [] as [number, string][], vname: [] as [number, string][], qty: [] as [number, string][] }));
@@ -58,7 +62,15 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
       const mid = cx + (widths[k] * scale) / 2;
       cx += widths[k] * scale;
       // Product and variant names are only printed when the item has no SKU.
-      const col = mid >= x.qty ? "qty" : mid >= x.variant ? "vname" : mid >= x.sku ? "sku" : mid >= x.name ? "name" : null;
+      const col = mid >= x.qty
+        ? "qty"
+        : (x.variant !== null && mid >= x.variant)
+        ? "vname"
+        : (x.sku !== null && mid >= x.sku)
+        ? "sku"
+        : mid >= x.name
+        ? "name"
+        : null;
       if (col) row[col].push([y, c]);
     });
   }
@@ -78,32 +90,59 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
   // Clear the old table (header included) across the page, from the header top to just above the next block.
   const { width: pw } = page.getSize();
   const top = hy + headerSize + 3;
-  const lowest = Math.min(...body.map((i) => i.transform[5]));
+  const lowest = body.length ? Math.min(...body.map((i) => i.transform[5])) : hy - size * 3;
   const bottom = stop ? stop.transform[5] + (stop.height || size) * 0.8 : lowest - size * 0.4;
   page.drawRectangle({ x: 1.5, y: bottom, width: pw - 3, height: top - bottom, color: rgb(1, 1, 1) });
 
-  // With Pesanin's own order items (matched 1:1 to the label's rows) the SKU is the variation SKU (or the product SKU
-  // when it has no variations); otherwise it comes from the label text. Qty always comes from the label.
-  // Every item has a SKU → "# | SKU | Qty". Any item without one → "# | Nama Produk | Variasi | Qty", where an item
-  // that does have a SKU shows it in the first column.
-  const own = !!rowData && rowData.length === rows.length && rows.length > 0;
+  // With Pesanin's own order items, show all items from the order.
+  const own = !!rowData && rowData.length > 0;
   const has = (s?: string) => !!s && s.trim() !== "" && s.trim() !== "-";
-  const info = rows.map((r, i) => {
-    const d = own ? rowData![i] : undefined;
-    const sku = d ? (has(d.variant) ? d.variant : has(d.parent) ? d.parent : "") : has(r.sku) ? r.sku : "";
-    return { sku, name: (d?.name || r.name || "").trim(), variant: (d?.varName ?? r.vname ?? "").trim() };
-  });
+  const info = own
+    ? rowData!.map((d, i) => {
+        const sku = has(d.variant) ? d.variant : has(d.parent) ? d.parent : "";
+        return {
+          no: String(i + 1),
+          sku,
+          name: (d.name || "").trim(),
+          variant: (d.varName || "").trim(),
+          qty: String(d.qty ?? (rows[i]?.qty || "1")),
+        };
+      })
+    : rows.map((r, i) => {
+        const sku = has(r.sku) ? r.sku : "";
+        return {
+          no: r.no || String(i + 1),
+          sku,
+          name: (r.name || "").trim(),
+          variant: (r.vname || "").trim(),
+          qty: r.qty || "1",
+        };
+      });
+
   const allSku = info.every((x) => x.sku);
-  const heads = allSku ? ["SKU", "Qty"] : [info.some((x) => x.sku) ? "SKU / Nama Produk" : "Nama Produk", "Variasi", "Qty"];
-  const body2 = rows.map((r, i) => {
-    const it = info[i];
-    return { no: r.no, qty: r.qty, cells: allSku ? [it.sku] : [it.sku || it.name || "-", it.sku ? "-" : it.variant || "-"] };
+  const showVariant = (variant !== undefined) || info.some((x) => has(x.variant));
+  const heads = allSku
+    ? ["SKU", "Qty"]
+    : showVariant
+    ? [info.some((x) => x.sku) ? "SKU / Nama Produk" : "Nama Produk", "Variasi", "Qty"]
+    : [info.some((x) => x.sku) ? "SKU / Nama Produk" : "Nama Produk", "Qty"];
+
+  const body2 = info.map((it) => {
+    const cells = allSku
+      ? [it.sku]
+      : showVariant
+      ? [it.sku || it.name || "-", it.variant || "-"]
+      : [it.sku || it.name || "-"];
+    return { no: it.no, qty: it.qty, cells };
   });
 
   const left = hash.transform[4];
   const right = pw - left;
   const qtyX = right - 18;
-  const colX = allSku ? [left + 14] : [left + 14, left + 14 + (qtyX - left - 14) * 0.66];
+  const hasMultipleCols = heads.length > 2;
+  const colX = hasMultipleCols
+    ? [left + 14, left + 14 + (qtyX - left - 14) * 0.66]
+    : [left + 14];
   const headX = [...colX, qtyX];
   const ink = rgb(0, 0, 0);
   const rule = rgb(0.1, 0.1, 0.1); // Solid dark line for sharp thermal printing

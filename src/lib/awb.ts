@@ -42,6 +42,7 @@ async function hideProductNames(bytes: Uint8Array, group: AwbOrder[] = [], print
   const skuRows = (o: AwbOrder): SkuRow[] => (o.items ?? []).map((it) => ({
     parent: (it.item_sku ?? it.sku ?? "") || "-", variant: (it.model_sku ?? "") || "-",
     name: it.name ?? undefined, varName: it.variant ?? undefined,
+    qty: it.qty ?? 1,
   }));
   // Shopee doesn't always return pages in the order requested, so find each page's order by the number printed on it.
   const keyed = group.flatMap((o) => [o.external_order_sn, o.booking_sn, o.order_sn].filter((sn): sn is string => !!sn).map((sn) => [sn.toUpperCase(), o] as const));
@@ -55,8 +56,9 @@ async function hideProductNames(bytes: Uint8Array, group: AwbOrder[] = [], print
     if (!header) continue;
     const hy = header.transform[5];
     const sku = items.find((it) => it.str.trim() === "SKU" && Math.abs(it.transform[5] - hy) < 4);
+    if (!sku) continue; // Never erase product names when there is no SKU on the label
     const x0 = header.transform[4] - 1;
-    const x1 = sku ? sku.transform[4] - 2 : x0 + 180;
+    const x1 = sku.transform[4] - 2;
     const page = out.getPage(i);
     for (const it of items) {
       const [, , , d, x, y] = it.transform;
@@ -101,7 +103,25 @@ export async function openShopeeAwbMerged({ orders = [], bookings = [], settings
           const { bytes, skipped } = await fetchAwb(group.map((o) => o.id), kind);
           result.skipped.push(...skipped);
           const src = await hideProductNames(bytes, group, printSettings);
-          if (printSettings.paper_size === "100x100") {
+          if (printSettings.paper_size === "78x100") {
+            const targetW = 221.10; // 78 mm
+            const targetH = 283.46; // 100 mm
+            for (const srcPage of src.getPages()) {
+              const embedded = await merged.embedPage(srcPage);
+              const page = merged.addPage([targetW, targetH]);
+              const origW = srcPage.getWidth();
+              const origH = srcPage.getHeight();
+              const scale = Math.min(targetW / origW, targetH / origH);
+              const w = origW * scale;
+              const h = origH * scale;
+              page.drawPage(embedded, {
+                x: (targetW - w) / 2,
+                y: (targetH - h) / 2,
+                width: w,
+                height: h,
+              });
+            }
+          } else if (printSettings.paper_size === "100x100") {
             const targetW = 283.46;
             const targetH = 283.46;
             for (const srcPage of src.getPages()) {

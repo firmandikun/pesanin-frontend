@@ -56,6 +56,12 @@ export function PrintSettingsCard({ onSave }: { onSave?: (settings: PrintSetting
       badge: "Paling Populer",
     },
     {
+      id: "78x100",
+      title: "78 × 100 mm (Thermal 3 Inci)",
+      desc: "Ukuran printer thermal 78–80mm (kertas roll 3 inci / pos).",
+      badge: "Thermal 78mm",
+    },
+    {
       id: "100x100",
       title: "100 × 100 mm (Thermal Kotak)",
       desc: "Ukuran ringkas persegi untuk printer thermal 100mm.",
@@ -103,7 +109,7 @@ export function PrintSettingsCard({ onSave }: { onSave?: (settings: PrintSetting
           <b className="text-sm text-slate-700">1. Ukuran Kertas Cetak</b>
           <span className="text-xs text-slate-400">Pilih jenis kertas yang digunakan di printernya</span>
         </div>
-        <div className="grid gap-2.5 sm:grid-cols-3">
+        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
           {paperOptions.map((opt) => {
             const active = s.paper_size === opt.id;
             return (

@@ -1,4 +1,4 @@
-export type PaperSize = "100x150" | "100x100" | "a4";
+export type PaperSize = "100x150" | "78x100" | "100x100" | "a4";
 
 export type PrintSettings = {
   paper_size: PaperSize;
