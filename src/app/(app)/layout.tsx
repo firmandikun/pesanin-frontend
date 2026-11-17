@@ -73,6 +73,7 @@ const NAV_ALL: NavItem[] = [
     { label: "Integrasi", href: "/settings/integrations" },
     { label: "Alamat Pickup", href: "/settings/addresses" },
     { label: "Otomatisasi Pesanan", href: "/settings/automation" },
+    { label: "Cetak Resi & Label", href: "/settings/print" },
     { label: "Notifikasi", href: "/settings/notifications" },
     { label: "Tracking Pixel", href: "/settings/tracking" },
     { label: "Custom Domain", href: "/settings/domains" },

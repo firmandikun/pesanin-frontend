@@ -358,9 +358,22 @@ function Chat() {
           )}
         </div>
         {active && showProfile && !preview && (
-          <div className="absolute inset-y-0 right-0 z-20 flex w-[300px] max-w-full min-h-0 flex-col shadow-2xl 2xl:static 2xl:w-auto 2xl:shadow-none">
-            <ThreadSidebar key={keyQuery(threadKey(active))} thread={threadKey(active)} labels={labels} phone={active.channel === "whatsapp" ? String(active.to_id || active.id) : undefined}
-              onClose={() => setShowProfile(false)} onCustomer={(id) => patch(active, { customer_id: id })} />
+          <div className="absolute inset-y-0 right-0 z-20 flex w-[320px] max-w-full min-h-0 flex-col shadow-2xl 2xl:static 2xl:w-[320px] 2xl:shadow-none">
+            <ThreadSidebar
+              key={keyQuery(threadKey(active))}
+              thread={threadKey(active)}
+              labels={labels}
+              phone={active.channel === "whatsapp" ? String(active.to_id || active.id) : undefined}
+              onClose={() => setShowProfile(false)}
+              onCustomer={(id) => patch(active, { customer_id: id })}
+              onInsertText={(txt) => setDraft((d) => (d ? `${d}\n${txt}` : txt))}
+              onAddLabel={(name) => {
+                const cur = active.labels ?? [];
+                if (!cur.includes(name)) {
+                  updateThread(active, { labels: [...cur, name] });
+                }
+              }}
+            />
           </div>
         )}
       </div>

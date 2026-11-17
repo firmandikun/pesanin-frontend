@@ -1,23 +1,37 @@
 "use client";
-import { Pencil, Plus, Tag, Trash2, Zap } from "lucide-react";
+import { Bot, CheckCircle2, Loader2, MessageSquare, Pencil, Plus, Star, Tag, Trash2, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { askConfirm } from "@/components/Dialogs";
+import { ShopeeMark } from "@/components/ChannelBadge";
 import { Dialog, DialogActions, EmptyState, FieldLabel, PageHead, Panel, PrimaryBtn, SearchBox } from "@/components/kit";
 import { api, ApiError } from "@/lib/api";
 import { ChatLabel, LABEL_COLORS, labelDot, QuickReply } from "@/lib/inbox";
 
-/** Quick replies ("/shortcut" in the chat composer) and the label list used on chats and customers. */
+/** Quick replies ("/shortcut" in the chat composer), the label list, and Shopee chat automation. */
 export default function QuickReplies() {
-  const [tab, setTab] = useState<"replies" | "labels">("replies");
+  const [tab, setTab] = useState<"replies" | "labels" | "shopee">("replies");
   return (
     <div className="space-y-5">
-      <PageHead title="Balasan Cepat & Label" tutorial={false} crumbs={[["Chat", "/chat"], ["Balasan Cepat & Label"]]} />
-      <div className="flex gap-2">
-        {([["replies", "Balasan cepat", Zap], ["labels", "Label", Tag]] as const).map(([id, label, Icon]) => (
-          <button key={id} onClick={() => setTab(id)} className={`flex h-9 items-center gap-2 rounded-lg px-4 text-sm font-semibold ${tab === id ? "bg-navy text-white" : "bg-white text-slate-600 hover:bg-slate-100"}`}><Icon size={15} />{label}</button>
+      <PageHead title="Balasan Cepat & Otomatisasi" tutorial={false} crumbs={[["Chat", "/chat"], ["Balasan Cepat & Otomatisasi"]]} />
+      <div className="flex flex-wrap gap-2">
+        {([
+          ["replies", "Balasan cepat", Zap],
+          ["labels", "Label", Tag],
+          ["shopee", "Otomatisasi Shopee", Bot],
+        ] as const).map(([id, label, Icon]) => (
+          <button
+            key={id}
+            onClick={() => setTab(id)}
+            className={`flex h-9 items-center gap-2 rounded-lg px-4 text-sm font-semibold transition ${
+              tab === id ? "bg-navy text-white" : "bg-white text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            <Icon size={15} />
+            {label}
+          </button>
         ))}
       </div>
-      {tab === "replies" ? <Replies /> : <Labels />}
+      {tab === "replies" ? <Replies /> : tab === "labels" ? <Labels /> : <ShopeeAutomation />}
     </div>
   );
 }
@@ -124,6 +138,167 @@ function Labels() {
           ))}
         </ul>
       )}
+    </Panel>
+  );
+}
+
+const DEFAULT_UNPAID = "Halo Kak {nama}, pesananmu ({order_sn}) sudah kami siapkan ya kak. Yuk segera selesaikan pembayarannya agar paket bisa langsung kami kirimkan hari ini ya kak 🙏";
+const DEFAULT_DELIVERED = "Halo Kak {nama}, pesananmu ({order_sn}) sudah sampai ya. Mohon periksa kelengkapan produknya. Jika sudah sesuai, mohon bantu klik 'Pesanan Diterima' dan berikan ulasan bintang 5 ⭐⭐⭐⭐⭐ ya kak. Terima kasih banyak! 🙏";
+
+function ShopeeAutomation() {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [err, setErr] = useState("");
+
+  const [unpaidReminder, setUnpaidReminder] = useState(false);
+  const [unpaidText, setUnpaidText] = useState(DEFAULT_UNPAID);
+
+  const [deliveredReview, setDeliveredReview] = useState(false);
+  const [deliveredText, setDeliveredText] = useState(DEFAULT_DELIVERED);
+
+  useEffect(() => {
+    api<Record<string, any>>("/user-settings")
+      .then((cfg) => {
+        const s = cfg?.shopee_chat_automation ?? {};
+        setUnpaidReminder(Boolean(s.unpaid_reminder));
+        setUnpaidText(s.unpaid_text || DEFAULT_UNPAID);
+        setDeliveredReview(Boolean(s.delivered_review));
+        setDeliveredText(s.delivered_text || DEFAULT_DELIVERED);
+      })
+      .catch(() => setErr("Gagal memuat pengaturan"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const save = async () => {
+    setSaving(true);
+    setNotice("");
+    setErr("");
+    try {
+      await api("/user-settings", {
+        method: "PUT",
+        json: {
+          key: "shopee_chat_automation",
+          value: {
+            unpaid_reminder: unpaidReminder,
+            unpaid_text: unpaidText,
+            delivered_review: deliveredReview,
+            delivered_text: deliveredText,
+          },
+        },
+      });
+      setNotice("Pengaturan otomatisasi Shopee Chat berhasil disimpan.");
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : "Gagal menyimpan");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <Panel className="p-8 text-center text-sm text-slate-400">Memuat pengaturan…</Panel>;
+
+  return (
+    <Panel className="space-y-6 p-6">
+      <div>
+        <div className="flex items-center gap-2">
+          <ShopeeMark size={20} />
+          <h3 className="font-bold text-navy">Follow-up Otomatis Shopee Chat</h3>
+        </div>
+        <p className="mt-1 text-xs text-slate-500">
+          Kirim pesan chat otomatis ke pembeli Shopee berdasarkan status pesanan terkini untuk meningkatkan konversi dan rating toko.
+        </p>
+      </div>
+
+      {notice && (
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-medium text-emerald-800">
+          <CheckCircle2 size={15} className="shrink-0 text-emerald-600" />
+          {notice}
+        </div>
+      )}
+      {err && <div className="rounded-xl bg-rose-50 p-3 text-xs text-rose-700">{err}</div>}
+
+      <div className="space-y-6 divide-y divide-slate-100">
+        {/* 1. Unpaid Reminder */}
+        <div className="space-y-3 pt-2">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <b className="text-sm text-navy block">1. Pengingat Pesanan Belum Bayar (Unpaid Reminder)</b>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Kirim pesan otomatis via Shopee Chat saat ada pesanan baru yang belum selesai dibayar, sebelum batas waktu Shopee habis.
+              </p>
+            </div>
+            <label className="relative inline-flex cursor-pointer items-center">
+              <input
+                type="checkbox"
+                checked={unpaidReminder}
+                onChange={(e) => setUnpaidReminder(e.target.checked)}
+                className="peer sr-only"
+              />
+              <div className="peer h-6 w-11 rounded-full bg-slate-200 after:absolute after:top-[2px] after:left-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-navy peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none"></div>
+            </label>
+          </div>
+
+          <div>
+            <FieldLabel>Template pesan pengingat pembayaran</FieldLabel>
+            <p className="text-[11px] text-slate-400 mb-1.5">
+              Gunakan tag <b className="text-navy">{"{nama}"}</b> untuk nama pembeli dan <b className="text-navy">{"{order_sn}"}</b> untuk nomor pesanan.
+            </p>
+            <textarea
+              className="input min-h-24 py-2 text-xs"
+              value={unpaidText}
+              onChange={(e) => setUnpaidText(e.target.value)}
+              disabled={!unpaidReminder}
+            />
+          </div>
+        </div>
+
+        {/* 2. Delivered / Completed Review */}
+        <div className="space-y-3 pt-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <b className="text-sm text-navy block">2. Permintaan Ulasan Bintang 5 & Ucapan Terima Kasih</b>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Kirim pesan otomatis saat paket terkirim atau pesanan selesai untuk mengingatkan konfirmasi terima dan meminta rating 5 bintang.
+              </p>
+            </div>
+            <label className="relative inline-flex cursor-pointer items-center">
+              <input
+                type="checkbox"
+                checked={deliveredReview}
+                onChange={(e) => setDeliveredReview(e.target.checked)}
+                className="peer sr-only"
+              />
+              <div className="peer h-6 w-11 rounded-full bg-slate-200 after:absolute after:top-[2px] after:left-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-navy peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none"></div>
+            </label>
+          </div>
+
+          <div>
+            <FieldLabel>Template pesan ulasan & terima kasih</FieldLabel>
+            <p className="text-[11px] text-slate-400 mb-1.5">
+              Gunakan tag <b className="text-navy">{"{nama}"}</b> untuk nama pembeli dan <b className="text-navy">{"{order_sn}"}</b> untuk nomor pesanan.
+            </p>
+            <textarea
+              className="input min-h-24 py-2 text-xs"
+              value={deliveredText}
+              onChange={(e) => setDeliveredText(e.target.value)}
+              disabled={!deliveredReview}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="flex justify-end pt-4 border-t border-slate-100">
+        <PrimaryBtn onClick={save} disabled={saving}>
+          {saving ? (
+            <>
+              <Loader2 size={15} className="animate-spin" />
+              Menyimpan…
+            </>
+          ) : (
+            "Simpan Pengaturan"
+          )}
+        </PrimaryBtn>
+      </div>
     </Panel>
   );
 }

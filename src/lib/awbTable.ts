@@ -1,4 +1,5 @@
 import { PDFFont, PDFPage, rgb } from "pdf-lib";
+import { type PrintSettings, DEFAULT_PRINT_SETTINGS } from "@/lib/printSettings";
 
 export type TextItem = { str: string; transform: number[]; width: number; height: number };
 type Fonts = { regular: PDFFont; bold: PDFFont };
@@ -16,7 +17,7 @@ const HEADER = /^(Nama\s*Produk|Product\s*Name)$/i;
 /** Per-row SKU data from Pesanin's order, used to print "SKU Induk" and "SKU Variasi" separately. */
 export type SkuRow = { parent: string; variant: string; /** Product and variation names, printed when the item has no SKU. */ name?: string; varName?: string };
 
-export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, rowData?: SkuRow[]): boolean {
+export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, rowData?: SkuRow[], settings?: Partial<PrintSettings>): boolean {
   const name = items.find((i) => HEADER.test(i.str.trim()));
   if (!name) return false;
   const hy = name.transform[5];
@@ -25,7 +26,9 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
   if (!hash || !sku || !variant || !qty) return false;
 
   const x = { name: name.transform[4] - 1, sku: sku.transform[4] - 1, variant: variant.transform[4] - 1, qty: qty.transform[4] - 1 };
-  const size = name.height || name.transform[3] || 7;
+  const customSize = settings?.sku_font_size ? Number(settings.sku_font_size) : undefined;
+  const size = (customSize && customSize >= 5 && customSize <= 16) ? customSize : (name.height || name.transform[3] || 7);
+  const headerSize = Math.min(size, 8);
 
   // Items below the header, top to bottom, until the first line that isn't part of the table
   // (e.g. "Komentar Pembeli" or "Pesan: <no. pesanan>"): text in the # column that isn't a number.
@@ -74,7 +77,7 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
 
   // Clear the old table (header included) across the page, from the header top to just above the next block.
   const { width: pw } = page.getSize();
-  const top = hy + size + 1.5;
+  const top = hy + headerSize + 3;
   const lowest = Math.min(...body.map((i) => i.transform[5]));
   const bottom = stop ? stop.transform[5] + (stop.height || size) * 0.8 : lowest - size * 0.4;
   page.drawRectangle({ x: 1.5, y: bottom, width: pw - 3, height: top - bottom, color: rgb(1, 1, 1) });
@@ -102,33 +105,69 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
   const qtyX = right - 18;
   const colX = allSku ? [left + 14] : [left + 14, left + 14 + (qtyX - left - 14) * 0.66];
   const headX = [...colX, qtyX];
-  const ink = rgb(0, 0, 0), rule = rgb(0.6, 0.6, 0.6);
-  const line = (y: number) => page.drawLine({ start: { x: left, y }, end: { x: right, y }, thickness: 0.5, color: rule });
+  const ink = rgb(0, 0, 0);
+  const rule = rgb(0.1, 0.1, 0.1); // Solid dark line for sharp thermal printing
+  const stroke = 0.6;
+  const showBorders = settings?.show_table_border !== false;
+
+  const tableLeft = left - 3;
+  const tableRight = right + 2;
+  const line = (yy: number) => page.drawLine({ start: { x: tableLeft, y: yy }, end: { x: tableRight, y: yy }, thickness: stroke, color: rule });
+  const vLine = (vx: number, y1: number, y2: number) => page.drawLine({ start: { x: vx, y: y1 }, end: { x: vx, y: y2 }, thickness: stroke, color: rule });
+
   const lh = size * 1.18;
   const widthFor = (k: number) => (k + 1 < colX.length ? colX[k + 1] : qtyX) - colX[k] - 6;
 
+  const topY = hy + headerSize + 2.5;
+  const headerBottomY = hy - 2.5;
+
   let y = hy;
-  page.drawText("#", { x: left, y, size, font: fonts.bold, color: ink });
-  heads.forEach((t, k) => page.drawText(t, { x: headX[k], y, size, font: fonts.bold, color: ink }));
-  y -= size * 0.32;
-  line(y);
+  page.drawText("#", { x: left, y, size: headerSize, font: fonts.bold, color: ink });
+  heads.forEach((t, k) => page.drawText(t, { x: headX[k], y, size: headerSize, font: fonts.bold, color: ink }));
+
+  if (showBorders) {
+    line(topY);
+    line(headerBottomY);
+  } else {
+    page.drawLine({ start: { x: left, y: headerBottomY }, end: { x: right, y: headerBottomY }, thickness: 0.5, color: rule });
+  }
+
+  y = headerBottomY;
+
   body2.forEach((r, i) => {
     const lines = r.cells.map((c, k) => wrap(c, fonts.bold, size, widthFor(k)));
     const n = Math.max(1, ...lines.map((l) => l.length));
-    const first = y - size * 1.0;
+    const first = y - size - 2.5;
     if (first - (n - 1) * lh < bottom) return; // never spill into the block below
-    page.drawText(r.no, { x: left, y: first, size, font: fonts.regular, color: ink });
+    page.drawText(r.no, { x: left, y: first, size: headerSize, font: fonts.regular, color: ink });
     const qty = sanitize(fonts.regular, r.qty);
-    page.drawText(qty, { x: qtyX, y: first, size, font: fonts.bold, color: ink });
-    // Draw attention to multi-item orders: circle a quantity greater than 1 so it isn't missed when packing.
+    page.drawText(qty, { x: qtyX, y: first, size: Math.max(size, 7), font: fonts.bold, color: ink });
     if ((parseInt(r.qty, 10) || 1) > 1) {
       const tw = safeWidth(fonts.bold, qty, size);
       page.drawEllipse({ x: qtyX + tw / 2, y: first + size * 0.33, xScale: tw / 2 + 4, yScale: size * 0.72, borderColor: ink, borderWidth: 1.1 });
     }
     lines.forEach((col, k) => col.forEach((ln, j) => page.drawText(ln, { x: colX[k], y: first - j * lh, size, font: fonts.bold, color: ink })));
-    y = first - (n - 1) * lh - size * 0.32;
-    if (i < body2.length - 1) line(y);
+    y = first - (n - 1) * lh - 3;
+    if (showBorders) {
+      line(y);
+    } else if (i < body2.length - 1) {
+      page.drawLine({ start: { x: left, y }, end: { x: right, y }, thickness: 0.5, color: rule });
+    }
   });
+
+  const bottomY = y;
+
+  if (showBorders) {
+    // Draw vertical column divider and outer frame lines
+    vLine(tableLeft, topY, bottomY); // Left border
+    vLine(colX[0] - 4, topY, bottomY); // Between # and SKU
+    if (!allSku && colX.length > 1) {
+      vLine(colX[1] - 4, topY, bottomY); // Between SKU and Variasi
+    }
+    vLine(qtyX - 4, topY, bottomY); // Between SKU and Qty
+    vLine(tableRight, topY, bottomY); // Right border
+  }
+
   return true;
 }
 

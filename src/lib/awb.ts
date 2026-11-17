@@ -1,6 +1,7 @@
 "use client";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { redrawItemTable, type SkuRow, type TextItem } from "@/lib/awbTable";
+import { getCachedPrintSettings, type PrintSettings } from "@/lib/printSettings";
 import { API_URL, getToken } from "@/lib/api";
 
 type AwbItem = { item_sku?: string | null; model_sku?: string | null; sku?: string | null; qty?: number; name?: string | null; variant?: string | null };
@@ -32,7 +33,7 @@ export type AwbResult = { skipped: string[]; errors: string[] };
  * Remove product names from Shopee's AWB: the item table is redrawn as "# | SKU | Variasi | Qty"
  * (see awbTable.ts). If a page's layout isn't recognised, the name column is covered instead.
  */
-async function hideProductNames(bytes: Uint8Array, group: AwbOrder[] = []): Promise<PDFDocument> {
+async function hideProductNames(bytes: Uint8Array, group: AwbOrder[] = [], printSettings?: PrintSettings): Promise<PDFDocument> {
   const pdfjs = await import("pdfjs-dist");
   pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
   const doc = await pdfjs.getDocument({ data: bytes.slice() }).promise;
@@ -49,7 +50,7 @@ async function hideProductNames(bytes: Uint8Array, group: AwbOrder[] = []): Prom
     const items = (await (await doc.getPage(i + 1)).getTextContent()).items.filter((it): it is TextItem & typeof it => "str" in it) as unknown as TextItem[];
     const text = items.map((it) => it.str).join("").replace(/\s+/g, "").toUpperCase();
     const match = keyed.find(([sn]) => text.includes(sn))?.[1] ?? (group.length === doc.numPages ? group[i] : undefined);
-    if (redrawItemTable(out.getPage(i), items, fonts, match ? skuRows(match) : undefined)) continue;
+    if (redrawItemTable(out.getPage(i), items, fonts, match ? skuRows(match) : undefined, printSettings)) continue;
     const header = items.find((it) => /^Nama\s*Produk/i.test(it.str.trim()) || /^Product\s*Name/i.test(it.str.trim()));
     if (!header) continue;
     const hy = header.transform[5];
@@ -72,8 +73,8 @@ async function hideProductNames(bytes: Uint8Array, group: AwbOrder[] = []): Prom
  * document), product names hidden, all merged into a single PDF opened in a new tab.
  * Call it directly from a click so the new tab isn't blocked as a pop-up.
  */
-export async function openShopeeAwb(orders: AwbOrder[], kind: "order" | "booking" = "order"): Promise<AwbResult> {
-  return openShopeeAwbMerged(kind === "booking" ? { bookings: orders } : { orders });
+export async function openShopeeAwb(orders: AwbOrder[], kind: "order" | "booking" = "order", settings?: PrintSettings): Promise<AwbResult> {
+  return openShopeeAwbMerged(kind === "booking" ? { bookings: orders, settings } : { orders, settings });
 }
 
 /**
@@ -81,9 +82,10 @@ export async function openShopeeAwb(orders: AwbOrder[], kind: "order" | "booking
  * printed any more (already shipped) are left out and reported; a failing shop/courier group doesn't stop the
  * others. Throws only when nothing at all could be printed.
  */
-export async function openShopeeAwbMerged({ orders = [], bookings = [] }: { orders?: AwbOrder[]; bookings?: AwbOrder[] }): Promise<AwbResult> {
+export async function openShopeeAwbMerged({ orders = [], bookings = [], settings }: { orders?: AwbOrder[]; bookings?: AwbOrder[]; settings?: PrintSettings }): Promise<AwbResult> {
   const result: AwbResult = { skipped: [], errors: [] };
   if (!orders.length && !bookings.length) return result;
+  const printSettings = settings ?? getCachedPrintSettings();
   const win = window.open("", "_blank");
   if (win) win.document.write("<p style='font-family:sans-serif;padding:24px;color:#475569'>Menyiapkan resi Shopee…</p>");
   try {
@@ -98,9 +100,45 @@ export async function openShopeeAwbMerged({ orders = [], bookings = [] }: { orde
         try {
           const { bytes, skipped } = await fetchAwb(group.map((o) => o.id), kind);
           result.skipped.push(...skipped);
-          const src = await hideProductNames(bytes, group);
-          const pages = await merged.copyPages(src, src.getPageIndices());
-          pages.forEach((p) => merged.addPage(p));
+          const src = await hideProductNames(bytes, group, printSettings);
+          if (printSettings.paper_size === "100x100") {
+            const targetW = 283.46;
+            const targetH = 283.46;
+            for (const srcPage of src.getPages()) {
+              const embedded = await merged.embedPage(srcPage);
+              const page = merged.addPage([targetW, targetH]);
+              const origW = srcPage.getWidth();
+              const origH = srcPage.getHeight();
+              const scale = Math.min(targetW / origW, targetH / origH);
+              const w = origW * scale;
+              const h = origH * scale;
+              page.drawPage(embedded, {
+                x: (targetW - w) / 2,
+                y: (targetH - h) / 2,
+                width: w,
+                height: h,
+              });
+            }
+          } else if (printSettings.paper_size === "a4") {
+            const targetW = 595.28;
+            const targetH = 841.89;
+            for (const srcPage of src.getPages()) {
+              const embedded = await merged.embedPage(srcPage);
+              const page = merged.addPage([targetW, targetH]);
+              const origW = srcPage.getWidth();
+              const origH = srcPage.getHeight();
+              page.drawPage(embedded, {
+                x: 42,
+                y: targetH - origH - 42,
+                width: origW,
+                height: origH,
+              });
+            }
+          } else {
+            // Default 100x150 mm
+            const pages = await merged.copyPages(src, src.getPageIndices());
+            pages.forEach((p) => merged.addPage(p));
+          }
         } catch (e) {
           result.errors.push((e as Error).message);
         }

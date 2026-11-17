@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PageHead, Panel, Toggle } from "@/components/kit";
 import { Select } from "@/components/Select";
+import { PrintSettingsCard } from "@/components/PrintSettingsCard";
 import { api, ApiError } from "@/lib/api";
 import { WaTemplate } from "@/lib/broadcast";
 
@@ -174,6 +175,8 @@ export default function AutomationSettings() {
           </Panel>
 
           <TelegramAwbPanel a={a} save={save} />
+
+          <PrintSettingsCard />
 
           <Panel className="space-y-4 p-5">
             <div className="flex items-start gap-3">
