@@ -139,12 +139,6 @@ export default function ShopStatement({ params }: { params: Promise<{ id: string
         >
           Pengeluaran
         </Link>
-        <Link
-          href={`/marketplace/shops/${shop.id}/finance`}
-          className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition"
-        >
-          Laba Rugi &amp; Arus Kas
-        </Link>
         <span className="rounded-lg bg-navy px-4 py-2 text-sm font-semibold text-white shadow-sm">
           Laporan Laba Rugi
         </span>
@@ -311,49 +305,44 @@ export default function ShopStatement({ params }: { params: Promise<{ id: string
               </div>
             </div>
 
-            {/* 3. PENYESUAIAN */}
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2 font-bold text-slate-900">
-                <span className="h-2 w-2 rounded-full bg-amber-500" />
-                <span className="uppercase tracking-wider">Penyesuaian</span>
-              </div>
-              <div className="divide-y divide-slate-100 pl-4">
-                {data.adjustments.items.map((adj) => (
-                  <div key={adj.key} className="flex items-center justify-between py-1.5 text-slate-600">
-                    <span>{adj.label}</span>
+            {/* 3. PENYESUAIAN (Hanya muncul jika ada penyesuaian/kompensasi dari Shopee) */}
+            {(data.adjustments.items.length > 0 || data.adjustments.total !== 0) && (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 font-bold text-slate-900">
+                  <span className="h-2 w-2 rounded-full bg-amber-500" />
+                  <span className="uppercase tracking-wider">Penyesuaian (Adjustments)</span>
+                </div>
+                <div className="divide-y divide-slate-100 pl-4">
+                  {data.adjustments.items.map((adj) => (
+                    <div key={adj.key} className="flex items-center justify-between py-1.5 text-slate-600">
+                      <span>{adj.label}</span>
+                      <div className="flex gap-6">
+                        <span className="w-14 text-right text-slate-400">{pct(adj.amount)}</span>
+                        <span className={`w-28 text-right font-medium ${adj.amount < 0 ? "text-rose-600" : "text-navy"}`}>
+                          {adj.amount < 0 ? `(${rupiah(Math.abs(adj.amount))})` : rupiah(adj.amount)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between py-2 font-bold border-t border-slate-200">
+                    <span className="text-slate-800">Total Penyesuaian</span>
                     <div className="flex gap-6">
-                      <span className="w-14 text-right text-slate-400">{pct(adj.amount)}</span>
-                      <span className={`w-28 text-right font-medium ${adj.amount < 0 ? "text-rose-600" : "text-navy"}`}>
-                        {adj.amount < 0 ? `(${rupiah(Math.abs(adj.amount))})` : rupiah(adj.amount)}
+                      <span className="w-14 text-right text-slate-500">{pct(data.adjustments.total)}</span>
+                      <span className={`w-28 text-right font-bold ${data.adjustments.total < 0 ? "text-rose-600" : "text-navy"}`}>
+                        {data.adjustments.total < 0 ? `(${rupiah(Math.abs(data.adjustments.total))})` : rupiah(data.adjustments.total)}
                       </span>
                     </div>
                   </div>
-                ))}
-                {data.adjustments.items.length === 0 && (
-                  <div className="flex items-center justify-between py-1.5 text-slate-600">
-                    <span>Total Adjustments</span>
-                    <div className="flex gap-6">
-                      <span className="w-14 text-right text-slate-400">0.0%</span>
-                      <span className="w-28 text-right font-medium text-slate-500">Rp0</span>
-                    </div>
-                  </div>
-                )}
-                <div className="flex items-center justify-between py-2 font-bold border-t border-slate-200">
-                  <span className="text-slate-800">Total Penyesuaian</span>
-                  <div className="flex gap-6">
-                    <span className="w-14 text-right text-slate-500">{pct(data.adjustments.total)}</span>
-                    <span className={`w-28 text-right font-bold ${data.adjustments.total < 0 ? "text-rose-600" : "text-navy"}`}>
-                      {data.adjustments.total < 0 ? `(${rupiah(Math.abs(data.adjustments.total))})` : rupiah(data.adjustments.total)}
-                    </span>
-                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* 4. PENDAPATAN BERSIH SETELAH BIAYA & PENYESUAIAN */}
+            {/* 4. PENDAPATAN BERSIH */}
             <div className="rounded-xl bg-slate-50 p-3 sm:px-4 sm:py-3 border border-slate-200/80">
               <div className="flex items-center justify-between font-bold text-navy">
-                <span className="uppercase tracking-wider">Pendapatan Bersih Setelah Biaya &amp; Penyesuaian</span>
+                <span className="uppercase tracking-wider">
+                  Pendapatan Bersih {data.adjustments.total !== 0 ? "Setelah Biaya & Penyesuaian" : "Setelah Biaya Platform"}
+                </span>
                 <div className="flex gap-6">
                   <span className="w-14 text-right text-slate-600">{pct(data.net_revenue)}</span>
                   <span className="w-28 text-right font-black text-blue-700">{rupiah(data.net_revenue)}</span>

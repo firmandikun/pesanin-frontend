@@ -20,7 +20,6 @@ export default function ShopExpenses({ params }: { params: Promise<{ id: string 
     <div className="flex flex-wrap gap-2">
       <Link href={`/marketplace/shops/${shop.id}/transactions`} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">Transaksi</Link>
       <span className="rounded-lg bg-navy px-4 py-2 text-sm font-semibold text-white">Pengeluaran</span>
-      <Link href={`/marketplace/shops/${shop.id}/finance`} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">Laba Rugi &amp; Arus Kas</Link>
       <Link href={`/marketplace/shops/${shop.id}/statement`} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">Laporan Laba Rugi</Link>
     </div>
     <ExpensesView shopId={shop.id} />

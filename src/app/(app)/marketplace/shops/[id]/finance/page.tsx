@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, BarChart3, Download, ReceiptText, Store, TrendingUp, Wallet } from "lucide-react";
+import { AlertTriangle, Download, Store } from "lucide-react";
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import { DateRangePicker, todayRange } from "@/components/DatePicker";
@@ -33,7 +33,6 @@ export default function Finance({ params }: { params: Promise<{ id: string }> })
       <Link href={`/marketplace/shops/${shop.id}/statement`} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">Laporan Laba Rugi</Link>
     </div>
     {!s || !data ? <div className="py-24 text-center text-sm text-slate-400">Menghitung laporan…</div> : <>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{[[Wallet, "Omzet", s.revenue, `${s.orders} transaksi`, "text-blue-600 bg-blue-50"], [ReceiptText, "Pendapatan bersih", s.revenue - s.fees, `Potongan ${rupiah(s.fees)}`, "text-indigo-600 bg-indigo-50"], [BarChart3, "Total HPP", s.cogs, `${s.items} item`, "text-orange-600 bg-orange-50"], [TrendingUp, "Laba bersih", s.net_profit, `Margin ${s.margin}%`, s.net_profit >= 0 ? "text-emerald-600 bg-emerald-50" : "text-rose-600 bg-rose-50"]].map(([Icon, l, v, sub, tone]) => { const I = Icon as typeof Wallet; return <Panel key={l as string} className="flex gap-3 p-4"><span className={`flex h-10 w-10 items-center justify-center rounded-xl ${tone}`}><I size={19} /></span><div><p className="text-xs text-slate-500">{l as string}</p><p className="text-xl font-bold text-navy">{rupiah(v as number)}</p><p className="text-xs text-slate-500">{sub as string}</p></div></Panel>; })}</div>
       {(s.pending_fee_orders > 0 || s.missing_cost_orders > 0) && <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800"><p className="flex gap-2"><AlertTriangle size={16} />{s.pending_fee_orders} transaksi masih memakai estimasi potongan · {s.missing_cost_orders} transaksi belum memiliki HPP lengkap.</p></div>}
       {tab === "profit" ? <>
         <Panel className="p-5"><h2 className="font-bold text-navy">Ringkasan laba rugi</h2><div className="mt-4 grid gap-2 sm:grid-cols-3 lg:grid-cols-6">{[["Omzet", s.revenue, "bg-emerald-500"], ["Potongan marketplace", -s.fees, "bg-orange-400"], ["HPP", -s.cogs, "bg-rose-400"], ["Biaya iklan", -s.ads, "bg-violet-400"], ["Biaya operasional", -s.opex, "bg-amber-400"], ["Laba bersih", s.net_profit, "bg-green-500"]].map(([l, v, c]) => <div key={l as string} className={`rounded-xl p-4 text-white ${c}`}><p className="text-[11px] font-semibold uppercase text-white/80">{l as string}</p><p className="mt-1 text-lg font-bold">{(v as number) < 0 ? "− " : ""}{rupiah(Math.abs(v as number))}</p></div>)}</div></Panel>
