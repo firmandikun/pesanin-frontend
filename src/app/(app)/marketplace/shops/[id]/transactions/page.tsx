@@ -393,13 +393,18 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
                   const adCost = r.ad_cost ?? 0;
                   const grossProfit = r.gross_profit ?? (r.net_revenue - r.cogs);
                   const margin = r.revenue > 0 ? Math.round((grossProfit / r.revenue) * 1000) / 10 : 0;
-                  const createdDate = new Date(r.created_at);
+                  const rawCreated = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(r.created_at)
+                    ? r.created_at.replace(" ", "T") + "Z"
+                    : r.created_at;
+                  const createdDate = new Date(rawCreated);
                   const dateStr = createdDate.toLocaleDateString("id-ID", {
+                    timeZone: "Asia/Jakarta",
                     day: "numeric",
                     month: "short",
                     year: "numeric",
                   });
                   const timeStr = createdDate.toLocaleTimeString("id-ID", {
+                    timeZone: "Asia/Jakarta",
                     hour: "2-digit",
                     minute: "2-digit",
                   });
