@@ -278,19 +278,19 @@ export default function ShopStatement({ params }: { params: Promise<{ id: string
       </div>
 
       {loading ? (
-        <div className="flex h-72 items-center justify-center rounded-2xl bg-white shadow-sm border border-slate-100">
+        <Panel className="flex h-72 items-center justify-center">
           <div className="inline-flex items-center gap-2.5 text-sm text-slate-600">
             <Loader2 size={20} className="animate-spin text-navy" />
             <span>Menghitung Laporan Laba Rugi {shop.shop_name}…</span>
           </div>
-        </div>
+        </Panel>
       ) : !data ? (
         <div className="py-24 text-center text-sm text-rose-500">{error || "Gagal memuat data laporan."}</div>
       ) : (
         <div className="flex flex-col lg:flex-row items-start gap-6 print:block">
           {/* Left Sidebar (Detail Toko & Ringkasan) */}
           <aside className="w-full lg:w-64 shrink-0 space-y-4 print:hidden">
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm space-y-3">
+            <Panel className="p-5 space-y-3">
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Detail Toko</p>
               <div className="space-y-2.5 text-xs">
                 <div>
@@ -310,9 +310,9 @@ export default function ShopStatement({ params }: { params: Promise<{ id: string
                   <b className="text-slate-700">{data.counts.total_orders} aktif ({data.counts.completed_orders} selesai)</b>
                 </div>
               </div>
-            </div>
+            </Panel>
 
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm space-y-3">
+            <Panel className="p-5 space-y-3">
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Ringkasan Cepat</p>
               <dl className="space-y-2 text-xs">
                 <div className="flex justify-between">
@@ -338,11 +338,11 @@ export default function ShopStatement({ params }: { params: Promise<{ id: string
                   </dd>
                 </div>
               </dl>
-            </div>
+            </Panel>
           </aside>
 
           {/* Main Printable Statement Sheet */}
-          <div className="w-full flex-1 rounded-2xl border border-slate-200/80 bg-white p-6 sm:p-10 shadow-sm print:p-0 print:border-none print:shadow-none">
+          <Panel className="w-full flex-1 p-6 sm:p-10 print:p-0 print:border-none print:shadow-none">
             {/* Basis Selector Inside Sheet (Reference Style) */}
             <div className="mb-8 grid gap-3 sm:grid-cols-3 print:hidden">
               {[
@@ -620,7 +620,7 @@ export default function ShopStatement({ params }: { params: Promise<{ id: string
                 <p>Catatan yang menyertai merupakan bagian integral dari laporan keuangan ini.</p>
               </div>
             </div>
-          </div>
+          </Panel>
         </div>
       )}
     </div>
