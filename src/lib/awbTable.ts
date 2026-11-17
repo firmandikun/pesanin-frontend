@@ -3,15 +3,12 @@ import { type PrintSettings, DEFAULT_PRINT_SETTINGS } from "@/lib/printSettings"
 
 export type TextItem = { str: string; transform: number[]; width: number; height: number };
 type Fonts = { regular: PDFFont; bold: PDFFont };
-type Row = { no: string; sku: string; qty: string; name: string; vname: string };
+type Row = { no: string; sku: string; qty: string; name?: string; vname?: string };
 
 const HEADER = /^(Nama\s*Produk|Product\s*Name)$/i;
 
 /**
- * Shopee's AWB item table is "# | Nama Produk | SKU | Variasi | Qty". Pesanin hides product names,
- * so the whole table is cleared and redrawn as "# | SKU | Qty" at full width (the variant *name* is dropped; the SKU is enough).
- * pdf.js merges neighbouring cells into one text run ("CEK-BLUE-M blue,M"), so every run is split
- * back into characters and each character is assigned to the column whose header it sits under.
+ * Replace Shopee's item table on a PDF page with "# | SKU | Qty" or "# | SKU / Nama Produk | Variasi | Qty".
  * Returns false (page left untouched) when the table layout isn't recognised.
  */
 /** Per-row SKU data from Pesanin's order, used to print "SKU Induk" and "SKU Variasi" separately. */
@@ -21,9 +18,9 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
   const name = items.find((i) => HEADER.test(i.str.trim()));
   if (!name) return false;
   const hy = name.transform[5];
-  const onHeader = (re: RegExp) => items.find((i) => re.test(i.str.trim()) && Math.abs(i.transform[5] - hy) < 3);
-  const hash = onHeader(/^#$/), sku = onHeader(/^SKU$/i), variant = onHeader(/^(Variasi|Variation)$/i), qty = onHeader(/^(Qty|Jumlah)$/i);
-  if (!hash || !qty) return false;
+  const onHeader = (re: RegExp) => items.find((i) => re.test(i.str.trim()) && Math.abs(i.transform[5] - hy) < 12);
+  const hash = onHeader(/^#$|^No\.?$/i), sku = onHeader(/^SKU$/i), variant = onHeader(/^(Variasi|Variation)$/i), qty = onHeader(/^(Qty|Jumlah|Total)$/i);
+  if (!qty) return false;
 
   const x = {
     name: name.transform[4] - 1,
@@ -50,15 +47,14 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
   // Split each run into characters positioned with Helvetica metrics scaled to the run's real width.
   const cells = numbers.map((n) => ({ y: n.transform[5], no: n.str.trim(), name: [] as [number, string][], sku: [] as [number, string][], vname: [] as [number, string][], qty: [] as [number, string][] }));
   for (const it of body) {
-    if (numbers.includes(it)) continue;
-    const y = it.transform[5];
-    const row = [...cells].reverse().find((c) => c.y >= y - 1) ?? cells[0];
-    const chars = [...it.str];
-    const widths = chars.map((c) => safeWidth(fonts.regular, c, size));
-    const total = widths.reduce((a, b) => a + b, 0) || 1;
-    const scale = it.width ? it.width / total : 1;
-    let cx = it.transform[4];
-    chars.forEach((c, k) => {
+    const row = cells.find((c) => Math.abs(c.y - it.transform[5]) < (it.height || 8) * 0.75);
+    if (!row) continue;
+    const [, , , , x0, y] = it.transform;
+    const widths = [...it.str].map((c) => safeWidth(fonts.regular, c, it.height || 7));
+    const total = widths.reduce((a, b) => a + b, 0);
+    const scale = total > 0 ? (it.width || total) / total : 1;
+    let cx = x0;
+    [...it.str].forEach((c, k) => {
       const mid = cx + (widths[k] * scale) / 2;
       cx += widths[k] * scale;
       // Product and variant names are only printed when the item has no SKU.
@@ -86,13 +82,6 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
     return lines.map((l) => l.trim()).filter(Boolean).reduce((acc, l) => (acc && !acc.endsWith("-") ? `${acc} ${l}` : acc + l), "");
   };
   const rows: Row[] = cells.map((c) => ({ no: c.no, sku: join(c.sku) || "-", qty: join(c.qty) || "1", name: join(c.name), vname: join(c.vname) }));
-
-  // Clear the old table (header included) across the page, from the header top to just above the next block.
-  const { width: pw } = page.getSize();
-  const top = hy + headerSize + 3;
-  const lowest = body.length ? Math.min(...body.map((i) => i.transform[5])) : hy - size * 3;
-  const bottom = stop ? stop.transform[5] + (stop.height || size) * 0.8 : lowest - size * 0.4;
-  page.drawRectangle({ x: 1.5, y: bottom, width: pw - 3, height: top - bottom, color: rgb(1, 1, 1) });
 
   // With Pesanin's own order items, show all items from the order.
   const own = !!rowData && rowData.length > 0;
@@ -136,7 +125,8 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
     return { no: it.no, qty: it.qty, cells };
   });
 
-  const left = hash.transform[4];
+  const { width: pw } = page.getSize();
+  const left = hash ? hash.transform[4] : Math.max(10, name.transform[4] - 22);
   const right = pw - left;
   const qtyX = right - 18;
   const hasMultipleCols = heads.length > 2;
@@ -157,8 +147,26 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
   const lh = size * 1.18;
   const widthFor = (k: number) => (k + 1 < colX.length ? colX[k + 1] : qtyX) - colX[k] - 6;
 
+  // Pre-calculate wrapped lines for each row to accurately compute height needed
+  const rowsWithLines = body2.map((r) => {
+    const lines = r.cells.map((c, k) => wrap(c, fonts.bold, size, widthFor(k)));
+    const n = Math.max(1, ...lines.map((l) => l.length));
+    return { ...r, lines, n };
+  });
+
+  const totalItemHeight = rowsWithLines.reduce((acc, r) => acc + (size + 2.5 + (r.n - 1) * lh + 3), 0);
+  const top = hy + headerSize + 3;
   const topY = hy + headerSize + 2.5;
   const headerBottomY = hy - 2.5;
+  const minSafeY = 20;
+
+  const lowest = body.length ? Math.min(...body.map((i) => i.transform[5])) : hy - size * 3;
+  const origBottom = stop ? stop.transform[5] + (stop.height || size) * 0.8 : lowest - size * 0.4;
+  const neededBottom = Math.max(minSafeY, headerBottomY - totalItemHeight - 8);
+  const targetBottom = Math.min(origBottom, neededBottom);
+
+  // Clear the old table (header included) and the entire vertical span needed for all rows
+  page.drawRectangle({ x: 1.5, y: targetBottom, width: pw - 3, height: top - targetBottom, color: rgb(1, 1, 1) });
 
   let y = hy;
   page.drawText("#", { x: left, y, size: headerSize, font: fonts.bold, color: ink });
@@ -173,23 +181,21 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
 
   y = headerBottomY;
 
-  body2.forEach((r, i) => {
-    const lines = r.cells.map((c, k) => wrap(c, fonts.bold, size, widthFor(k)));
-    const n = Math.max(1, ...lines.map((l) => l.length));
+  rowsWithLines.forEach((r, i) => {
     const first = y - size - 2.5;
-    if (first - (n - 1) * lh < bottom) return; // never spill into the block below
+    if (first - (r.n - 1) * lh < minSafeY) return; // never run off bottom of label
     page.drawText(r.no, { x: left, y: first, size: headerSize, font: fonts.regular, color: ink });
-    const qty = sanitize(fonts.regular, r.qty);
-    page.drawText(qty, { x: qtyX, y: first, size: Math.max(size, 7), font: fonts.bold, color: ink });
+    const qtyText = sanitize(fonts.regular, r.qty);
+    page.drawText(qtyText, { x: qtyX, y: first, size: Math.max(size, 7), font: fonts.bold, color: ink });
     if ((parseInt(r.qty, 10) || 1) > 1) {
-      const tw = safeWidth(fonts.bold, qty, size);
+      const tw = safeWidth(fonts.bold, qtyText, size);
       page.drawEllipse({ x: qtyX + tw / 2, y: first + size * 0.33, xScale: tw / 2 + 4, yScale: size * 0.72, borderColor: ink, borderWidth: 1.1 });
     }
-    lines.forEach((col, k) => col.forEach((ln, j) => page.drawText(ln, { x: colX[k], y: first - j * lh, size, font: fonts.bold, color: ink })));
-    y = first - (n - 1) * lh - 3;
+    r.lines.forEach((col, k) => col.forEach((ln, j) => page.drawText(ln, { x: colX[k], y: first - j * lh, size, font: fonts.bold, color: ink })));
+    y = first - (r.n - 1) * lh - 3;
     if (showBorders) {
       line(y);
-    } else if (i < body2.length - 1) {
+    } else if (i < rowsWithLines.length - 1) {
       page.drawLine({ start: { x: left, y }, end: { x: right, y }, thickness: 0.5, color: rule });
     }
   });
@@ -203,8 +209,19 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
     if (!allSku && colX.length > 1) {
       vLine(colX[1] - 4, topY, bottomY); // Between SKU and Variasi
     }
-    vLine(qtyX - 4, topY, bottomY); // Between SKU and Qty
+    vLine(qtyX - 4, topY, bottomY); // Between SKU/Variasi and Qty
     vLine(tableRight, topY, bottomY); // Right border
+  }
+
+  // If table expanded over stop (e.g. "Pesan: (...)"), redraw it cleanly below the new table
+  if (stop && bottomY < stop.transform[5] + 5 && bottomY > minSafeY + 14) {
+    page.drawText(sanitize(fonts.regular, stop.str), {
+      x: left,
+      y: bottomY - 10,
+      size: Math.min(size, 7),
+      font: fonts.regular,
+      color: ink,
+    });
   }
 
   return true;
@@ -218,16 +235,18 @@ function safeWidth(font: PDFFont, c: string, size: number) {
   try { return font.widthOfTextAtSize(c, size); } catch { return size * 0.5; }
 }
 function wrap(text: string, font: PDFFont, size: number, max: number): string[] {
-  const out: string[] = [];
+  const words = sanitize(font, text).split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
   let cur = "";
-  for (const ch of [...sanitize(font, text)]) {
-    if (font.widthOfTextAtSize(cur + ch, size) > max && cur) {
-      // Prefer breaking after a space or hyphen inside the current line.
-      const cut = Math.max(cur.lastIndexOf(" "), cur.lastIndexOf("-"));
-      if (cut > 0) { out.push(cur.slice(0, cut + 1).trimEnd()); cur = cur.slice(cut + 1).trimStart() + ch; }
-      else { out.push(cur); cur = ch; }
-    } else cur += ch;
+  for (const w of words) {
+    const next = cur ? `${cur} ${w}` : w;
+    if (safeWidth(font, next, size) <= max) {
+      cur = next;
+    } else {
+      if (cur) lines.push(cur);
+      cur = w;
+    }
   }
-  if (cur) out.push(cur);
-  return out;
+  if (cur) lines.push(cur);
+  return lines.length ? lines : ["-"];
 }

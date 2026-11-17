@@ -7,6 +7,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { ShopeeMark } from "@/components/ChannelBadge";
 import { Logo } from "@/components/Logo";
 import { API_URL, ApiError, api, getToken, Order, rupiah } from "@/lib/api";
+import { openShopeeAwbMerged } from "@/lib/awb";
 import { getCachedPrintSettings, setCachedPrintSettings, type PaperSize, type PrintSettings } from "@/lib/printSettings";
 
 type Data = { sender: { name: string; phone: string | null; address: string | null }; orders: (Order & { product?: { name: string; sku?: string | null; weight?: number } | null })[] };
@@ -91,12 +92,7 @@ function Labels() {
   async function shopeePdf(orders: typeof shopee) {
     setBusy(`${orders[0].marketplace_shop_id}|${orders[0].courier}`); setErr("");
     try {
-      const res = await fetch(`${API_URL}/labels/shopee/pdf`, {
-        method: "POST", headers: { Authorization: `Bearer ${getToken()}`, "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ order_ids: orders.map((o) => o.id) }),
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? "Gagal mengambil resi Shopee");
-      window.open(URL.createObjectURL(await res.blob()), "_blank");
+      await openShopeeAwbMerged({ orders, settings });
     } catch (e) { setErr((e as Error).message); }
     finally { setBusy(null); }
   }

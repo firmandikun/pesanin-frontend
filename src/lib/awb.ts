@@ -8,7 +8,7 @@ type AwbItem = { item_sku?: string | null; model_sku?: string | null; sku?: stri
 type AwbOrder = {
   id: number; marketplace_shop_id?: number | null; courier?: string | null; items?: AwbItem[] | null;
   /** Numbers printed on the label (order / reservation), used to match a PDF page to its order. */
-  external_order_sn?: string | null; booking_sn?: string | null; order_sn?: string | null;
+  external_order_sn?: string | null; booking_sn?: string | null; order_sn?: string | null; tracking_number?: string | null;
 };
 
 /**
@@ -45,7 +45,7 @@ async function hideProductNames(bytes: Uint8Array, group: AwbOrder[] = [], print
     qty: it.qty ?? 1,
   }));
   // Shopee doesn't always return pages in the order requested, so find each page's order by the number printed on it.
-  const keyed = group.flatMap((o) => [o.external_order_sn, o.booking_sn, o.order_sn].filter((sn): sn is string => !!sn).map((sn) => [sn.toUpperCase(), o] as const));
+  const keyed = group.flatMap((o) => [o.external_order_sn, o.booking_sn, o.order_sn, o.tracking_number].filter((sn): sn is string => !!sn).map((sn) => [sn.toUpperCase(), o] as const));
 
   for (let i = 0; i < doc.numPages; i++) {
     const items = (await (await doc.getPage(i + 1)).getTextContent()).items.filter((it): it is TextItem & typeof it => "str" in it) as unknown as TextItem[];
@@ -55,7 +55,7 @@ async function hideProductNames(bytes: Uint8Array, group: AwbOrder[] = [], print
     const header = items.find((it) => /^Nama\s*Produk/i.test(it.str.trim()) || /^Product\s*Name/i.test(it.str.trim()));
     if (!header) continue;
     const hy = header.transform[5];
-    const sku = items.find((it) => it.str.trim() === "SKU" && Math.abs(it.transform[5] - hy) < 4);
+    const sku = items.find((it) => it.str.trim() === "SKU" && Math.abs(it.transform[5] - hy) < 12);
     if (!sku) continue; // Never erase product names when there is no SKU on the label
     const x0 = header.transform[4] - 1;
     const x1 = sku.transform[4] - 2;
