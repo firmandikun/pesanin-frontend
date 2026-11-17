@@ -107,7 +107,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobile, setMobile] = useState(false);
   const [menu, setMenu] = useState(false);
-  const [wide, setWide] = useState(false);
+  const [wide, setWide] = useState(true);
   const [news, setNews] = useState(false);
   const [upgrade, setUpgrade] = useState<string | null>(null);
   useEffect(() => {
