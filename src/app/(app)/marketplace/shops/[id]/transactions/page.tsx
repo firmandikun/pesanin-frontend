@@ -196,13 +196,18 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
     setNotice("Data transaksi & status pesanan berhasil diperbarui dari Shopee.");
   };
 
-  // 1. Filter by search query first (so tab counts reflect the search filter, matching backend behavior).
+  // 1. Filter by search query (order_sn, product name/variant/sku, customer, tracking_number).
   const searchedRows = useMemo(() => {
     const needle = search.trim().toLowerCase();
     if (!needle) return allRows;
-    return allRows.filter((r) =>
-      `${r.order_sn ?? ""} ${r.customer_name ?? ""} ${r.tracking_number ?? ""}`.toLowerCase().includes(needle),
-    );
+    return allRows.filter((r) => {
+      const itemsText = (r.items ?? [])
+        .map((i) => `${i.name ?? ""} ${i.variant ?? ""} ${i.sku ?? ""}`)
+        .join(" ");
+      return `${r.order_sn ?? ""} ${r.customer_name ?? ""} ${r.tracking_number ?? ""} ${itemsText}`
+        .toLowerCase()
+        .includes(needle);
+    });
   }, [allRows, search]);
 
   // 2. Summary cards:
@@ -214,8 +219,10 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
     let cogs = 0;
     let ads = 0;
     let missing_cost = 0;
+    let active_count = 0;
     for (const r of searchedRows) {
       if (r.status === "CANCELLED" || r.status === "IN_CANCEL" || r.status === "UNPAID") continue;
+      active_count += 1;
       revenue += r.revenue;
       fees += r.fees;
       net_revenue += r.net_revenue;
@@ -224,7 +231,7 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
       if (r.missing_cost) missing_cost += 1;
     }
     const gross_profit = net_revenue - cogs;
-    return { revenue, fees, net_revenue, cogs, ads, gross_profit, profit: gross_profit - ads, missing_cost };
+    return { revenue, fees, net_revenue, cogs, ads, gross_profit, profit: gross_profit - ads, missing_cost, active_count };
   }, [searchedRows]);
 
   // 3. Slice current page synchronously (0ms pagination!).
@@ -344,7 +351,7 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
             <Search size={16} className="absolute top-1/2 left-3 -translate-y-1/2 text-slate-400" />
             <input
               className="input h-10 pl-9"
-              placeholder="Cari nomor pesanan, pembeli, atau resi"
+              placeholder="Cari nomor pesanan, produk, pembeli, atau resi"
               value={search}
               onChange={(e) => {
                 setExpanded(null);
@@ -354,7 +361,11 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
             />
           </div>
           <div className="text-xs font-medium text-slate-500">
-            Total <b className="text-navy">{searchedRows.length}</b> transaksi masuk periode {range.from} s/d {range.to}
+            <b className="text-navy">{s.active_count}</b> transaksi aktif
+            {searchedRows.length > s.active_count && (
+              <span> ({searchedRows.length} total termasuk batal/belum bayar)</span>
+            )}
+            {" "}· periode {range.from} s/d {range.to}
           </div>
         </div>
 
