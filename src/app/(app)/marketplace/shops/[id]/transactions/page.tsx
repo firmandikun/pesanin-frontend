@@ -32,11 +32,6 @@ type Data = {
   backfilling?: boolean;
 };
 
-const FILTERS = [
-  ["", "Semua transaksi"], ["READY_TO_SHIP", "Perlu dikirim"], ["PROCESSED", "Siap diserahkan"],
-  ["SHIPPED", "Dikirim"], ["COMPLETED", "Selesai"], ["CANCELLED", "Dibatalkan"], ["TO_RETURN", "Retur"],
-] as const;
-
 const tones: Record<string, string> = {
   UNPAID: "bg-slate-100 text-slate-600",
   PENDING: "bg-amber-50 text-amber-700",
@@ -65,29 +60,6 @@ const statusLabels: Record<string, string> = {
   TO_RETURN: "Retur",
 };
 
-/** Exact same tab-matching logic as MarketplaceController::matchTransactionTab so client-side tab switching is 0ms & 100% consistent. */
-function matchTab(r: Row, tab: string): boolean {
-  if (!tab) return true;
-  const st = r.status ?? "";
-  const hasResi = Boolean(r.tracking_number);
-  switch (tab) {
-    case "READY_TO_SHIP":
-      return st === "READY_TO_SHIP" || st === "PENDING" || (st === "IN_CANCEL" && !hasResi);
-    case "PROCESSED":
-      return st === "PROCESSED" || st === "RETRY_SHIP" || (st === "IN_CANCEL" && hasResi);
-    case "SHIPPED":
-      return st === "SHIPPED" || st === "TO_CONFIRM_RECEIVE";
-    case "COMPLETED":
-      return st === "COMPLETED";
-    case "CANCELLED":
-      return st === "CANCELLED" || st === "IN_CANCEL";
-    case "TO_RETURN":
-      return st === "TO_RETURN";
-    default:
-      return st === tab;
-  }
-}
-
 const fmtRpDec = (n: number) =>
   "Rp" + n.toLocaleString("id-ID", { minimumFractionDigits: n % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 });
 
@@ -96,7 +68,6 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
   const shopId = Number(id);
   const [shop, setShop] = useState<Shop | null>(null);
   const [range, setRange] = useState(todayRange());
-  const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
@@ -234,23 +205,8 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
     );
   }, [allRows, search]);
 
-  // 2. Compute exact counts per status tab synchronously from searchedRows.
-  const tabCounts = useMemo(() => {
-    const counts: Record<string, number> = { "": searchedRows.length };
-    for (const [k] of FILTERS) {
-      if (k) counts[k] = searchedRows.filter((r) => matchTab(r, k)).length;
-    }
-    return counts;
-  }, [searchedRows]);
-
-  // 3. Filter rows for the currently active status tab synchronously (0ms, never out-of-sync!).
-  const tabRows = useMemo(
-    () => (status ? searchedRows.filter((r) => matchTab(r, status)) : searchedRows),
-    [searchedRows, status],
-  );
-
-  // 4. Summary cards:
-  //    cancelled orders excluded, HPP counted from active transactions in the current view.
+  // 2. Summary cards:
+  //    cancelled orders excluded, HPP counted from all active transactions in the period.
   const s = useMemo(() => {
     let revenue = 0;
     let fees = 0;
@@ -258,7 +214,7 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
     let cogs = 0;
     let ads = 0;
     let missing_cost = 0;
-    for (const r of tabRows) {
+    for (const r of searchedRows) {
       if (r.status === "CANCELLED" || r.status === "IN_CANCEL" || r.status === "UNPAID") continue;
       revenue += r.revenue;
       fees += r.fees;
@@ -269,19 +225,18 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
     }
     const gross_profit = net_revenue - cogs;
     return { revenue, fees, net_revenue, cogs, ads, gross_profit, profit: gross_profit - ads, missing_cost };
-  }, [tabRows]);
+  }, [searchedRows]);
 
-  // 5. Slice current page synchronously (0ms pagination!).
-  const total = tabRows.length;
+  // 3. Slice current page synchronously (0ms pagination!).
+  const total = searchedRows.length;
   const lastPage = Math.max(1, Math.ceil(total / perPage));
   const safePage = Math.min(page, lastPage);
   const pageRows = useMemo(
-    () => tabRows.slice((safePage - 1) * perPage, safePage * perPage),
-    [tabRows, safePage, perPage],
+    () => searchedRows.slice((safePage - 1) * perPage, safePage * perPage),
+    [searchedRows, safePage, perPage],
   );
 
   if (!shop) return <div className="py-24 text-center text-sm text-slate-400">Memuat transaksi toko…</div>;
-  const activeTabLabel = FILTERS.find(([v]) => v === status)?.[1] ?? "Semua transaksi";
 
   return (
     <div className="space-y-5">
@@ -291,7 +246,6 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
             download(
               `/marketplace/shops/${shopId}/transactions/export?${new URLSearchParams({
                 ...range,
-                ...(status ? { status } : {}),
                 ...(search ? { search } : {}),
               })}`,
               `transaksi-${range.from}-${range.to}.csv`,
@@ -385,8 +339,8 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
       )}
 
       <Panel className="overflow-hidden">
-        <div className="flex flex-wrap gap-2 border-b border-slate-100 p-4">
-          <div className="relative min-w-[260px] flex-1">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-4">
+          <div className="relative min-w-[260px] flex-1 max-w-md">
             <Search size={16} className="absolute top-1/2 left-3 -translate-y-1/2 text-slate-400" />
             <input
               className="input h-10 pl-9"
@@ -399,39 +353,16 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
               }}
             />
           </div>
-        </div>
-
-        {/* Status Filter Tabs — Instant 0ms switching from in-memory rows */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-4">
-          {FILTERS.map(([v, l]) => {
-            const active = status === v;
-            const count = tabCounts[v] ?? 0;
-            return (
-              <button
-                key={v}
-                onClick={() => {
-                  setExpanded(null);
-                  setStatus(v);
-                  setPage(1);
-                }}
-                className={`inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition ${active ? "border-navy bg-navy text-white" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-                  }`}
-              >
-                {active && (loading || syncing) && <Loader2 size={13} className="animate-spin" />}
-                <span>{l}</span>
-                {!loading && (
-                  <span className={`text-xs ${active ? "text-slate-200" : "text-slate-400"}`}>({count})</span>
-                )}
-              </button>
-            );
-          })}
+          <div className="text-xs font-medium text-slate-500">
+            Total <b className="text-navy">{searchedRows.length}</b> transaksi masuk periode {range.from} s/d {range.to}
+          </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1120px] text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                {["Detail pesanan", "Tanggal", "Jumlah", "Biaya", "Pendapatan", "HPP", "Biaya Iklan", "Laba Bersih", "Status", ""].map((h) => (
+                {["Detail pesanan", "Waktu Pesanan", "Jumlah", "Biaya", "Pendapatan", "HPP", "Biaya Iklan", "Laba Bersih", "Status", ""].map((h) => (
                   <th key={h} className="px-3 py-3 font-semibold">{h}</th>
                 ))}
               </tr>
@@ -442,9 +373,7 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
                   <td colSpan={10} className="py-16 text-center text-sm text-slate-500">
                     <div className="inline-flex items-center gap-2.5">
                       <Loader2 size={18} className="animate-spin text-navy" />
-                      <span>
-                        Memuat data tab <b>{activeTabLabel}</b>…
-                      </span>
+                      <span>Memuat data transaksi…</span>
                     </div>
                   </td>
                 </tr>
@@ -453,19 +382,16 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
                   const adCost = r.ad_cost ?? 0;
                   const grossProfit = r.gross_profit ?? (r.net_revenue - r.cogs);
                   const margin = r.revenue > 0 ? Math.round((grossProfit / r.revenue) * 1000) / 10 : 0;
-                  const createdStr = new Date(r.created_at).toLocaleDateString("id-ID", {
+                  const createdDate = new Date(r.created_at);
+                  const dateStr = createdDate.toLocaleDateString("id-ID", {
                     day: "numeric",
                     month: "short",
                     year: "numeric",
                   });
-                  const completedStr = r.completed_at
-                    ? new Date(r.completed_at).toLocaleDateString("id-ID", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })
-                    : null;
-                  const displayDate = r.status === "COMPLETED" && completedStr ? completedStr : createdStr;
+                  const timeStr = createdDate.toLocaleTimeString("id-ID", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
 
                   return (
                     <Fragment key={r.id}>
@@ -485,11 +411,9 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
                           <p className="mt-1 max-w-[240px] truncate text-xs text-slate-500">{r.items[0]?.name ?? r.customer_name}</p>
                           <p className="text-[11px] text-slate-400">{r.quantity} item · {r.tracking_number || "Resi belum tersedia"}</p>
                         </td>
-                        <td
-                          className="px-3 py-3 text-xs whitespace-nowrap text-slate-600"
-                          title={r.status === "COMPLETED" && completedStr ? `Dibuat: ${createdStr}` : undefined}
-                        >
-                          {displayDate}
+                        <td className="px-3 py-3 text-xs whitespace-nowrap text-slate-600">
+                          <span className="block font-medium text-slate-700">{dateStr}</span>
+                          <span className="text-[11px] text-slate-400">{timeStr} WIB</span>
                         </td>
                         <td className="px-3 py-3 font-semibold text-navy">
                           {rupiah(r.revenue)}
