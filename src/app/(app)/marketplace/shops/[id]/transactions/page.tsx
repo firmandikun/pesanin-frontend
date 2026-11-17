@@ -249,28 +249,28 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
     [searchedRows, status],
   );
 
-  // 4. Compute summary cards synchronously from the active tab's rows.
+  // 4. Summary cards — same basis as Laporan Laba Rugi (HPP Selesai):
+  //    cancelled orders excluded, HPP counted only for completed orders.
   const s = useMemo(() => {
     let revenue = 0;
     let fees = 0;
     let net_revenue = 0;
     let cogs = 0;
     let ads = 0;
-    let gross_profit = 0;
-    let profit = 0;
     let missing_cost = 0;
     for (const r of tabRows) {
+      if (r.status === "CANCELLED" || r.status === "IN_CANCEL" || r.status === "UNPAID") continue;
       revenue += r.revenue;
       fees += r.fees;
       net_revenue += r.net_revenue;
-      cogs += r.cogs;
       ads += r.ad_cost ?? 0;
-      const gp = r.gross_profit ?? (r.net_revenue - r.cogs);
-      gross_profit += gp;
-      profit += r.profit;
-      if (r.missing_cost) missing_cost += 1;
+      if (r.status === "COMPLETED") {
+        cogs += r.cogs;
+        if (r.missing_cost) missing_cost += 1;
+      }
     }
-    return { revenue, fees, net_revenue, cogs, ads, gross_profit, profit, missing_cost };
+    const gross_profit = net_revenue - cogs;
+    return { revenue, fees, net_revenue, cogs, ads, gross_profit, profit: gross_profit - ads, missing_cost };
   }, [tabRows]);
 
   // 5. Slice current page synchronously (0ms pagination!).
@@ -362,7 +362,7 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
           Laba Rugi &amp; Arus Kas
         </a>
         <a href={`/marketplace/shops/${shop.id}/statement`} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">
-          Laporan Laba Rugi (FinKami)
+          Laporan Laba Rugi
         </a>
       </div>
 
@@ -371,7 +371,7 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
           ["Omzet", s.revenue, "text-navy"],
           ["Potongan", s.fees, "text-rose-600"],
           ["Pendapatan bersih", s.net_revenue, "text-blue-600"],
-          ["Total HPP", s.cogs, "text-orange-600"],
+          ["Total HPP (Selesai)", s.cogs, "text-orange-600"],
         ].map(([l, v, c]) => (
           <Panel key={l as string} className="p-4">
             <p className="text-xs text-slate-500">{l as string}</p>

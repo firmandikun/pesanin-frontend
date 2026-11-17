@@ -38,6 +38,7 @@ type StatementData = {
   gross_profit: number;
   opex: {
     ads: number;
+    other?: number;
     total: number;
   };
   operating_profit: number;
@@ -53,6 +54,7 @@ export default function ShopStatement({ params }: { params: Promise<{ id: string
   const [range, setRange] = useState(todayRange());
   const [basis, setBasis] = useState<"settled" | "settled_cogs_completed" | "all_active">("settled_cogs_completed");
   const [showExplanation, setShowExplanation] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     api<{ shops: Shop[] }>("/marketplace/shops").then((x) =>
@@ -62,6 +64,7 @@ export default function ShopStatement({ params }: { params: Promise<{ id: string
 
   useEffect(() => {
     setLoading(true);
+    setError("");
     const q = new URLSearchParams({
       from: range.from,
       to: range.to,
@@ -72,7 +75,9 @@ export default function ShopStatement({ params }: { params: Promise<{ id: string
         setData(res);
         setLoading(false);
       })
-      .catch(() => {
+      .catch((e: unknown) => {
+        setData(null);
+        setError(e instanceof Error ? e.message : "Gagal memuat data laporan.");
         setLoading(false);
       });
   }, [shopId, range.from, range.to, basis]);
@@ -99,7 +104,7 @@ export default function ShopStatement({ params }: { params: Promise<{ id: string
   return (
     <div className="space-y-5">
       <PageHead
-        title="Laporan Laba Rugi Proyek/Toko"
+        title="Laporan Laba Rugi"
         tutorial={false}
         crumbs={[
           ["Marketplace", "/marketplace/shops"],
@@ -141,7 +146,7 @@ export default function ShopStatement({ params }: { params: Promise<{ id: string
           Laba Rugi &amp; Arus Kas
         </Link>
         <span className="rounded-lg bg-navy px-4 py-2 text-sm font-semibold text-white shadow-sm">
-          Laporan Laba Rugi (FinKami)
+          Laporan Laba Rugi
         </span>
       </div>
 
@@ -160,14 +165,14 @@ export default function ShopStatement({ params }: { params: Promise<{ id: string
             <Info size={18} className="mt-0.5 shrink-0 text-sky-600" />
             <div className="space-y-1.5 pr-6">
               <p className="font-bold text-sm text-sky-950">
-                Mengapa laporan ini selaras dengan FinKami dan berbeda dengan tab Transaksi &quot;Semua&quot;?
+                Cara laporan ini dihitung
               </p>
               <ul className="list-disc pl-4 space-y-1 text-sky-800">
                 <li>
                   <b>Status Pesanan:</b> Tab &quot;Semua transaksi&quot; di menu Transaksi menjumlahkan seluruh pesanan termasuk yang dibatalkan dan yang masih dalam proses kirim. Laporan ini mengecualikan pesanan batal dari omzet penjualan kotor.
                 </li>
                 <li>
-                  <b>HPP Selesai:</b> Di mode <i>HPP Selesai</i>, HPP hanya dihitung dari pesanan yang statusnya sudah <b>Selesai (Completed)</b>, persis seperti metode kalkulasi FinKami.
+                  <b>HPP Selesai:</b> Di mode <i>HPP Selesai</i>, HPP hanya dihitung dari pesanan yang statusnya sudah <b>Selesai (Completed)</b>.
                 </li>
                 <li>
                   <b>Biaya Iklan Shopee:</b> Menggunakan total biaya riil dari <b>Shopee Ads Manager</b> toko untuk periode ini (bukan estimasi biaya per konversi per transaksi).
@@ -178,7 +183,7 @@ export default function ShopStatement({ params }: { params: Promise<{ id: string
         </div>
       )}
 
-      {/* Filter Basis Pills (Like FinKami) */}
+      {/* Filter basis */}
       <div className="grid gap-3 sm:grid-cols-3">
         {[
           {
@@ -232,9 +237,9 @@ export default function ShopStatement({ params }: { params: Promise<{ id: string
           </div>
         </div>
       ) : !data ? (
-        <div className="py-24 text-center text-sm text-slate-400">Gagal memuat data laporan.</div>
+        <div className="py-24 text-center text-sm text-rose-500">{error || "Gagal memuat data laporan."}</div>
       ) : (
-        /* FinKami-Style Printable Statement Paper */
+        /* Printable statement */
         <div className="mx-auto max-w-4xl rounded-2xl border border-slate-200/80 bg-white p-6 sm:p-10 shadow-sm print:p-0 print:border-none print:shadow-none">
           {/* Statement Header */}
           <div className="border-b border-slate-200 pb-5 text-center">
@@ -408,7 +413,7 @@ export default function ShopStatement({ params }: { params: Promise<{ id: string
               </div>
               <div className="divide-y divide-slate-100 pl-4">
                 <div className="flex items-center justify-between py-1.5 text-slate-600">
-                  <span>Shopee Ads Manager (Saldo Iklan Toko)</span>
+                  <span>Shopee Ads Manager</span>
                   <div className="flex gap-6">
                     <span className="w-14 text-right text-slate-400">{pct(data.opex.ads)}</span>
                     <span className="w-28 text-right font-medium text-violet-600">
@@ -416,6 +421,15 @@ export default function ShopStatement({ params }: { params: Promise<{ id: string
                     </span>
                   </div>
                 </div>
+                {(data.opex.other ?? 0) > 0 && (
+                  <div className="flex items-center justify-between py-1.5 text-slate-600">
+                    <span>Pengeluaran Toko Lainnya</span>
+                    <div className="flex gap-6">
+                      <span className="w-14 text-right text-slate-400">{pct(data.opex.other ?? 0)}</span>
+                      <span className="w-28 text-right font-medium text-violet-600">({rupiah(data.opex.other ?? 0)})</span>
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-center justify-between py-2 font-bold border-t border-slate-200">
                   <span className="text-slate-800">Total Beban Operasional</span>
                   <div className="flex gap-6">
