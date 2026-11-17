@@ -130,7 +130,7 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
           from: range.from,
           to: range.to,
           page: "1",
-          per_page: "20000",
+          per_page: "10",
           all_rows: "1",
         }).toString();
         const res = await api<Data>(`/marketplace/shops/${shopId}/transactions?${q}`);
@@ -142,7 +142,7 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
         if (syncAfter) {
           setSyncing(true);
           try {
-            for (let step = 0; step < 30; step++) {
+            for (let step = 0; step < 60; step++) {
               if (cur !== reqId.current) return;
               const syncRes = await api<{
                 result?: {
@@ -152,6 +152,7 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
                   remaining_orders?: number;
                   remaining_escrow?: number;
                   shopee_total?: number;
+                  progress_date?: string | null;
                 };
               }>(`/marketplace/shops/${shopId}/sync`, {
                 method: "POST",
@@ -165,9 +166,8 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
               if (cur !== reqId.current) return;
               const r = syncRes?.result;
               const pulled = (r?.orders ?? 0) + (r?.settled ?? 0);
-              const remOrders = r?.remaining_orders ?? 0;
-              const remEscrow = r?.remaining_escrow ?? 0;
               const rem = r?.remaining ?? 0;
+              const progDate = r?.progress_date;
 
               if (pulled > 0 || (forceSync && step === 0)) {
                 const fresh = await api<Data>(`/marketplace/shops/${shopId}/transactions?${q}`);
@@ -176,15 +176,14 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
                 setBackfilling(Boolean(fresh.backfilling));
               }
 
-              if (remOrders > 0) {
-                setSyncProgress(`Menarik ${remOrders} pesanan lagi dari Shopee (total ${r?.shopee_total ?? 0} pesanan di periode ini)…`);
-              } else if (remEscrow > 0) {
-                setSyncProgress(`Melengkapi rincian biaya & escrow ${remEscrow} pesanan lagi dari Shopee…`);
+              if (rem > 0) {
+                setSyncProgress(
+                  progDate
+                    ? `Menarik & memeriksa data pesanan periode ${progDate} dari Shopee (${rem} bagian lagi)…`
+                    : `Menarik data pesanan dari Shopee (${rem} bagian lagi)…`,
+                );
               } else {
                 setSyncProgress("");
-              }
-
-              if (rem <= 0 || pulled === 0) {
                 break;
               }
             }
