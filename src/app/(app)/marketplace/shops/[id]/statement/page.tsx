@@ -1,8 +1,8 @@
 "use client";
 
-import { AlertCircle, Download, FileSpreadsheet, Info, Loader2, Printer, Store } from "lucide-react";
+import { Info, Loader2, Printer, RefreshCcw } from "lucide-react";
 import Link from "next/link";
-import { use, useEffect, useMemo, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DateRangePicker, todayRange } from "@/components/DatePicker";
 import { PageHead, Panel } from "@/components/kit";
 import { ShopWorkspaceNav } from "@/components/marketplace/ShopWorkspaceNav";
@@ -55,6 +55,10 @@ export default function ShopStatement({ params }: { params: Promise<{ id: string
   const [basis, setBasis] = useState<"settled" | "settled_cogs_completed" | "all_active">("settled_cogs_completed");
   const [showExplanation, setShowExplanation] = useState(true);
   const [error, setError] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState("");
+  const reqId = useRef(0);
+  const lastSyncedRange = useRef("");
 
   useEffect(() => {
     api<{ shops: Shop[] }>("/marketplace/shops").then((x) =>
@@ -62,25 +66,103 @@ export default function ShopStatement({ params }: { params: Promise<{ id: string
     );
   }, [shopId]);
 
-  useEffect(() => {
-    setLoading(true);
-    setError("");
-    const q = new URLSearchParams({
-      from: range.from,
-      to: range.to,
-      basis,
-    }).toString();
-    api<StatementData>(`/marketplace/shops/${shopId}/statement?${q}`)
-      .then((res) => {
+  const fetchStatement = useCallback(
+    async (syncFromShopee: boolean, forceSync: boolean) => {
+      const cur = ++reqId.current;
+      const rangeKey = `${range.from}:${range.to}`;
+      const shouldSync = syncFromShopee && (forceSync || lastSyncedRange.current !== rangeKey);
+
+      setLoading(true);
+      setError("");
+      const q = new URLSearchParams({
+        from: range.from,
+        to: range.to,
+        basis,
+      }).toString();
+
+      try {
+        const res = await api<StatementData>(`/marketplace/shops/${shopId}/statement?${q}`);
+        if (cur !== reqId.current) return;
         setData(res);
         setLoading(false);
-      })
-      .catch((e: unknown) => {
-        setData(null);
-        setError(e instanceof Error ? e.message : "Gagal memuat data laporan.");
-        setLoading(false);
-      });
-  }, [shopId, range.from, range.to, basis]);
+
+        if (shouldSync) {
+          setSyncing(true);
+          setSyncProgress(`Menarik & memeriksa data pesanan periode ${range.from} s/d ${range.to} dari Shopee…`);
+          try {
+            if (forceSync) {
+              await api(`/marketplace/shops/${shopId}/sync`, {
+                method: "POST",
+                json: { what: "ads" },
+              }).catch(() => {});
+            }
+            for (let step = 0; step < 60; step++) {
+              if (cur !== reqId.current) return;
+              const syncRes = await api<{
+                result?: {
+                  orders?: number;
+                  settled?: number;
+                  remaining?: number;
+                  progress_date?: string | null;
+                };
+              }>(`/marketplace/shops/${shopId}/sync`, {
+                method: "POST",
+                json: {
+                  what: "orders",
+                  from: range.from,
+                  to: range.to,
+                  ...(forceSync && step === 0 ? { force: true } : {}),
+                },
+              });
+              if (cur !== reqId.current) return;
+              const r = syncRes?.result;
+              const pulled = (r?.orders ?? 0) + (r?.settled ?? 0);
+              const rem = r?.remaining ?? 0;
+              const progDate = r?.progress_date;
+
+              if (pulled > 0 || (forceSync && step === 0)) {
+                const fresh = await api<StatementData>(`/marketplace/shops/${shopId}/statement?${q}`);
+                if (cur !== reqId.current) return;
+                setData(fresh);
+              }
+
+              if (rem > 0) {
+                setSyncProgress(
+                  progDate
+                    ? `Menarik & memeriksa data pesanan periode ${progDate} dari Shopee (${rem} bagian lagi)…`
+                    : `Menarik data pesanan dari Shopee (${rem} bagian lagi)…`,
+                );
+              } else {
+                lastSyncedRange.current = rangeKey;
+                setSyncProgress("");
+                break;
+              }
+            }
+          } catch {
+            // keep local statement data
+          } finally {
+            if (cur === reqId.current) {
+              setSyncing(false);
+              setSyncProgress("");
+            }
+          }
+        }
+      } catch (e: unknown) {
+        if (cur === reqId.current) {
+          setData(null);
+          setError(e instanceof Error ? e.message : "Gagal memuat data laporan.");
+          setLoading(false);
+          setSyncing(false);
+          setSyncProgress("");
+        }
+      }
+    },
+    [shopId, range.from, range.to, basis],
+  );
+
+  useEffect(() => {
+    fetchStatement(true, false);
+  }, [fetchStatement]);
 
   const gmv = data?.revenue.gmv ?? 0;
   const pct = (val: number) => {
@@ -115,6 +197,15 @@ export default function ShopStatement({ params }: { params: Promise<{ id: string
         <DateRangePicker value={range} onChange={setRange} />
         <button
           type="button"
+          onClick={() => fetchStatement(true, true)}
+          disabled={loading || syncing}
+          className="flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-sm font-semibold text-navy shadow-sm hover:bg-slate-50 transition disabled:opacity-60"
+        >
+          <RefreshCcw size={16} className={loading || syncing ? "animate-spin" : ""} />
+          {syncing ? "Menyinkronkan…" : "Muat ulang"}
+        </button>
+        <button
+          type="button"
           onClick={() => window.print()}
           className="flex h-10 items-center gap-2 rounded-lg bg-navy px-4 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 transition"
         >
@@ -122,6 +213,13 @@ export default function ShopStatement({ params }: { params: Promise<{ id: string
           Cetak / PDF
         </button>
       </PageHead>
+
+      {syncing && (
+        <div className="flex items-center gap-2.5 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-xs font-medium text-sky-900">
+          <Loader2 size={15} className="animate-spin text-sky-600" />
+          <span>{syncProgress || `Menyinkronkan data pesanan periode ${range.from} s/d ${range.to} dari Shopee…`}</span>
+        </div>
+      )}
 
       <ShopWorkspaceNav shopId={shop.id} active="finance" />
 
