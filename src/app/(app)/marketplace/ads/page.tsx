@@ -18,6 +18,7 @@ type Campaign = Metrics & {
   kind?: "manual" | "group" | "auto";
   bidding_method: string | null;
   budget: number | null;
+  roas_target?: number | null;
   items_sold: number;
   items: Item[];
   auto_items?: Item[];
@@ -65,6 +66,7 @@ type TableRow = Metrics & {
   subtitle: string;
   status: string;
   budget: number | null;
+  roas_target?: number | null;
   image: string | null;
   collage: (string | null)[];
   childrenItems: Item[];
@@ -243,9 +245,11 @@ export default function ShopeeAds() {
   const tableRows = useMemo<TableRow[]>(() => {
     if (!d) return [];
     return d.campaigns.map((c) => {
-      const isAuto = c.kind === "auto" || c.ad_type === "auto" || c.bidding_method === "auto" || c.name?.toLowerCase().includes("otomatis");
-      const kind: "manual" | "group" | "auto" =
-        c.kind ?? (isAuto ? "auto" : c.items.length > 1 ? "group" : "manual");
+      // Store-wide automated campaigns have no specific item list
+      const isStoreWideAuto = (c.ad_type === "auto" || c.kind === "auto") && (!c.items || c.items.length === 0);
+      const isGroup = !isStoreWideAuto && c.items && c.items.length > 1;
+      const kind: "manual" | "group" | "auto" = isStoreWideAuto ? "auto" : (isGroup ? "group" : "manual");
+
       const childrenItems = kind === "auto" ? (c.auto_items?.length ? c.auto_items : c.items) : c.items;
       const firstItem = childrenItems[0] ?? null;
       const title =
@@ -263,6 +267,7 @@ export default function ShopeeAds() {
         subtitle,
         status: c.status ?? "ongoing",
         budget: c.budget,
+        roas_target: c.roas_target ?? null,
         image: firstItem?.image ?? null,
         collage: childrenItems.slice(0, 4).map((i) => i.image),
         childrenItems,
@@ -295,7 +300,7 @@ export default function ShopeeAds() {
 
   const autoCampaigns = useMemo(() => {
     if (!d) return [];
-    return d.campaigns.filter((c) => (c.kind ?? c.ad_type) === "auto" || c.ad_type === "auto" || c.bidding_method === "auto" || c.name?.toLowerCase().includes("otomatis"));
+    return d.campaigns.filter((c) => (c.kind === "auto" || c.ad_type === "auto") && (!c.items || c.items.length === 0));
   }, [d]);
 
   const toggleExpand = (key: string) =>
@@ -675,6 +680,11 @@ export default function ShopeeAds() {
                         Info Iklan
                       </th>
                       <th className="px-3 py-3 whitespace-nowrap">Modal</th>
+                      <th className="px-3 py-3 text-right whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1">
+                          Target ROAS <HelpCircle size={11} className="text-slate-400" />
+                        </span>
+                      </th>
                       <th className="px-3 py-3 whitespace-nowrap">
                         <span className="inline-flex items-center gap-1">
                           Diagnosis <HelpCircle size={11} className="text-slate-400" />
@@ -829,6 +839,15 @@ export default function ShopeeAds() {
                               <p className="text-[11px] text-slate-400">Modal Harian</p>
                             </td>
 
+                            {/* Target ROAS */}
+                            <td className="px-3 py-3.5 text-right whitespace-nowrap text-slate-700">
+                              {r.roas_target && r.roas_target > 0 ? (
+                                <p className="font-semibold text-slate-800">{fmtDec(r.roas_target, 1)}</p>
+                              ) : (
+                                <span className="text-slate-400">-</span>
+                              )}
+                            </td>
+
                             {/* Diagnosis */}
                             <td className="px-3 py-3.5 whitespace-nowrap">
                               {r.expense > 0 && r.orders === 0 ? (
@@ -938,7 +957,7 @@ export default function ShopeeAds() {
                           {/* Expanded sub-rows for Grup Iklan / Iklan Otomatis */}
                           {isGroupOrAuto && isOpen && r.childrenItems.length > 0 && (
                             <tr className="bg-slate-50/80">
-                              <td colSpan={14} className="px-6 py-3">
+                              <td colSpan={15} className="px-6 py-3">
                                 <div className="mb-2 flex items-center justify-between">
                                   <span className="text-xs font-bold text-slate-700">
                                     Produk dalam {r.title} ({r.childrenItems.length} produk)
