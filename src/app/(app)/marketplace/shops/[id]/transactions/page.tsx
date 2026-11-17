@@ -108,25 +108,7 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
   const [syncProgress, setSyncProgress] = useState("");
   const [notice, setNotice] = useState("");
   const [includeAds, setIncludeAds] = useState(false);
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("pesanin_include_ads_in_profit");
-      if (saved !== null) {
-        setIncludeAds(saved === "true");
-      }
-    } catch {}
-  }, []);
-
-  const handleToggleIncludeAds = useCallback(() => {
-    setIncludeAds((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem("pesanin_include_ads_in_profit", String(next));
-      } catch {}
-      return next;
-    });
-  }, []);
+  const handleToggleIncludeAds = () => setIncludeAds((prev) => !prev);
 
   const reqId = useRef(0);
 
@@ -285,11 +267,13 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
       ads += r.ad_cost ?? 0;
       const gp = r.gross_profit ?? (r.net_revenue - r.cogs);
       gross_profit += gp;
-      profit += includeAds ? r.profit : gp;
+      profit += r.profit;
       if (r.missing_cost) missing_cost += 1;
     }
     return { revenue, fees, net_revenue, cogs, ads, gross_profit, profit, missing_cost };
-  }, [tabRows, includeAds]);
+  }, [tabRows]);
+
+  const cardProfit = includeAds ? s.profit : s.gross_profit;
 
   // 5. Slice current page synchronously (0ms pagination!).
   const total = tabRows.length;
@@ -403,21 +387,21 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
               className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium transition ${
                 includeAds
                   ? "bg-violet-100 text-violet-700 hover:bg-violet-200"
-                  : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               }`}
               title={
                 includeAds
-                  ? "Saat ini: memotong laba bersih. Klik untuk jadikan hanya info referensi tanpa potong laba."
-                  : "Saat ini: hanya info referensi (tidak memotong laba). Klik untuk memotong laba."
+                  ? "Saat ini: memotong laba bersih card di atas. Klik untuk sembunyikan potongan iklan."
+                  : "Saat ini: hanya info acuan. Klik untuk melihat laba bersih card di atas setelah dipotong iklan."
               }
             >
               {includeAds ? <Eye size={11} className="text-violet-600" /> : <EyeOff size={11} className="text-slate-400" />}
-              <span>{includeAds ? "Potong laba" : "Hanya info"}</span>
+              <span>{includeAds ? "Potong di card" : "Hanya info"}</span>
             </button>
           </div>
           <p className="mt-1 text-lg font-bold text-violet-600">{loading ? "…" : rupiah(s.ads)}</p>
           <span className="text-[10px] text-slate-400">
-            {includeAds ? "Memotong laba bersih" : "Tidak memotong laba"}
+            {includeAds ? "Memotong laba bersih card di atas" : "Hanya info acuan"}
           </span>
         </Panel>
 
@@ -432,11 +416,11 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
               {includeAds ? "Setelah Iklan" : "Tanpa Iklan"}
             </span>
           </div>
-          <p className={`mt-1 text-lg font-bold ${s.profit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-            {loading ? "…" : rupiah(s.profit)}
+          <p className={`mt-1 text-lg font-bold ${cardProfit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+            {loading ? "…" : rupiah(cardProfit)}
           </p>
           <span className="text-[10px] text-slate-400">
-            {includeAds ? "Setelah dipotong biaya iklan" : "Laba kotor sebelum iklan"}
+            {includeAds ? "Setelah dipotong biaya iklan" : "Sebelum dipotong biaya iklan"}
           </span>
         </Panel>
       </div>
@@ -495,35 +479,9 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
           <table className="w-full min-w-[1120px] text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-3 py-3 font-semibold">Detail pesanan</th>
-                <th className="px-3 py-3 font-semibold">Tanggal</th>
-                <th className="px-3 py-3 font-semibold">Jumlah</th>
-                <th className="px-3 py-3 font-semibold">Biaya</th>
-                <th className="px-3 py-3 font-semibold">Pendapatan</th>
-                <th className="px-3 py-3 font-semibold">HPP</th>
-                <th className="px-3 py-3 font-semibold">
-                  <div className="flex items-center gap-1.5">
-                    <span>Biaya Iklan</span>
-                    <button
-                      type="button"
-                      onClick={handleToggleIncludeAds}
-                      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium normal-case transition ${
-                        includeAds ? "bg-violet-100 text-violet-700" : "bg-slate-200/80 text-slate-600 hover:bg-slate-200"
-                      }`}
-                      title={
-                        includeAds
-                          ? "Biaya iklan memotong laba bersih. Klik untuk mode hanya info (tidak potong laba)."
-                          : "Biaya iklan hanya info (tidak potong laba). Klik untuk memotong laba bersih."
-                      }
-                    >
-                      {includeAds ? <Eye size={11} /> : <EyeOff size={11} />}
-                      <span>{includeAds ? "Potong" : "Info"}</span>
-                    </button>
-                  </div>
-                </th>
-                <th className="px-3 py-3 font-semibold">Laba Bersih</th>
-                <th className="px-3 py-3 font-semibold">Status</th>
-                <th className="px-3 py-3 font-semibold"></th>
+                {["Detail pesanan", "Tanggal", "Jumlah", "Biaya", "Pendapatan", "HPP", "Biaya Iklan", "Laba Bersih", "Status", ""].map((h) => (
+                  <th key={h} className="px-3 py-3 font-semibold">{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -542,8 +500,7 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
                 pageRows.map((r) => {
                   const adCost = r.ad_cost ?? 0;
                   const grossProfit = r.gross_profit ?? (r.net_revenue - r.cogs);
-                  const displayProfit = includeAds ? r.profit : grossProfit;
-                  const displayMargin = r.revenue > 0 ? Math.round((displayProfit / r.revenue) * 1000) / 10 : 0;
+                  const margin = r.revenue > 0 ? Math.round((grossProfit / r.revenue) * 1000) / 10 : 0;
                   const createdStr = new Date(r.created_at).toLocaleDateString("id-ID", {
                     day: "numeric",
                     month: "short",
@@ -606,17 +563,15 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
                           {r.is_advertised ? (
                             <>
                               {adCost > 0 ? `− ${rupiah(adCost)}` : rupiah(0)}
-                              <span className="block text-[10px] font-normal text-violet-500">
-                                {includeAds ? "Biaya/Konversi" : "Biaya/Konv (Info)"}
-                              </span>
+                              <span className="block text-[10px] font-normal text-slate-400">Info acuan</span>
                             </>
                           ) : (
                             <span className="text-xs font-normal text-slate-400">Tidak diiklankan</span>
                           )}
                         </td>
-                        <td className={`px-3 py-3 font-bold ${displayProfit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                          {rupiah(displayProfit)}
-                          <span className="block text-[11px] font-normal text-slate-400">{displayMargin}%</span>
+                        <td className={`px-3 py-3 font-bold ${grossProfit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                          {rupiah(grossProfit)}
+                          <span className="block text-[11px] font-normal text-slate-400">{margin}%</span>
                         </td>
                         <td className="px-3 py-3">
                           <span className={`rounded-md px-2 py-1 text-xs font-semibold whitespace-nowrap ${tones[r.status] ?? "bg-slate-100 text-slate-600"}`}>
@@ -714,14 +669,26 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
                                     ["Total biaya", -r.fees, false],
                                     ["Pendapatan bersih", r.net_revenue, false],
                                     ["Total HPP", -r.cogs, false],
-                                    ["Laba sebelum iklan", grossProfit, false],
+                                    ...(r.is_advertised
+                                      ? [
+                                        ["Biaya Iklan (per Konversi)", -adCost, false],
+                                      ]
+                                      : [["Biaya Iklan", 0, false]]),
                                   ].map(([l, v, bold]) => (
                                     <div key={l as string} className={`flex justify-between border-b border-slate-100 pb-2 ${bold ? "pt-1" : ""}`}>
                                       <dt className={bold ? "font-bold text-navy" : "text-slate-500"}>
                                         {l as string}
+                                        {l === "Biaya Iklan (per Konversi)" && (
+                                          <span className="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">
+                                            Hanya info
+                                          </span>
+                                        )}
+                                        {l === "Biaya Iklan" && !r.is_advertised && (
+                                          <span className="ml-1 text-[10px] text-slate-400">(tidak diiklankan)</span>
+                                        )}
                                       </dt>
                                       <dd
-                                        className={`${bold ? "text-sm font-extrabold" : "font-semibold"} ${(v as number) < 0 ? "text-rose-600" : bold && (v as number) > 0 ? "text-emerald-600" : "text-navy"
+                                        className={`${bold ? "text-sm font-extrabold" : "font-semibold"} ${(v as number) < 0 ? (l === "Biaya Iklan (per Konversi)" ? "text-slate-600" : "text-rose-600") : bold && (v as number) > 0 ? "text-emerald-600" : "text-navy"
                                           }`}
                                       >
                                         {(v as number) < 0 ? "− " : ""}{rupiah(Math.abs(v as number))}
@@ -729,50 +696,16 @@ export default function Transactions({ params }: { params: Promise<{ id: string 
                                     </div>
                                   ))}
 
-                                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                                    <dt className="flex items-center gap-1.5 text-slate-500">
-                                      <span>Biaya Iklan (per Konversi)</span>
-                                      <button
-                                        type="button"
-                                        onClick={handleToggleIncludeAds}
-                                        className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium transition ${
-                                          includeAds
-                                            ? "bg-violet-100 text-violet-700 hover:bg-violet-200"
-                                            : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                                        }`}
-                                        title={
-                                          includeAds
-                                            ? "Saat ini: memotong laba transaksi. Klik untuk jadikan hanya info referensi."
-                                            : "Saat ini: hanya info referensi (tidak memotong laba). Klik untuk memotong laba."
-                                        }
-                                      >
-                                        {includeAds ? <Eye size={12} className="text-violet-600" /> : <EyeOff size={12} className="text-slate-400" />}
-                                        <span>{includeAds ? "Memotong laba" : "Hanya info"}</span>
-                                      </button>
-                                      {!r.is_advertised && (
-                                        <span className="text-[10px] text-slate-400">(tidak diiklankan)</span>
-                                      )}
-                                    </dt>
-                                    <dd className={`font-semibold ${r.is_advertised && adCost > 0 ? "text-rose-600" : "text-slate-400"}`}>
-                                      {r.is_advertised && adCost > 0 ? `− ${rupiah(adCost)}` : rupiah(0)}
-                                    </dd>
-                                  </div>
-
                                   <div className="flex justify-between border-b border-slate-100 pt-1 pb-2">
                                     <dt className="font-bold text-navy">
                                       Laba bersih transaksi
-                                      {!includeAds && (
-                                        <span className="block text-[10px] font-normal text-slate-400">
-                                          (tanpa potongan iklan)
-                                        </span>
-                                      )}
                                     </dt>
                                     <dd
                                       className={`text-sm font-extrabold ${
-                                        displayProfit >= 0 ? "text-emerald-600" : "text-rose-600"
+                                        grossProfit >= 0 ? "text-emerald-600" : "text-rose-600"
                                       }`}
                                     >
-                                      {displayProfit < 0 ? "− " : ""}{rupiah(Math.abs(displayProfit))}
+                                      {grossProfit < 0 ? "− " : ""}{rupiah(Math.abs(grossProfit))}
                                     </dd>
                                   </div>
                                 </dl>
