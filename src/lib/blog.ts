@@ -70,7 +70,7 @@ export const POSTS: Post[] = [
       "- Pilih COD, transfer bank, atau e-payment (QRIS, VA, e-wallet).",
       "- Data pembeli lama terisi otomatis untuk repeat order.",
       "## Setelah pembeli bayar",
-      "Pesanin bisa memesan kurir lewat Biteship dan menerbitkan resi asli begitu pesanan lunas. Untuk produk digital, link akses dikirim otomatis lewat WhatsApp dan email. Semua pesanan ini ikut masuk ke laporan laba bersama pesanan Shopee.",
+      "Ongkir di checkout diambil asli dari RajaOngkir, dan nomor resi yang kamu isi dilacak otomatis. Untuk produk digital, link akses dikirim otomatis lewat WhatsApp dan email. Semua pesanan ini ikut masuk ke laporan laba bersama pesanan Shopee.",
     ],
   },
 ];

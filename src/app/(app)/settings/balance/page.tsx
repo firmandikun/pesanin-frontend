@@ -1,5 +1,5 @@
 "use client";
-import { CalendarClock, Download, Info } from "lucide-react";
+import { CalendarClock, Download } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, download, rupiah } from "@/lib/api";
 import { EmptyState, Panel, RangeButton, useRange } from "@/components/kit";
@@ -17,21 +17,22 @@ export default function Balance() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-[34px] font-bold text-slate-800">Balance</h1>
+      <h1 className="text-[34px] font-bold text-slate-800">Saldo</h1>
 
 
       <Panel className="overflow-hidden">
         <div className="grid gap-4 p-6 md:grid-cols-[1fr_1.4fr]">
           <div>
-            <div className="flex items-center gap-1 text-sm text-slate-600">Saldo Pesanin Tersedia <span className="text-xs text-slate-400">(checkout web & manual)</span> <Info size={13} className="text-slate-400" /></div>
-            <div className="mt-3 flex items-center gap-3"><Coin c="bg-orange-200" /><span className="text-3xl font-bold text-slate-800">{rupiah(d?.available ?? 0)}</span></div>
+            <div className="flex items-center gap-1 text-sm text-slate-600">Dana di Pesanin <span className="text-xs text-slate-400">(E-Payment lewat Midtrans Pesanin)</span></div>
+            <div className="mt-3 flex items-center gap-3"><Coin c="bg-orange-200" /><span className="text-3xl font-bold text-slate-800">{rupiah(d?.held ?? 0)}</span></div>
+            <p className="mt-2 text-xs text-slate-500">Total pembayaran lunas yang masuk ke akun Midtrans Pesanin, belum dipotong biaya Midtrans.</p>
           </div>
           <div className="grid grid-cols-2 divide-x divide-slate-100 rounded-xl border border-slate-200 p-4">
-            <div className="flex items-center gap-3 pr-4"><Coin c="bg-orange-200" /><div><div className="text-xs text-slate-500">Dalam Proses Penarikan</div><div className="font-semibold text-slate-800">{rupiah(d?.withdrawing ?? 0)}</div></div></div>
-            <div className="flex items-center gap-3 pl-4"><Coin c="bg-amber-200" /><div><div className="flex items-center gap-1 text-xs text-slate-500">Saldo Pending <Info size={12} /></div><div className="font-semibold text-slate-800">{rupiah(d?.pending ?? 0)}</div></div></div>
+            <div className="flex items-center gap-3 pr-4"><Coin c="bg-sky-200" /><div><div className="text-xs text-slate-500">E-Payment menunggu dibayar</div><div className="font-semibold text-slate-800">{rupiah(d?.held_unpaid ?? 0)}</div></div></div>
+            <div className="flex items-center gap-3 pl-4"><Coin c="bg-amber-200" /><div><div className="text-xs text-slate-500">COD dalam pengiriman</div><div className="font-semibold text-slate-800">{rupiah(d?.cod_pending ?? 0)}</div></div></div>
           </div>
         </div>
-        <div className="bg-brand-50 px-6 py-2.5 text-center text-xs text-slate-600">Saldo Pesanin dihitung dari pesanan checkout web & manual yang sudah dibayar (saldo Shopee ada di menu Marketplace → Saldo). Penarikan dana dilakukan langsung ke rekening yang terdaftar di <b>Account Settings</b>.</div>
+        <div className="bg-brand-50 px-6 py-2.5 text-center text-xs text-slate-600">Transfer bank dan COD masuk langsung ke rekening / kurir kamu, jadi tidak dihitung di Dana di Pesanin. Saldo Shopee ada di Marketplace → Saldo.</div>
       </Panel>
 
       <Panel className="p-5">
@@ -40,19 +41,17 @@ export default function Balance() {
           <RangeButton value={range} onChange={setRange} />
         </div>
         <div className="grid gap-4 md:grid-cols-4">
-          <div className="rounded-lg border border-slate-100 p-4 md:row-span-3">
-            <div className="text-xs text-slate-500">Net COD Revenues</div><div className="mb-3 text-2xl font-bold text-emerald-600">{rupiah(p.net_cod_revenue)}</div>
-            <div className="border-t border-slate-100 pt-3 text-xs text-slate-500">Collected From Customer</div><div className="font-semibold">{rupiah(p.collected_from_customer)}</div>
-            <div className="mt-2 text-xs text-slate-500">COD Shipping Fees You Paid</div><div className="font-semibold">{rupiah(p.cod_shipping_fees)}</div>
+          <div className="rounded-lg border border-slate-100 p-4 md:row-span-2">
+            <div className="text-xs text-slate-500">Masuk lewat Midtrans Pesanin</div><div className="mb-3 text-2xl font-bold text-emerald-600">{rupiah(p.platform_received)}</div>
+            <div className="border-t border-slate-100 pt-3 text-xs text-slate-500">Diterima langsung ke kamu</div><div className="font-semibold">{rupiah(p.direct_received)}</div>
+            <div className="mt-1 text-[11px] text-slate-400">Transfer bank &amp; Midtrans milik kamu</div>
           </div>
-          <div className="rounded-lg border border-slate-100 p-4 md:row-span-3">
-            <div className="text-xs text-slate-500">Net Shipping Fees You Save</div><div className="mb-3 text-2xl font-bold text-emerald-600">{rupiah(p.net_shipping_saved)}</div>
-            <div className="border-t border-slate-100 pt-3 text-xs text-slate-500">Menghemat Ongkos Kirim</div><div className="font-semibold">{rupiah(p.shipping_saved)}</div>
-            <div className="mt-2 text-xs text-slate-500">Ongkos Kirim Return</div><div className="font-semibold">{rupiah(p.return_shipping)}</div>
+          <div className="rounded-lg border border-slate-100 p-4 md:row-span-2">
+            <div className="text-xs text-slate-500">Pendapatan Bersih COD</div><div className="mb-3 text-2xl font-bold text-emerald-600">{rupiah(p.net_cod_revenue)}</div>
+            <div className="border-t border-slate-100 pt-3 text-xs text-slate-500">Ditagih dari pembeli</div><div className="font-semibold">{rupiah(p.collected_from_customer)}</div>
+            <div className="mt-2 text-xs text-slate-500">Ongkir &amp; biaya COD</div><div className="font-semibold">{rupiah(p.cod_shipping_fees)}</div>
           </div>
-          {small("Penarikan Selesai", p.withdrawn)}{small("Pendapatan COD", p.cod_income)}
-          {small("Total Saldo yang Ditambahkan", p.topup)}{small("Total Invoice yang Dibayarkan", p.invoices_paid)}
-          {small("Total Refund yang Didapat", p.refunds)}{small("Total Klaim yang Diterima", p.claims)}
+          {small("Ongkos Kirim Retur", p.return_shipping)}{small("Total Refund", p.refunds)}
         </div>
       </Panel>
 

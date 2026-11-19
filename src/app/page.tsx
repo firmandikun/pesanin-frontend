@@ -10,11 +10,11 @@ import { AdsMockup, CheckoutMockup, HeroDashboard, IncomeMockup, InboxMockup, Pr
 import { HowItWorks } from "@/components/marketing/HowItWorks";
 import { Pricing } from "@/components/marketing/Pricing";
 import { SitePage } from "@/components/marketing/SiteChrome";
-import { waLink } from "@/lib/site";
+import { WaLink } from "@/components/marketing/Contact";
 
 const FAQ: [string, string][] = [
   ["Apa itu Pesanin dan cara kerjanya?", "Pesanin adalah dashboard untuk seller online: pesanan dari Shopee, checkout web, dan input manual masuk ke satu tempat. Pesanin membaca penghasilan Shopee per pesanan, menghitung HPP, biaya iklan, dan pengeluaran, lalu menampilkan laba bersih yang sebenarnya. Untuk jualan di media sosial, Pesanin juga menyediakan link checkout dan landing page dengan ongkir otomatis dan COD."],
-  ["Platform apa saja yang didukung?", "Shopee terhubung resmi lewat Shopee Open Platform (pesanan, produk, stok, chat, dan Shopee Ads). Untuk penjualan di Instagram, TikTok, Facebook, dan WhatsApp, kamu memakai link checkout/landing page Pesanin. WhatsApp Business (Cloud API) terhubung untuk inbox dan broadcast, Meta Ads untuk laporan iklan, dan Biteship untuk pengiriman. TikTok Shop dan Lazada sedang kami siapkan."],
+  ["Platform apa saja yang didukung?", "Shopee terhubung resmi lewat Shopee Open Platform (pesanan, produk, stok, chat, dan Shopee Ads). Untuk penjualan di Instagram, TikTok, Facebook, dan WhatsApp, kamu memakai link checkout/landing page Pesanin. WhatsApp Business (Cloud API) terhubung untuk inbox dan broadcast, Meta Ads untuk laporan iklan, dan RajaOngkir untuk ongkir & lacak resi. TikTok Shop dan Lazada sedang kami siapkan."],
   ["Apakah potongan Shopee terbaca otomatis?", "Ya. Pesanin mengambil rincian penghasilan tiap pesanan langsung dari API Shopee: biaya admin, biaya layanan, biaya pemrosesan pesanan Rp1.250, ongkir aktual dan subsidinya, komisi AMS, pajak, sampai ongkir retur. Sebelum dana cair angkanya ditandai \"Estimasi\", dan otomatis diperbarui menjadi final begitu Shopee melepas dana."],
   ["Bagaimana cara menghitung HPP dan laba bersih?", "Isi HPP (modal) per produk atau per SKU sekali saja, termasuk massal. Laba bersih = omzet − potongan marketplace − HPP − biaya iklan (Shopee Ads sudah termasuk PPN 11%) − biaya operasional. Pesanan batal tidak dihitung, retur dicatat sebagai kerugian."],
   ["Bisakah input pengeluaran manual atau transaksi di luar marketplace?", "Bisa. Menu Pengeluaran untuk gaji, sewa, packing, pembelian stok, dan aset. Pesanan dari luar marketplace bisa masuk lewat checkout web atau dicatat manual, lalu ikut terhitung di laporan."],
@@ -57,7 +57,7 @@ const ALL_FEATURES: [React.ElementType, string, string][] = [
   [FileSpreadsheet, "Laba rugi & arus kas", "Ekspor Excel & PDF, siap untuk pembukuan"],
   [Link2, "Link checkout", "Ongkir otomatis 7+ kurir, COD, transfer & e-payment"],
   [Globe, "Landing page builder", "Block editor, domain sendiri, pixel Meta/TikTok/Google"],
-  [Truck, "Resi otomatis", "Lunas → kurir Biteship dipesan, resi asli terbit"],
+  [Truck, "Ongkir & lacak resi", "Ongkir asli RajaOngkir, resi dilacak otomatis"],
   [FileDown, "Produk digital otomatis", "Link akses terkirim via WhatsApp & email setelah bayar"],
   [Inbox, "Inbox + CRM", "Chat WhatsApp & Shopee, label, catatan, riwayat pelanggan"],
   [Send, "Broadcast WhatsApp", "Kirim template resmi Meta ke ribuan kontak"],
@@ -86,7 +86,7 @@ export default function Home() {
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/register" className="flex h-12 items-center gap-2 rounded-xl bg-brand-500 px-7 font-bold text-white shadow-lg shadow-brand-500/25 transition hover:-translate-y-0.5 hover:bg-brand-600">Coba Gratis Sekarang <ArrowRight size={18} /></Link>
-              <a href={waLink("Halo tim Pesanin, saya mau jadwalkan demo")} target="_blank" rel="noopener noreferrer" className="flex h-12 items-center gap-2 rounded-xl border border-slate-200 bg-white px-6 font-semibold text-navy transition hover:border-slate-300 hover:bg-slate-50"><CalendarCheck size={18} />Jadwalkan Demo</a>
+              <WaLink text={"Halo tim Pesanin, saya mau jadwalkan demo"} target="_blank" rel="noopener noreferrer" className="flex h-12 items-center gap-2 rounded-xl border border-slate-200 bg-white px-6 font-semibold text-navy transition hover:border-slate-300 hover:bg-slate-50"><CalendarCheck size={18} />Jadwalkan Demo</WaLink>
             </div>
             <p className="mt-4 text-sm text-slate-500">Daftar gratis · Tanpa kartu kredit · Siap dalam 5 menit</p>
             <div className="mt-8 grid max-w-lg grid-cols-3 gap-4 border-t border-slate-200 pt-6">
@@ -104,7 +104,7 @@ export default function Home() {
         <div className="mx-auto max-w-7xl px-4">
           <p className="text-center text-sm font-semibold text-slate-500">Terhubung dengan layanan yang sudah kamu pakai</p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-            {([["shopee", "Shopee"], ["whatsapp", "WhatsApp Business"], ["meta", "Meta Ads"], ["instagram", "Instagram"], ["tiktok", "TikTok Shop (segera)"], ["biteship", "Biteship"], ["midtrans", "Midtrans"]] as [Brand, string][]).map(([b, label]) => (
+            {([["shopee", "Shopee"], ["whatsapp", "WhatsApp Business"], ["meta", "Meta Ads"], ["instagram", "Instagram"], ["tiktok", "TikTok Shop (segera)"], ["midtrans", "Midtrans"]] as [Brand, string][]).map(([b, label]) => (
               <span key={b} className="flex h-12 items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-navy shadow-sm">
                 {b === "shopee" ? <ShopeeMark size={24} /> : <BrandIcon name={b} size={24} />}{label}
               </span>
@@ -149,7 +149,7 @@ export default function Home() {
           </div>
           <Feature tag="Checkout & Landing Page" icon={Link2} title="Jualan di media sosial dengan checkout yang rapi"
             desc="Bagikan link checkout atau landing page ke Instagram, TikTok, WhatsApp, dan iklan. Ongkir muncul otomatis, pembeli bisa COD, dan resi terbit sendiri setelah lunas."
-            bullets={["Tarif real-time JNE, J&T, SiCepat, SPX, AnterAja, POS, SAP", "COD, transfer bank, dan e-payment (QRIS, VA, e-wallet)", "Resi Biteship otomatis saat lunas; produk digital terkirim otomatis", "Landing page builder dengan domain sendiri & pixel iklan"]}
+            bullets={["Tarif real-time JNE, J&T, SiCepat, SPX, AnterAja, POS, SAP", "COD, transfer bank, dan e-payment (QRIS, VA, e-wallet)", "Ongkir asli RajaOngkir & resi dilacak otomatis; produk digital terkirim otomatis", "Landing page builder dengan domain sendiri & pixel iklan"]}
             mockup={<CheckoutMockup />} />
           <div className="bg-[#fbfaf8]">
             <Feature tag="Inbox, CRM & Broadcast" icon={MessageCircle} flip title="Semua chat pelanggan di satu inbox"
@@ -210,7 +210,7 @@ export default function Home() {
               </details>
             ))}
           </div>
-          <p className="mt-6 text-center text-sm text-slate-500">Masih ada pertanyaan? <a href={waLink()} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-600">Chat tim kami</a> atau baca <Link href="/tutorials" className="font-semibold text-brand-600">Tutorial</Link>.</p>
+          <p className="mt-6 text-center text-sm text-slate-500">Masih ada pertanyaan? <WaLink target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-600">Chat tim kami</WaLink> atau baca <Link href="/tutorials" className="font-semibold text-brand-600">Tutorial</Link>.</p>
         </div>
       </section>
 
@@ -222,7 +222,7 @@ export default function Home() {
           <p className="mt-4 text-lg text-white/85">Hubungkan tokomu hari ini dan lihat laba bersih per pesanan dalam hitungan menit.</p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Link href="/register" className="inline-flex h-12 items-center gap-2 rounded-xl bg-white px-8 font-bold text-brand-600 shadow-lg transition hover:-translate-y-0.5">Coba Gratis Sekarang <ArrowRight size={18} /></Link>
-            <a href={waLink("Halo tim Pesanin, saya mau jadwalkan demo")} target="_blank" rel="noopener noreferrer" className="inline-flex h-12 items-center gap-2 rounded-xl bg-white/15 px-7 font-semibold text-white transition hover:bg-white/25"><CalendarCheck size={18} />Jadwalkan Demo</a>
+            <WaLink text={"Halo tim Pesanin, saya mau jadwalkan demo"} target="_blank" rel="noopener noreferrer" className="inline-flex h-12 items-center gap-2 rounded-xl bg-white/15 px-7 font-semibold text-white transition hover:bg-white/25"><CalendarCheck size={18} />Jadwalkan Demo</WaLink>
           </div>
           <p className="mt-5 flex items-center justify-center gap-2 text-sm text-white/80"><ShieldCheck size={16} />Login resmi Shopee & Meta · data terenkripsi · <Bell size={14} />notifikasi real-time</p>
         </div>

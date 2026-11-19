@@ -6,11 +6,13 @@ import { CourierLogo } from "./Logos";
 type Opts = { hide_origin?: boolean; hide_courier?: boolean; show_original_price?: boolean };
 
 /** "Pengiriman:" block: origin badge + courier radio list, used by checkout and the editor preview. */
-export function ShippingOptions({ origin, rates, selected, onSelect, opts = {}, name = "courier" }: {
+export function ShippingOptions({ origin, rates, selected, onSelect, opts = {}, name = "courier", error }: {
   origin: string | null; rates: (Rate & { original_cost?: number })[]; selected?: string; onSelect?: (code: string) => void; opts?: Opts; name?: string;
+  /** Why there are no rates (no courier account connected, API error…), from the backend. */
+  error?: string | null;
 }) {
-  if (!origin) return <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Penjual belum mengatur alamat pengiriman (My Address).</p>;
-  if (!rates.length) return <p className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">Pengiriman ke lokasi ini tidak tersedia.</p>;
+  if (!origin) return <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{error || "Penjual belum mengatur alamat pengiriman (My Address)."}</p>;
+  if (!rates.length) return <p className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error || "Pengiriman ke lokasi ini tidak tersedia."}</p>;
   const chosen = rates.find((r) => r.code === selected) ?? rates.find((r) => r.cheapest);
   return (
     <div className="space-y-2">

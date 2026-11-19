@@ -46,8 +46,8 @@ export function ProductEditor({ id, type = "physical" }: { id?: number; type?: "
     if (id) api<Product>(`/products/${id}`).then((x) => setP({ ...x, form_settings: { ...defaultFormSettings(x.name), ...(x.form_settings ?? {}) } }));
   }, [id]);
   useEffect(() => { leftRef.current?.scrollTo({ top: 0 }); }, [step]);
-  // Sample courier list for the preview, from the seller's pickup address.
-  const [previewShipping, setPreviewShipping] = useState<{ origin: string | null; rates: any[] } | null>(null);
+  // Live courier rates (RajaOngkir) for the preview, from the seller's pickup address to a sample city.
+  const [previewShipping, setPreviewShipping] = useState<{ origin: string | null; rates: any[]; error?: string | null } | null>(null);
   const shippingKey = JSON.stringify([p?.weight, p?.form_settings?.shipping]);
   useEffect(() => {
     if (!p || p.type === "digital") return;
@@ -183,7 +183,7 @@ export function ProductEditor({ id, type = "physical" }: { id?: number; type?: "
                     action: "page", whatsapp_url: "#",
                   }} />
                 : <CheckoutForm key={`${methods.join()}-${device}`} product={p} methods={methods} preview mobile={device === "mobile"}
-                    extras={{ bump_items: bumpItems, sold: 128, preview_shipping: previewShipping ?? undefined }} store={{ store_name: "", cod_fee_percent: user?.cod_fee_percent ?? 3, origin: null }} />}
+                    extras={{ bump_items: bumpItems, sold: p.sold_qty ?? 0, preview_shipping: previewShipping ?? undefined }} store={{ store_name: "", cod_fee_percent: user?.cod_fee_percent ?? 3, origin: null }} />}
             </div>
           </div>
         </div>

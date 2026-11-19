@@ -112,8 +112,8 @@ export function CreatePageModal({
           <div>
             <div className="mb-2 font-semibold text-slate-800">Template</div>
             <div className="grid grid-cols-3 gap-3">
-              {all.map(([k, name]) => {
-                const soon = k === "link_bio" || k === "product_sales";
+              {all.filter(([k]) => k !== "link_bio" && k !== "product_sales").map(([k, name]) => {
+                const soon = false; // "Link Bio" & "Product Sales" templates are not built yet: hidden instead of "Coming Soon"
                 const on = form.template === k;
                 return (
                   <button

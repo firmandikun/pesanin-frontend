@@ -31,7 +31,6 @@ const ICON_MAP: Record<string, LucideIcon> = {
   BookOpen,
 };
 
-const soon = (f: string) => `/segera?f=${encodeURIComponent(f)}`;
 
 const PLAN_NAME: Record<string, string> = { gratis: "Gratis", starter: "Starter", bisnis: "Bisnis", pro: "Pro" };
 
@@ -58,7 +57,10 @@ const NAV_FALLBACK: SidebarMenuItem[] = [
   { key: "marketplace", label: "Marketplace", icon: "Store", visible: true, children: [
     { label: "Daftar Toko", href: "/marketplace/shops" },
     { label: "Semua Produk", href: "/marketplace/products" },
+    { label: "Stok Master", href: "/marketplace/stock" },
     { label: "Pesanan & Pengiriman", href: "/marketplace/orders" },
+    { label: "Ulasan", href: "/marketplace/reviews" },
+    { label: "Kesehatan Akun", href: "/marketplace/health" },
     { label: "Saldo", href: "/marketplace/balance" },
   ] },
   { key: "reports", label: "Laporan Bisnis", icon: "BarChart3", visible: true, children: [
@@ -201,7 +203,7 @@ function Shell({ children }: { children: React.ReactNode }) {
             <span className="flex items-center gap-1 rounded-full bg-brand-500 px-2 py-0.5 text-white"><Crown size={12} />{PLAN_NAME[user!.active_plan ?? "gratis"]}{sub?.status === "trial" && " · Trial"}</span>
             {sub?.status === "trial" ? `${sub.days_left} hari lagi` : user!.active_plan === "pro" ? "Kelola paket" : "Upgrade"}
           </Link>}
-          <span className="hidden items-center gap-2 font-medium sm:flex"><Wallet size={19} />IDR 0</span>
+          {!member && <HeaderBalance />}
           <div className="relative">
             <button onClick={() => setMenu(!menu)} className="flex items-center gap-2 font-medium"><User size={20} className="rounded-full border-2 border-white/90 p-0.5" /><span className="hidden sm:inline">{member?.name ?? user!.name}</span><ChevronDown size={16} /></button>
             {menu && (
@@ -302,7 +304,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       </main>
       <footer className={`print:hidden flex flex-wrap items-center justify-between gap-2 bg-[#e8eaf1] px-10 py-2.5 text-sm text-slate-500 transition-all ${collapsed ? "lg:pl-[100px]" : "lg:pl-10"}`}>
         <span>{new Date().getFullYear()} © Pesanin</span>
-        <span className="flex gap-8">{["Terms of Use", "Disclaimer", "Privacy Policy", "Antispam", "Changelog"].map((l) => <a key={l} href={soon(l)} className="hover:text-brand-600">{l}</a>)}</span>
+        <span className="flex gap-8">{([["Syarat & Ketentuan", "/terms-of-service"], ["Kebijakan Privasi", "/privacy-policy"]] as const).map(([l, href]) => <a key={l} href={href} target="_blank" rel="noreferrer" className="hover:text-brand-600">{l}</a>)}</span>
       </footer>
       <button className="print:hidden fixed bottom-5 left-5 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-brand-600 text-white shadow-lg" aria-label="Bantuan"><MessageSquareMore size={22} /></button>
     </div>
@@ -322,4 +324,16 @@ function SubBanner({ tone, icon, text, cta }: { tone: "brand" | "rose"; icon: Re
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return <AuthProvider><Suspense><Shell>{children}</Shell></Suspense></AuthProvider>;
+}
+
+/** Header wallet: money Pesanin holds for the seller (E-Payment via Pesanin's Midtrans), links to Saldo. */
+function HeaderBalance() {
+  const [held, setHeld] = useState<number | null>(null);
+  useEffect(() => { api<{ held: number }>("/balance/summary").then((r) => setHeld(r.held)).catch(() => setHeld(null)); }, []);
+  if (held === null) return null;
+  return (
+    <Link href="/settings/balance" title="Dana E-Payment di Pesanin" className="hidden items-center gap-2 font-medium hover:text-white/80 sm:flex">
+      <Wallet size={19} />{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(held)}
+    </Link>
+  );
 }

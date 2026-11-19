@@ -1,5 +1,5 @@
 "use client";
-import { getAttribution } from "@/lib/attribution";
+import { getAttribution, getMetaIds } from "@/lib/attribution";
 import { CheckCircle2, Copy, Flame, HandCoins, Landmark, MapPin, MessageCircle, Minus, Plus, ShieldCheck, ThumbsUp, Timer, Truck, Wallet } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api, ApiError, BumpItem, CustomField, FieldItem, PAYMENT_LABEL, Product, Quote, Rate, rupiah } from "@/lib/api";
@@ -50,7 +50,7 @@ function variantGroups(p: Partial<Product>) {
   return p.variants?.length ? [{ type: "Varian", values: p.variants.map((v) => v.name) }] : [];
 }
 
-export type CheckoutExtras = { fields?: FieldItem[]; custom_fields?: CustomField[]; bump_items?: BumpItem[]; sold?: number | null; preview_shipping?: { origin: string | null; rates: Rate[] } };
+export type CheckoutExtras = { fields?: FieldItem[]; custom_fields?: CustomField[]; bump_items?: BumpItem[]; sold?: number | null; preview_shipping?: { origin: string | null; rates: Rate[]; error?: string | null } };
 
 export function CheckoutForm({ product: p, methods, store, preview, mobile, manual, onDone, extras }: {
   product: Partial<Product>; methods: string[]; store?: Store; preview?: boolean; mobile?: boolean;
@@ -135,7 +135,7 @@ export function CheckoutForm({ product: p, methods, store, preview, mobile, manu
         return onDone?.(null);
       }
       const ref = new URLSearchParams(location.search).get("ref");
-      const res = await api<Result>(`/public/products/${p.slug}/checkout`, { method: "POST", json: { ...body, ...utm(), ...(ref ? { ref } : {}), checkout_token: token.current } });
+      const res = await api<Result>(`/public/products/${p.slug}/checkout`, { method: "POST", json: { ...body, ...utm(), ...getMetaIds(), ...(ref ? { ref } : {}), checkout_token: token.current } });
       if (c("save_buyer").enabled) {
         try { localStorage.setItem("formku_buyer", JSON.stringify({ customer_name: form.customer_name, phone: form.phone, email: form.email, address: form.address })); } catch {}
       }
@@ -309,9 +309,9 @@ export function CheckoutForm({ product: p, methods, store, preview, mobile, manu
         <div id="cmp-shipping">
           {sectionTitle("Pengiriman:")}
           {preview ? (
-            <ShippingOptions origin={extras?.preview_shipping?.origin ?? null} rates={extras?.preview_shipping?.rates ?? []} opts={fs.shipping ?? {}} name="courier-preview" />
+            <ShippingOptions origin={extras?.preview_shipping?.origin ?? null} rates={extras?.preview_shipping?.rates ?? []} error={extras?.preview_shipping?.error} opts={fs.shipping ?? {}} name="courier-preview" />
           ) : (
-            <ShippingOptions origin={quote?.origin ?? null} rates={quote?.rates ?? []} selected={form.courier} onSelect={(code) => set("courier", code)} opts={fs.shipping ?? {}} />
+            <ShippingOptions origin={quote?.origin ?? null} rates={quote?.rates ?? []} error={quote?.shipping_error} selected={form.courier} onSelect={(code) => set("courier", code)} opts={fs.shipping ?? {}} />
           )}
         </div>
       )}

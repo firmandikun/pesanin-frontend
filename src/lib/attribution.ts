@@ -40,9 +40,27 @@ function detect(): Attribution | null {
 /** Call on every public page view; remembers the latest source that has evidence. */
 export function captureAttribution(): void {
   if (typeof window === "undefined") return;
+  // Meta click id for the Conversions API (fbc), kept like the _fbc cookie Meta's pixel would set.
+  const fbclid = new URLSearchParams(location.search).get("fbclid");
+  if (fbclid) try { localStorage.setItem(FBC_KEY, JSON.stringify({ v: `fb.1.${Date.now()}.${fbclid}`, at: Date.now() })); } catch { /* private mode */ }
   const found = detect();
   if (!found) return;
   try { localStorage.setItem(KEY, JSON.stringify({ ...found, at: Date.now() })); } catch { /* private mode */ }
+}
+
+const FBC_KEY = "pesanin_fbc";
+const cookie = (name: string) => document.cookie.split("; ").find((c) => c.startsWith(`${name}=`))?.slice(name.length + 1) ?? null;
+
+/** Meta browser ids for the Conversions API: _fbp / _fbc cookies (fbc falls back to the remembered fbclid). */
+export function getMetaIds(): { fbp: string | null; fbc: string | null; page_url: string } {
+  let fbc = cookie("_fbc");
+  if (!fbc) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(FBC_KEY) || "null");
+      if (saved && Date.now() - saved.at < 90 * 864e5) fbc = saved.v;
+    } catch { /* ignore */ }
+  }
+  return { fbp: cookie("_fbp"), fbc, page_url: location.href.split("#")[0].slice(0, 1000) };
 }
 
 /** utm_* fields to send with the order. */

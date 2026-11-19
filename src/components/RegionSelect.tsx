@@ -6,7 +6,7 @@ import { api, Region } from "@/lib/api";
 /** Searchable "Kota / Kecamatan" picker, like the original checkout. */
 export function RegionSelect({ value, label, onChange, placeholder = "Masukkan Kota / Kecamatan", seller }: {
   value?: number | null; label?: string | null; onChange: (r: Region) => void; placeholder?: string;
-  /** Product slug on the public checkout, so the search uses that shop's Biteship (all kecamatan). */
+  /** Product slug on the public checkout, so the search uses that shop's RajaOngkir (all kelurahan). */
   seller?: string;
 }) {
   const [open, setOpen] = useState(false);

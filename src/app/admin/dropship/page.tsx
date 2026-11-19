@@ -229,7 +229,6 @@ export default function AdminDropshipCatalog() {
               {products.map((p) => {
                 const estProfit = p.suggested_price - p.wholesale_price;
                 const marginPct = p.suggested_price ? Math.round((estProfit / p.suggested_price) * 100) : 0;
-                const hasCod = (p.payment_methods ?? []).includes("cod");
                 const hasReg = (p.payment_methods ?? []).some((m) => m === "bank_transfer" || m === "epayment");
                 return (
                   <tr key={p.id} className="align-middle hover:bg-slate-50/70">
@@ -309,7 +308,6 @@ export default function AdminDropshipCatalog() {
                         </>
                       )}
                       <div className="mt-1 flex gap-1 text-[10px] font-semibold">
-                        {hasCod && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">COD</span>}
                         {hasReg && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">Reguler</span>}
                       </div>
                     </td>

@@ -9,6 +9,7 @@ import { LogoMark, Wordmark } from "@/components/Logo";
 import { BlockEditor } from "@/components/landing/BlockEditor";
 import { BlockView, CheckoutData } from "@/components/landing/BlockRenderer";
 import { Select } from "@/components/Select";
+import { SavedPixelOptions, useSavedPixels } from "@/components/SavedPixels";
 import { Field } from "@/components/ui";
 import { api, ApiError, Product } from "@/lib/api";
 import { Block, BlockType, blockMeta, LandingPage, newBlock } from "@/lib/landing";
@@ -72,6 +73,7 @@ export function LandingPageBuilder({
   onSave,
 }: LandingPageBuilderProps) {
   const [page, setPage] = useState<LandingPage>(() => structuredClone(initialPage));
+  const savedPixels = useSavedPixels();
   const [checkout, setCheckout] = useState<CheckoutData>(() => initialCheckout ?? {});
   const [mode, setMode] = useState<Mode>({ kind: initialTab === "settings" ? "settings" : "home" });
   const [device, setDevice] = useState<Device>(initialPage.theme?.width === "wide" ? "desktop" : "mobile");
@@ -658,6 +660,8 @@ export function LandingPageBuilder({
                   <Field label="Facebook Pixel ID">
                     <input
                       className="input"
+                      list="saved-px-lp-facebook"
+                      placeholder="Ketik atau pilih pixel tersimpan"
                       value={page.settings?.facebook_pixel ?? ""}
                       onChange={(e) => updatePage({ settings: { ...page.settings, facebook_pixel: e.target.value } })}
                     />
@@ -665,10 +669,15 @@ export function LandingPageBuilder({
                   <Field label="TikTok Pixel ID">
                     <input
                       className="input"
+                      list="saved-px-lp-tiktok"
+                      placeholder="Ketik atau pilih pixel tersimpan"
                       value={page.settings?.tiktok_pixel ?? ""}
                       onChange={(e) => updatePage({ settings: { ...page.settings, tiktok_pixel: e.target.value } })}
                     />
                   </Field>
+                  <SavedPixelOptions id="saved-px-lp-facebook" platform="facebook" pixels={savedPixels} />
+                  <SavedPixelOptions id="saved-px-lp-tiktok" platform="tiktok" pixels={savedPixels} />
+                  <p className="text-[11px] text-slate-500">Pixel yang ditandai &quot;Semua halaman&quot; di Pengaturan → Tracking sudah otomatis terpasang, tidak perlu diisi lagi di sini.</p>
                 </div>
               </>
             )}

@@ -141,7 +141,7 @@ export function PaymentPanel({ p, set, setFs, onClose }: P) {
                   <span><b className="block text-sm text-slate-800">Aktifkan Pelacakan (Tracking)</b><span className="text-xs text-slate-500">Melacak interaksi pengguna agar performa dapat dianalisis.</span></span>
                   <Switch checked={!!pay.epayment?.tracking} onChange={(v) => setPay({ epayment: { ...pay.epayment, tracking: v } })} />
                 </div>
-                <p className="text-xs text-slate-500">Diproses lewat akun Midtrans milikmu (Settings → Integrasi). Jika Midtrans belum terhubung, pembeli diarahkan konfirmasi via WhatsApp.</p>
+                <p className="text-xs text-slate-500">Diproses lewat Midtrans Pesanin (QRIS, VA, e-wallet). Dana tercatat di Pengaturan → Saldo.</p>
               </div>
             )}
           </div>

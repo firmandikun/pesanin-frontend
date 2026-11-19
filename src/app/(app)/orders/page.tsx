@@ -17,13 +17,13 @@ import {
 import { CheckoutExtras, CheckoutForm, Store } from "@/components/CheckoutForm";
 import { Empty, Field, Modal, Pagination, StatCard, Tabs } from "@/components/ui";
 import { Select } from "@/components/Select";
-import { askConfirm, showAlert } from "@/components/Dialogs";
+import { askConfirm, askText, showAlert } from "@/components/Dialogs";
 
 /** Web-checkout labels can be printed while the parcel still waits for pickup. */
-const canPrintWeb = (o: Order) => !!o.courier && o.shipping_status === "not_shipped" && !["cancelled", "refunded"].includes(o.status) && !o.is_abandoned;
+const canPrintWeb = (o: Order) => !!o.courier && o.shipping_status === "not_shipped" && !["cancelled", "refunded"].includes(o.status) && !o.is_abandoned && !o.is_dropship && !o.locked;
 const canTrackWeb = (o: Order) => !!o.tracking_number && !o.is_abandoned;
-/** Booked through the seller's Biteship: a Biteship courier was chosen, not shipped yet, and COD or already paid. */
-const canBiteship = (o: Order) => !!o.courier_code?.includes(":") && !o.shipping_ref && o.shipping_status === "not_shipped" && !o.is_abandoned
+/** Ready to hand over: a courier was chosen, not shipped yet, COD or already paid. Dropship orders are shipped by the Pesanin warehouse. */
+const canInputResi = (o: Order) => !!o.courier && o.shipping_status === "not_shipped" && !o.is_abandoned && !o.is_dropship
   && !["cancelled", "refunded"].includes(o.status) && (o.payment_method === "cod" || o.payment_status === "paid");
 const labelUrl = (ids: number[]) => `/orders/labels?ids=${ids.join(",")}&auto=1`;
 
@@ -56,7 +56,6 @@ function Orders() {
   const [selected, setSelected] = useState<number[]>([]);
   const [detail, setDetail] = useState<Order | null>(null);
   const [track, setTrack] = useState<Order | null>(null);
-  const [biteship, setBiteship] = useState(false);
   const [shipping, setShipping] = useState<number[]>([]);
   const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState("");
@@ -64,14 +63,28 @@ function Orders() {
   const query = useCallback(() => new URLSearchParams({ view, type, ...filters, page: String(page), per_page: String(perPage) }).toString(), [view, type, filters, page, perPage]);
   const load = useCallback(() => { api(`/orders?${query()}`).then(setData); setSelected([]); }, [query]);
   useEffect(() => { window.addEventListener(ORDERS_EVENT, load); return () => window.removeEventListener(ORDERS_EVENT, load); }, [load]);
-  useEffect(() => { api("/integrations").then((d) => setBiteship(!!d.biteship?.connected)).catch(() => {}); }, []);
-  async function shipBiteship(ids: number[]) {
+  const [booking, setBooking] = useState(false);
+  useEffect(() => { api("/integrations").then((d) => setBooking(!!d.rajaongkir?.settings?.delivery?.enabled)).catch(() => {}); }, []);
+  /** "Pesan kurir": Komerce Delivery books the courier pickup and returns the real waybill. */
+  async function bookCourier(ids: number[]) {
     setShipping(ids); setNotice("");
     try {
-      const r = await api("/orders/biteship-ship", { method: "POST", json: { order_ids: ids } });
-      setNotice(`${r.shipped.length} pesanan dikirim lewat Biteship${r.shipped.length ? ` (resi: ${r.shipped.map((x: any) => x.waybill || "menunggu").join(", ")})` : ""}${r.failed.length ? `. ${r.failed.length} gagal: ${r.failed.map((f: any) => `${f.code} (${f.error})`).join("; ")}` : ""}.`);
+      const r = await api("/orders/book", { method: "POST", json: { order_ids: ids } });
+      setNotice(`${r.shipped.length} pesanan dipesankan kurir${r.shipped.length ? ` (resi: ${r.shipped.map((x: any) => x.waybill).join(", ")})` : ""}${r.failed.length ? `. ${r.failed.length} gagal: ${r.failed.map((f: any) => `${f.code} (${f.error})`).join("; ")}` : ""}.`);
       load();
-    } catch (e) { setNotice(e instanceof ApiError ? e.message : "Gagal mengirim lewat Biteship"); }
+    } catch (e) { setNotice(e instanceof ApiError ? e.message : "Gagal memesan kurir"); }
+    finally { setShipping([]); }
+  }
+  /** After handing the parcel to the courier: save the waybill, it is then tracked through RajaOngkir. */
+  async function inputResi(o: Order) {
+    const resi = (await askText(`Nomor resi ${o.code}`, o.tracking_number ?? "", `Kurir: ${o.courier ?? "-"}${o.courier_service ? ` ${o.courier_service}` : ""}. Isi setelah paket diserahkan ke kurir.`))?.trim();
+    if (!resi) return;
+    setShipping([o.id]); setNotice("");
+    try {
+      await api(`/orders/${o.id}`, { method: "PUT", json: { tracking_number: resi, shipping_status: "in_transit" } });
+      setNotice(`${o.code}: resi ${resi} disimpan, status pengiriman dilacak otomatis.`);
+      load();
+    } catch (e) { setNotice(e instanceof ApiError ? e.message : "Gagal menyimpan resi"); }
     finally { setShipping([]); }
   }
   useEffect(() => { const t = setTimeout(load, 250); return () => clearTimeout(t); }, [load]);
@@ -196,7 +209,7 @@ function Orders() {
                 </Select>
               </>
             )}
-            {biteship && selectedOrders.some(canBiteship) && <RowAction wide={false} tone="shopee" icon={Truck} busy={shipping.length > 1} onClick={() => shipBiteship(selectedOrders.filter(canBiteship).map((o) => o.id))}>Kirim via Biteship ({selectedOrders.filter(canBiteship).length})</RowAction>}
+            {booking && selectedOrders.some((o) => canInputResi(o) && !o.locked) && <RowAction wide={false} tone="shopee" icon={Truck} busy={shipping.length > 1} onClick={() => bookCourier(selectedOrders.filter((o) => canInputResi(o) && !o.locked).map((o) => o.id))}>Pesan kurir ({selectedOrders.filter((o) => canInputResi(o) && !o.locked).length})</RowAction>}
             {selectedOrders.some(canPrintWeb) && <RowAction wide={false} tone="primary" icon={Printer} href={labelUrl(selectedOrders.filter(canPrintWeb).map((o) => o.id))}>Cetak resi ({selectedOrders.filter(canPrintWeb).length})</RowAction>}
             {view === "all" && <button className="btn-outline btn-sm" onClick={() => bulk({ action: "archive" })}><Archive size={14} />Arsipkan</button>}
             {view === "archived" && <button className="btn-outline btn-sm" onClick={() => bulk({ action: "unarchive" })}><ArchiveRestore size={14} />Kembalikan</button>}
@@ -220,7 +233,10 @@ function Orders() {
                     <input type="checkbox" checked={selected.includes(o.id)} onChange={(e) => setSelected(e.target.checked ? [...selected, o.id] : selected.filter((x) => x !== o.id))} />
                   </td>
                   <td className="td text-slate-500">{fmtDate(o.created_at)}</td>
-                  <td className="td font-mono text-xs">{o.code}</td>
+                  <td className="td font-mono text-xs">{o.code}
+                    {o.is_dropship && <span title="Dikirim oleh gudang Pesanin; resi terisi otomatis setelah dikirim" className="mt-1 block w-fit rounded bg-violet-50 px-1.5 py-0.5 font-sans text-[10px] font-semibold text-violet-700">Dropship · gudang Pesanin</span>}
+                    {o.locked && <a href="/settings/billing" title="Melewati kuota pesanan bulan ini. Upgrade paket untuk membuka data pembeli." className="mt-1 block w-fit rounded bg-amber-50 px-1.5 py-0.5 font-sans text-[10px] font-semibold text-amber-700">Terkunci · upgrade</a>}
+                  </td>
                   <td className="td"><ChannelBadge channel={o.channel} shop={o.marketplace_shop?.shop_name} utm={o.utm_source} /></td>
                   <td className="td">{o.courier ? <>{o.courier}{o.courier_service ? `-${o.courier_service}` : ""}<div className="text-xs text-slate-500">{o.tracking_number ?? "belum ada resi"}</div>{!o.tracking_number && o.auto_ship_error && <div className="max-w-[200px] truncate text-[11px] text-rose-600" title={o.auto_ship_error}>Resi otomatis gagal: {o.auto_ship_error}</div>}</> : o.product?.type === "digital" ? <span className={`text-xs ${o.digital_sent_at ? "text-emerald-700" : "text-slate-400"}`}>{o.digital_sent_at ? "Produk terkirim" : "Digital"}</span> : "-"}</td>
                   <td className="td"><div className="font-medium">{o.customer_name || "-"}</div><div className="text-xs text-slate-500">{o.phone}</div></td>
@@ -242,7 +258,8 @@ function Orders() {
                   <td className="td text-xs">{o.channel === "website" && o.utm_campaign ? <><span className="font-medium text-slate-700">{o.utm_campaign}</span><div className="text-slate-400">{TRAFFIC[trafficOf(o.utm_source)].short}</div></> : "-"}</td>
                   <td className={actionCell} onClick={(e) => e.stopPropagation()}>
                     <div className="flex flex-col gap-1.5">
-                      {biteship && canBiteship(o) && <RowAction tone="shopee" icon={Truck} busy={shipping.includes(o.id)} onClick={() => shipBiteship([o.id])}>Kirim (Biteship)</RowAction>}
+                      {canInputResi(o) && booking && !o.locked && <RowAction tone="shopee" icon={Truck} busy={shipping.includes(o.id)} onClick={() => bookCourier([o.id])}>Pesan kurir</RowAction>}
+                      {canInputResi(o) && <RowAction icon={Truck} busy={shipping.includes(o.id)} onClick={() => inputResi(o)}>Input resi</RowAction>}
                       {canPrintWeb(o) && <RowAction tone="primary" icon={Printer} href={labelUrl([o.id])}>Cetak resi</RowAction>}
                       {canTrackWeb(o) && <RowAction icon={PackageSearch} onClick={() => setTrack(o)}>Lacak resi</RowAction>}
                       {!canPrintWeb(o) && !canTrackWeb(o) && <span className="block text-center text-xs text-slate-300">-</span>}

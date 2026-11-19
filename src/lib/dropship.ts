@@ -1,35 +1,32 @@
 "use client";
 
-import { api, Product } from "@/lib/api";
+import { api, API_URL, getToken, Product, Rate } from "@/lib/api";
+import { useEffect, useState } from "react";
 import type { CheckoutData } from "@/components/landing/BlockRenderer";
 import type { Block, LandingPage } from "@/lib/landing";
 
 export type DropshipProductType = "physical" | "digital";
-export type DropshipPaymentMethod = "cod" | "bank_transfer" | "epayment";
+export type DropshipPaymentMethod = "bank_transfer" | "epayment";
+export type PreviewShipping = { origin: string | null; rates: Rate[]; error?: string | null };
 
+/** Dropship is shipped by the Pesanin warehouse and paid upfront: no COD. */
 export const DROPSHIP_PAYMENT_OPTIONS: {
   key: DropshipPaymentMethod;
   label: string;
-  group: "COD" | "Reguler";
+  group: "Reguler";
   hint: string;
 }[] = [
   {
-    key: "cod",
-    label: "COD (Bayar di Tempat)",
-    group: "COD",
-    hint: "Pembeli bayar tunai saat paket diterima di alamat.",
-  },
-  {
     key: "bank_transfer",
-    label: "Reguler — Transfer Bank",
+    label: "Transfer Bank",
     group: "Reguler",
-    hint: "Pembayaran reguler via transfer rekening bank toko Anda.",
+    hint: "Pembayaran via transfer ke rekening bank toko Anda.",
   },
   {
     key: "epayment",
-    label: "Reguler — E-Payment (QRIS / VA / E-Wallet)",
+    label: "E-Payment (QRIS / VA / E-Wallet)",
     group: "Reguler",
-    hint: "Pembayaran reguler otomatis via QRIS, Virtual Account, GoPay, OVO.",
+    hint: "Pembayaran otomatis lewat Midtrans: QRIS, Virtual Account, GoPay, OVO.",
   },
 ];
 
@@ -94,6 +91,8 @@ export type DropshipProduct = {
   weight_gram: number;
   stock: number;
   warehouse_city: string;
+  warehouse_region_id?: number | null;
+  warehouse_region?: string | null;
   digital_format?: string;
   digital_access_url?: string;
   digital_license?: string;
@@ -169,6 +168,64 @@ export const SAMPLE_PRODUCT_IMAGES = [
   "/images/dropship/digital-canva-bundle.jpg",
   "/images/dropship/digital-course-ads.jpg",
 ];
+
+/* ── Video & thumbnail uploads (Admin) ─────────────────────────────────────── */
+
+export const DROPSHIP_VIDEO_MAX_MB = 200;
+export const isVideoFile = (url?: string) => !!url && /\.(mp4|mov|webm)(\?|$)/i.test(url);
+
+/** Upload a promo video to Pesanin storage with progress (XHR: fetch has no upload progress). */
+export function uploadDropshipVideo(file: File, onProgress: (pct: number) => void): Promise<{ url: string; size: number }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_URL}/admin/dropship/videos`);
+    xhr.setRequestHeader("Authorization", `Bearer ${getToken()}`);
+    xhr.setRequestHeader("Accept", "application/json");
+    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(Math.round((e.loaded / e.total) * 100));
+    xhr.onload = () => {
+      let body: any = null;
+      try { body = JSON.parse(xhr.responseText); } catch {}
+      if (xhr.status >= 200 && xhr.status < 300 && body?.url) return resolve(body);
+      if (xhr.status === 413) return reject(new Error(`Video terlalu besar untuk server. Maksimal ${DROPSHIP_VIDEO_MAX_MB} MB, dan batas upload di server (php/nginx) juga harus cukup.`));
+      const first = body?.errors ? Object.values(body.errors).flat()[0] : null;
+      reject(new Error((first as string) || body?.message || `Upload gagal (${xhr.status}).`));
+    };
+    xhr.onerror = () => reject(new Error("Koneksi terputus saat upload video."));
+    const fd = new FormData();
+    fd.append("file", file);
+    xhr.send(fd);
+  });
+}
+
+/** Thumbnail image through the admin image upload (max 4 MB). */
+export async function uploadDropshipImage(file: File): Promise<string> {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch(`${API_URL}/admin/uploads`, { method: "POST", body: fd, headers: { Authorization: `Bearer ${getToken()}`, Accept: "application/json" } });
+  const body = await res.json().catch(() => null);
+  if (!res.ok || !body?.url) throw new Error(body?.message || "Upload gambar gagal (maks. 4 MB).");
+  return body.url;
+}
+
+/** Download one slide pack as a ZIP (images + caption.txt) with the user's token. */
+export async function downloadSlidesZip(productId: number, packId: string): Promise<void> {
+  const res = await fetch(`${API_URL}/dropship/products/${productId}/slides/${encodeURIComponent(packId)}/zip`, {
+    headers: { Authorization: `Bearer ${getToken()}`, Accept: "application/zip, application/json" },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.message || `Gagal mengunduh slide (${res.status}).`);
+  }
+  const name = /filename="?([^";]+)"?/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? "slide.zip";
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 /* ── Backend API Calls (DB-backed) ─────────────────────────────────────────── */
 
@@ -265,9 +322,22 @@ function blk(id: string, type: Block["type"], data: Record<string, any>): Block 
 }
 
 export function normalizePaymentMethods(methods?: string[] | null): DropshipPaymentMethod[] {
-  const valid: DropshipPaymentMethod[] = ["cod", "bank_transfer", "epayment"];
+  const valid: DropshipPaymentMethod[] = ["bank_transfer", "epayment"];
   const filtered = (methods ?? []).filter((m): m is DropshipPaymentMethod => valid.includes(m as DropshipPaymentMethod));
-  return filtered.length > 0 ? Array.from(new Set(filtered)) : ["cod", "bank_transfer", "epayment"];
+  return filtered.length > 0 ? Array.from(new Set(filtered)) : ["bank_transfer", "epayment"];
+}
+
+/** Live ongkir from the dropship warehouse (RajaOngkir) for the checkout preview. */
+export function useDropshipShipping(regionId?: number | null, weight?: number, isDigital?: boolean): PreviewShipping | null {
+  const [s, setS] = useState<PreviewShipping | null>(null);
+  useEffect(() => {
+    if (isDigital) return setS(null);
+    if (!regionId) return setS({ origin: null, rates: [], error: "Gudang belum diatur." });
+    const t = setTimeout(() => api<PreviewShipping>("/shipping/preview", { method: "POST", json: { origin_region_id: regionId, weight: weight || 1000 } })
+      .then(setS).catch((e) => setS({ origin: null, rates: [], error: e?.message ?? "Gagal mengambil ongkir." })), 300);
+    return () => clearTimeout(t);
+  }, [regionId, weight, isDigital]);
+  return s;
 }
 
 export function buildStarterDropshipBlocks(templateKey: string, product: DropshipProduct): Block[] {
@@ -285,8 +355,8 @@ export function buildStarterDropshipBlocks(templateKey: string, product: Dropshi
       blk(uid(), "headline", { text: name, align: "center", size: "xl" }),
       blk(uid(), "subheadline", {
         text: isDigital
-          ? "Akses cepat via WhatsApp & Email. Tersedia metode pembayaran Reguler maupun COD."
-          : "Kualitas terbaik, pengiriman cepat dari gudang resmi — tersedia COD & Reguler.",
+          ? "Akses cepat via WhatsApp & Email setelah pembayaran transfer / E-Payment."
+          : "Kualitas terbaik, pengiriman cepat dari gudang resmi — bayar via transfer, QRIS & e-wallet.",
         align: "center",
       }),
       blk(uid(), "image", { url: hero, alt: name }),
@@ -294,7 +364,7 @@ export function buildStarterDropshipBlocks(templateKey: string, product: Dropshi
         title: "Harga Spesial Hari Ini",
         normal,
         price,
-        note: "Tersedia pilihan pembayaran COD & Reguler",
+        note: "Pembayaran aman via Transfer Bank & E-Payment",
       }),
       blk(uid(), "checkout", {
         product_id: DROPSHIP_PREVIEW_PRODUCT_ID,
@@ -307,8 +377,8 @@ export function buildStarterDropshipBlocks(templateKey: string, product: Dropshi
     return [
       blk(uid(), "announcement", {
         text: isDigital
-          ? "PROMO HARI INI — BISA PILIH REGULER (AKSES INSTAN) ATAU COD"
-          : "PROMO TERBATAS HARI INI — BISA COD ATAU PENGIRIMAN REGULER",
+          ? "PROMO HARI INI — AKSES INSTAN SETELAH PEMBAYARAN"
+          : "PROMO TERBATAS HARI INI — BAYAR VIA TRANSFER / QRIS",
       }),
       blk(uid(), "headline", { text: `Solusi Praktis untuk Anda: ${name}`, align: "center", size: "xl" }),
       blk(uid(), "subheadline", {
@@ -322,19 +392,19 @@ export function buildStarterDropshipBlocks(templateKey: string, product: Dropshi
           ? [
               "Akses file & panduan langsung dikirim otomatis ke WhatsApp & Email",
               "Praktis digunakan kapan saja dari HP maupun laptop",
-              "Bebas pilih metode pembayaran Reguler (Transfer/E-Payment) maupun COD",
+              "Bayar mudah via Transfer Bank atau E-Payment (QRIS / VA / E-Wallet)",
             ]
           : [
               "Material pilihan berkualitas tinggi & awet dipakai harian",
               "Garansi 100% tukar baru jika barang rusak saat diterima",
-              "Tersedia metode COD (Bayar di Tempat) & Reguler (Transfer / E-Payment)",
+              "Pembayaran aman via Transfer Bank & E-Payment",
             ],
       }),
       blk(uid(), "pricing", {
         title: "Penawaran Spesial Hari Ini",
         normal,
         price,
-        note: "Pilih metode COD atau Reguler pada formulir di bawah",
+        note: "Pilih Transfer Bank atau E-Payment pada formulir di bawah",
       }),
       blk(uid(), "testimonials", {
         title: "Apa Kata Mereka?",
@@ -353,13 +423,13 @@ export function buildStarterDropshipBlocks(templateKey: string, product: Dropshi
   return [
     blk(uid(), "announcement", {
       text: isDigital
-        ? "PROMO HARI INI — HEMAT SPESIAL · PILIH REGULER ATAU COD"
-        : "PROMO HARI INI — DISKON SPESIAL · BISA COD ATAU REGULER",
+        ? "PROMO HARI INI — HEMAT SPESIAL · AKSES INSTAN"
+        : "PROMO HARI INI — DISKON SPESIAL · BAYAR VIA TRANSFER / QRIS",
     }),
     blk(uid(), "headline", { text: `Miliki ${name} Sekarang!`, align: "center", size: "xl" }),
     blk(uid(), "subheadline", {
       text: isDigital
-        ? "Tanpa ribet, langsung pakai dari HP/Laptop. Bebas pilih metode Reguler (akses instan) atau COD."
+        ? "Tanpa ribet, langsung pakai dari HP/Laptop. Akses instan setelah pembayaran."
         : "Produk terlaris di media sosial dengan ribuan pembeli puas. Pesan hari ini langsung kirim!",
       align: "center",
     }),
@@ -368,21 +438,21 @@ export function buildStarterDropshipBlocks(templateKey: string, product: Dropshi
       title: "Harga Promo Khusus",
       normal,
       price,
-      note: "Tersedia COD (Bayar di Tempat) & Reguler (Transfer / E-Payment)",
+      note: "Pembayaran via Transfer Bank & E-Payment (QRIS / VA / E-Wallet)",
     }),
-    blk(uid(), "button", { label: "Pesan Sekarang — Pilih COD / Reguler", url: "#order" }),
+    blk(uid(), "button", { label: "Pesan Sekarang", url: "#order" }),
     blk(uid(), "features", {
       title: "Keunggulan Utama",
       items: isDigital
         ? [
             "Format lengkap & siap pakai tanpa keahlian teknis",
             "Kirim otomatis 24 jam via WhatsApp & Email untuk pembayaran Reguler",
-            "Tersedia opsi COD maupun Transfer/E-Payment",
+            "Pembayaran Transfer / E-Payment",
           ]
         : [
             "Kualitas terjamin & dicek sebelum pengiriman",
             "Packing aman bubble wrap tebal gratis",
-            "Bisa COD (Bayar di Tempat) atau Reguler seluruh Indonesia",
+            "Dikirim ke seluruh Indonesia, ongkir sesuai tarif kurir",
           ],
     }),
     blk(uid(), "checkout", {
@@ -456,7 +526,7 @@ export function getTemplateHeadline(blocks: Block[]): string {
 
 /**
  * Builds CheckoutData + Product[] for previewing the real Pesanin CheckoutForm inside
- * BlockView / LandingPageBuilder with BOTH COD and Reguler (Transfer Bank / E-Payment) options.
+ * BlockView / LandingPageBuilder with Transfer Bank / E-Payment (dropship has no COD) and real ongkir.
  */
 export function makeDropshipCheckoutPreview(
   product: DropshipProduct,
@@ -467,6 +537,8 @@ export function makeDropshipCheckoutPreview(
     brandName?: string;
     paymentMethods?: DropshipPaymentMethod[];
     productId?: number;
+    /** Real ongkir from useDropshipShipping(). */
+    shipping?: PreviewShipping | null;
   },
 ): { checkout: CheckoutData; products: Product[] } {
   const isDigital = product.product_type === "digital";
@@ -488,7 +560,7 @@ export function makeDropshipCheckoutPreview(
     is_preorder: false,
     images: product.images,
     autoslide: false,
-    weight: product.weight_gram || 250,
+    weight: product.weight_gram,
     track_stock: false,
     stock: product.stock,
     allow_oversell: true,
@@ -516,21 +588,12 @@ export function makeDropshipCheckoutPreview(
     product: syntheticProduct,
     payment_methods: methods,
     store: {
-      store_name: opts?.brandName || "Toko Media Sosial Anda",
-      cod_fee_percent: 3,
-      origin: isDigital ? null : product.warehouse_city || "Jakarta Barat",
+      store_name: opts?.brandName || "",
+      cod_fee_percent: 0,
+      origin: isDigital ? null : opts?.shipping?.origin ?? null,
     },
-    sold: product.sold_30d || 120,
-    preview_shipping: isDigital
-      ? undefined
-      : {
-          origin: product.warehouse_city || "Jakarta Barat",
-          rates: [
-            { code: "jne_reg", courier: "jne", name: "JNE", service: "REG (Reguler)", cost: 14000, etd: "2-3 hari", cheapest: true, cod: true },
-            { code: "jnt_ez", courier: "jnt", name: "J&T", service: "EZ (Reguler)", cost: 16000, etd: "2-3 hari", cheapest: false, cod: true },
-            { code: "sicepat_reg", courier: "sicepat", name: "SiCepat", service: "REG (Reguler)", cost: 15000, etd: "1-2 hari", cheapest: false, cod: true },
-          ],
-        },
+    sold: product.sold_30d ?? null,
+    preview_shipping: isDigital ? undefined : opts?.shipping ?? { origin: null, rates: [] },
   };
 
   // Register under both the real product id (if adopted) and the template placeholder id (900001)

@@ -2,7 +2,7 @@ import { ArrowRight, BadgePercent, CheckCircle2, Link2, MessageCircle, Repeat, U
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SitePage } from "@/components/marketing/SiteChrome";
-import { waLink } from "@/lib/site";
+import { WaLink } from "@/components/marketing/Contact";
 
 export const metadata: Metadata = { title: "Program Afiliasi · Pesanin", description: "Ajak seller memakai Pesanin dan dapatkan komisi berulang dari setiap langganan." };
 
@@ -16,7 +16,7 @@ export default function Afiliasi() {
           <h1 className="mt-5 text-4xl font-extrabold leading-tight tracking-tight text-navy md:text-[54px]">Ajak seller pakai Pesanin, dapat komisi setiap bulan</h1>
           <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-600">Cocok untuk mentor jualan online, komunitas seller, agensi iklan, dan kreator konten bisnis. Komisi berulang selama pelanggan yang kamu ajak tetap berlangganan.</p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <a href={waLink("Halo tim Pesanin, saya mau daftar program afiliasi")} target="_blank" rel="noopener noreferrer" className="flex h-12 items-center gap-2 rounded-xl bg-brand-500 px-7 font-bold text-white shadow-lg shadow-brand-500/25 hover:bg-brand-600">Daftar Jadi Afiliasi <ArrowRight size={18} /></a>
+            <WaLink text={"Halo tim Pesanin, saya mau daftar program afiliasi"} target="_blank" rel="noopener noreferrer" className="flex h-12 items-center gap-2 rounded-xl bg-brand-500 px-7 font-bold text-white shadow-lg shadow-brand-500/25 hover:bg-brand-600">Daftar Jadi Afiliasi <ArrowRight size={18} /></WaLink>
             <Link href="/#fitur" className="flex h-12 items-center rounded-xl border border-slate-200 bg-white px-6 font-semibold text-navy">Pelajari produknya</Link>
           </div>
         </div>
@@ -42,7 +42,7 @@ export default function Afiliasi() {
             <BadgePercent className="text-brand-500" size={32} />
             <h3 className="mt-4 text-2xl font-extrabold text-navy">Komisi berulang</h3>
             <p className="mt-2 text-slate-600">Persentase komisi, minimum pencairan, dan jadwal pembayaran dijelaskan saat pendaftaran. Kamu bisa memantau pelanggan yang kamu ajak dari dashboard afiliasi.</p>
-            <a href={waLink("Halo tim Pesanin, saya mau tanya detail komisi afiliasi")} target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex h-11 items-center gap-2 rounded-xl bg-[#25D366] px-6 font-bold text-white"><MessageCircle size={17} />Tanya detail komisi</a>
+            <WaLink text={"Halo tim Pesanin, saya mau tanya detail komisi afiliasi"} target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex h-11 items-center gap-2 rounded-xl bg-[#25D366] px-6 font-bold text-white"><MessageCircle size={17} />Tanya detail komisi</WaLink>
           </div>
         </div>
       </section>

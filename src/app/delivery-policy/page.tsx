@@ -22,7 +22,7 @@ export default function DeliveryPolicyPage() {
       <div>
         <h2 className="text-xl font-bold text-navy">1. Mitra Ekspedisi Logistik</h2>
         <p className="mt-3">
-          Pesanin terintegrasi dengan agregator kurir terkemuka di Indonesia (Biteship dan RajaOngkir) yang mendukung lebih dari 7 kurir nasional, antara lain:
+          Pesanin terintegrasi dengan RajaOngkir (Komerce), agregator ongkir yang mendukung lebih dari 7 kurir nasional, antara lain:
         </p>
         <ul className="mt-2 list-disc space-y-1 pl-5">
           <li>JNE Express (REG, YES, JTR)</li>

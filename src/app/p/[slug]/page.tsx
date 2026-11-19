@@ -1,13 +1,13 @@
 "use client";
 import { MessageCircle } from "lucide-react";
-import Script from "next/script";
 import { use, useEffect, useState } from "react";
 import { captureAttribution } from "@/lib/attribution";
 import { api, API_URL } from "@/lib/api";
 import { LandingPage } from "@/lib/landing";
 import { BlockView, CheckoutData, visibilityClass } from "@/components/landing/BlockRenderer";
+import { mergePixels, PixelScripts } from "@/components/PixelScripts";
 
-type Data = { page: LandingPage; store: { store_name: string; whatsapp?: string }; products: CheckoutData };
+type Data = { page: LandingPage; store: { store_name: string; whatsapp?: string }; products: CheckoutData; global_pixels?: Record<string, string[]> };
 
 export default function PublicLanding({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
@@ -27,16 +27,6 @@ export default function PublicLanding({ params }: { params: Promise<{ slug: stri
       }
     }).catch(() => setMissing(true));
   }, [slug]);
-
-  useEffect(() => {
-    const onPurchase = (e: Event) => {
-      const o = (e as CustomEvent).detail;
-      (window as any).fbq?.("track", "Purchase", { value: o.total, currency: "IDR" });
-      (window as any).ttq?.track("CompletePayment", { value: o.total, currency: "IDR" });
-    };
-    window.addEventListener("formku:purchase", onPurchase);
-    return () => window.removeEventListener("formku:purchase", onPurchase);
-  }, []);
 
   // Analytics beacon for Landing Page > Laporan.
   useEffect(() => {
@@ -62,17 +52,17 @@ export default function PublicLanding({ params }: { params: Promise<{ slug: stri
   if (!data) return <div className="flex min-h-screen items-center justify-center text-slate-400">Memuat…</div>;
   const { page, store, products } = data;
   const color = page.theme?.primary ?? "#e05510";
-  const fb = page.settings?.facebook_pixel, tt = page.settings?.tiktok_pixel;
+  // Page pixels + pixels of the products sold on this page + saved "Semua halaman" pixels.
+  const px = mergePixels(
+    { facebook: [page.settings?.facebook_pixel], tiktok: [page.settings?.tiktok_pixel] },
+    ...Object.values(products ?? {}).map((e) => (e?.product?.form_settings?.tracking?.pixels ?? []) as { platform?: string; id?: string }[]),
+    data.global_pixels,
+  );
   const wa = (store.whatsapp ?? "").replace(/\D/g, "").replace(/^0/, "62");
 
   return (
     <div className="min-h-screen" style={{ background: page.theme?.background ?? "#fff" }}>
-      {fb && /^\d+$/.test(fb) && (
-        <Script id="fb-pixel" strategy="afterInteractive">{`!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${fb}');fbq('track','PageView');fbq('track','ViewContent');`}</Script>
-      )}
-      {tt && /^[A-Z0-9]+$/i.test(tt) && (
-        <Script id="tt-pixel" strategy="afterInteractive">{`!function(w,d,t){w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie"];ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.load=function(e){var n="https://analytics.tiktok.com/i18n/pixel/events.js";ttq._i=ttq._i||{};ttq._i[e]=[];ttq._i[e]._u=n;var o=d.createElement("script");o.async=!0;o.src=n+"?sdkid="+e+"&lib="+t;var a=d.getElementsByTagName("script")[0];a.parentNode.insertBefore(o,a)};ttq.load('${tt}');ttq.page();}(window,document,'ttq');`}</Script>
-      )}
+      <PixelScripts pixels={px} kind="landing" />
       <div className={`mx-auto space-y-6 px-5 py-8 ${page.theme?.width === "wide" ? "max-w-4xl" : "max-w-xl"}`}>
         {page.blocks.map((b) => <div key={b.id} className={visibilityClass(b.data)}><BlockView block={b} color={color} checkout={products} whatsapp={store.whatsapp} /></div>)}
         <p className="pt-6 text-center text-xs text-slate-400">© {new Date().getFullYear()} {store.store_name} · dibuat dengan <b className="text-brand-600">pesanin</b></p>

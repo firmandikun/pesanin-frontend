@@ -164,8 +164,12 @@ export default function ShopeeOrders() {
   const [detail, setDetail] = useState<Order | null>(null);
 
   useEffect(() => {
-    const selectedShop = new URLSearchParams(window.location.search).get("shop_id");
+    const q = new URLSearchParams(window.location.search);
+    const selectedShop = q.get("shop_id");
     if (selectedShop) setShopId(selectedShop);
+    // ?search=<no. pesanan> (e.g. from Kesehatan Akun → pesanan terlambat): find it in every tab.
+    const search = q.get("search");
+    if (search) { setDraft({ search, courier: "" }); setFilters({ search, courier: "" }); setTab(""); }
   }, []);
 
   const state = tab === "perlu_kirim" ? sub : tab === "cancelled" ? "pembatalan" : tab;

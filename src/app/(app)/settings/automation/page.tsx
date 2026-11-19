@@ -100,7 +100,7 @@ function TelegramAwbPanel({ a, save }: { a: Automation; save: (next: Automation)
 /** Pengaturan → Otomatisasi Pesanan: auto resi once paid, auto delivery of digital products. */
 export default function AutomationSettings() {
   const [a, setA] = useState<Automation | null>(null);
-  const [ready, setReady] = useState<{ biteship: boolean; whatsapp: boolean; pickup: boolean; shopee: boolean } | null>(null);
+  const [ready, setReady] = useState<{ delivery: boolean; whatsapp: boolean; pickup: boolean; shopee: boolean } | null>(null);
   const [templates, setTemplates] = useState<WaTemplate[] | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -110,7 +110,7 @@ export default function AutomationSettings() {
     Promise.all([api<any>("/integrations"), api<any>("/addresses").catch(() => []), api<any>("/marketplace/shops").catch(() => ({ shops: [] }))]).then(([i, addr, m]) => {
       const list: unknown[] = Array.isArray(addr) ? addr : addr?.data ?? [];
       const shops: any[] = m?.shops ?? [];
-      setReady({ biteship: !!i.biteship?.connected, whatsapp: !!i.whatsapp_cloud?.connected, pickup: list.length > 0, shopee: shops.some((s) => s.status !== "disconnected" && !s.is_demo) });
+      setReady({ delivery: !!i.rajaongkir?.settings?.delivery?.enabled, whatsapp: !!i.whatsapp_cloud?.connected, pickup: list.length > 0, shopee: shops.some((s) => s.status !== "disconnected" && !s.is_demo) });
       if (i.whatsapp_cloud?.connected) api<{ data: WaTemplate[] }>("/whatsapp/templates").then((r) => setTemplates(r.data)).catch(() => setTemplates([]));
       else setTemplates([]);
     });
@@ -131,7 +131,7 @@ export default function AutomationSettings() {
   return (
     <div className="max-w-3xl space-y-5">
       <PageHead title="Otomatisasi Pesanan" tutorial={false} crumbs={[["Pengaturan"], ["Otomatisasi Pesanan"]]} />
-      <p className="-mt-2 text-sm text-slate-500">Pesanan web dan manual diproses sendiri setelah lunas: resi terbit otomatis untuk produk fisik, dan produk digital langsung dikirim ke pembeli. Pesanan Shopee bisa diatur pengirimannya otomatis di bawah.</p>
+      <p className="-mt-2 text-sm text-slate-500">Pesanan web dan manual diproses sendiri setelah lunas: kurir dipesan lewat Komerce dan resi asli terbit untuk produk fisik, produk digital langsung dikirim ke pembeli. Pesanan Shopee bisa diatur pengirimannya otomatis di bawah.</p>
       {msg && <p className={`rounded-lg p-2.5 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>{msg.text}</p>}
       {!a || !ready ? <p className="flex items-center gap-2 text-sm text-slate-500"><Loader2 size={16} className="animate-spin" />Memuat…</p> : (
         <>
@@ -139,18 +139,18 @@ export default function AutomationSettings() {
             <div className="flex items-start gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600"><Truck size={20} /></span>
               <div className="flex-1"><b className="text-slate-800">Resi otomatis (produk fisik)</b>
-                <p className="text-sm text-slate-500">Begitu pesanan lunas, Pesanin memesan kurir di Biteship dan nomor resi asli langsung terbit. Kurir menjemput di alamat pickup-mu.</p></div>
+                <p className="text-sm text-slate-500">Begitu pesanan lunas, Pesanin memesan kurir lewat Komerce Delivery (RajaOngkir) dan resi asli langsung terbit. Kurir menjemput di alamat pickup-mu. Pesanan dropship dilewati karena dikirim gudang Pesanin.</p></div>
               <Toggle checked={a.auto_ship} onChange={(v) => save({ ...a, auto_ship: v })} />
             </div>
             {a.auto_ship && (
               <label className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 p-3 text-sm">
-                <span><b className="block text-slate-700">Pesanan COD juga langsung dikirim</b><span className="text-xs text-slate-500">Jika mati, pesanan COD menunggu kamu kirim manual (bisa dicek dulu agar terhindar dari pesanan iseng).</span></span>
+                <span><b className="block text-slate-700">Pesanan COD juga langsung dikirim</b><span className="text-xs text-slate-500">Jika mati, pesanan COD menunggu kamu pesan kurir manual (bisa dicek dulu agar terhindar dari pesanan iseng).</span></span>
                 <Toggle checked={a.auto_ship_cod} onChange={(v) => save({ ...a, auto_ship_cod: v })} />
               </label>
             )}
-            {a.auto_ship && !ready.biteship && <Warn>Biteship belum terhubung. <Link href="/settings/integrations" className="font-semibold underline">Hubungkan di Integrasi</Link> agar resi bisa terbit.</Warn>}
+            {a.auto_ship && !ready.delivery && <Warn>Layanan pesan kurir Pesanin sedang belum aktif, resi belum bisa terbit otomatis. Sementara isi resi manual di Pesanan.</Warn>}
             {a.auto_ship && !ready.pickup && <Warn>Alamat pickup belum diisi. <Link href="/settings/addresses" className="font-semibold underline">Tambah alamat</Link>.</Warn>}
-            {a.auto_ship && ready.biteship && ready.pickup && <p className="flex items-center gap-1.5 text-xs text-emerald-700"><CheckCircle2 size={14} />Siap. Pesanan lunas diproses dalam ±30 detik. Jika gagal (mis. alamat pembeli tidak lengkap) dicoba 3 kali, lalu kamu diberi notifikasi.</p>}
+            {a.auto_ship && ready.delivery && ready.pickup && <p className="flex items-center gap-1.5 text-xs text-emerald-700"><CheckCircle2 size={14} />Siap. Pesanan lunas diproses dalam ±30 detik. Jika gagal dicoba 3 kali, lalu kamu diberi notifikasi.</p>}
           </Panel>
 
           <Panel className="space-y-4 p-5">

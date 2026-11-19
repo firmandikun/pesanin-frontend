@@ -8,6 +8,7 @@ import { SUCCESS_COMPONENTS, successComp, successOrder } from "@/lib/successPage
 import { Modal } from "@/components/ui";
 import { ChoiceCard, EdCard, Label, Switch, SwitchRow } from "./parts";
 import { PLATFORMS } from "./Step2";
+import { SavedPixelOptions, savedPixelName, useSavedPixels } from "@/components/SavedPixels";
 import { Select } from "@/components/Select";
 
 const ICONS: Record<string, LucideIcon> = {
@@ -30,6 +31,7 @@ export function Step3({ p, setSs, method, setMethod, onLocate }: {
   const setComp = (key: string, patch: Record<string, any>) =>
     setSs({ components: { ...ss.components, [method]: { ...ss.components?.[method], [key]: { ...ss.components?.[method]?.[key], ...patch } } } });
   const pixels = ss.pixels ?? [];
+  const saved = useSavedPixels();
   const events = PLATFORMS.find((x) => x[0] === pxTab)![2];
   const action = ss.action ?? "page";
 
@@ -100,7 +102,7 @@ export function Step3({ p, setSs, method, setMethod, onLocate }: {
           ))}
         </div>
         {action === "whatsapp" && <div><Label>Nomor WhatsApp CS</Label><input className="input" placeholder={user?.whatsapp ?? "08…"} value={ss.whatsapp ?? ""} onChange={(e) => setSs({ whatsapp: e.target.value })} /></div>}
-        {action === "whatsapp_random" && <p className="text-xs text-slate-500">Nomor diambil acak dari WA Rotator (segera hadir). Sementara memakai nomor WhatsApp toko.</p>}
+        {action === "whatsapp_random" && <p className="text-xs text-slate-500">Nomor diambil acak dari CS aktif yang sedang bertugas (jadwal &amp; cuti di menu CS). Kalau tidak ada yang bertugas, memakai nomor WhatsApp toko. Pesan memakai template &quot;redirect&quot; di Follow Up.</p>}
         {action === "url" && <div><Label>URL Tujuan</Label><input className="input" placeholder="https://" value={ss.redirect_url ?? ""} onChange={(e) => setSs({ redirect_url: e.target.value })} /></div>}
       </EdCard>
 
@@ -114,7 +116,7 @@ export function Step3({ p, setSs, method, setMethod, onLocate }: {
           {pixels.map((px, i) => ({ px, i })).filter(({ px }) => px.platform === pxTab).map(({ px, i }) => (
             <div key={i} className="space-y-3 rounded-lg border border-slate-200 p-4">
               <div className="grid grid-cols-2 gap-2">
-                <div><Label>Pixel ID</Label><input className="input" placeholder="Input or Select Pixel ID" value={px.id} onChange={(e) => setSs({ pixels: pixels.map((x, j) => (j === i ? { ...x, id: e.target.value.trim() } : x)) })} /></div>
+                <div><Label>Pixel ID</Label><input className="input" list={`saved-px-success-${pxTab}`} placeholder="Ketik atau pilih pixel tersimpan" value={px.id} onChange={(e) => { const id = e.target.value.trim(); setSs({ pixels: pixels.map((x, j) => (j === i ? { ...x, id, name: x.name || savedPixelName(saved, pxTab, id) } : x)) }); }} /><SavedPixelOptions id={`saved-px-success-${pxTab}`} platform={pxTab} pixels={saved} /></div>
                 <div><Label>Pixel Name</Label><input className="input" placeholder="Pixel Name" value={px.name ?? ""} onChange={(e) => setSs({ pixels: pixels.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)) })} /></div>
               </div>
               <div><Label>Pixel Event</Label>

@@ -266,7 +266,7 @@ const FLOWS: Record<Flow, { tab: string; icon: typeof Globe; subtitle: string; s
       {
         title: "Proses Pesanan & Follow Up",
         desc: "Pesanan lunas langsung dipesankan kurir dan resi terbit sendiri. Kirim update ke pembeli lewat WhatsApp dan pantau laba di laporan yang sama.",
-        bullets: ["Resi Biteship otomatis saat lunas", "Inbox & template WhatsApp", "Produk digital terkirim otomatis"],
+        bullets: ["Ongkir asli & resi dilacak otomatis", "Inbox & template WhatsApp", "Produk digital terkirim otomatis"],
         mockup: <MockOrdersWa />,
       },
     ],

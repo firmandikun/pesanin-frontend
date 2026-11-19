@@ -15,7 +15,7 @@ import { showAlert } from "@/components/Dialogs";
 
 type Listing = {
   id: number; marketplace_shop_id: number; item_id: number; model_id: number; name: string; model_name: string | null; sku: string | null; item_sku: string | null;
-  price: number; cost_price: number | null; stock: number; status: string; image: string | null;
+  price: number; cost_price: number | null; stock: number; status: string; image: string | null; stock_master_id?: number | null;
   shop: { id: number; shop_name: string; shop_id: number; is_demo: boolean };
   product: { id: number; name: string; sku: string | null; cost_price: number | null } | null;
 };
@@ -99,6 +99,7 @@ function StockCell({ l, onSaved }: { l: Listing; onSaved: (v: number) => void })
           {l.stock.toLocaleString("id-ID")}
         </span>
         <Pencil size={12} className="text-slate-300 group-hover:text-[#ee4d2d]" />
+        {l.stock_master_id && <span title="Ikut Stok Master: mengubah stok ini mengubah stok di semua toko dengan SKU yang sama" className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700">Master</span>}
       </button>
     );
   }

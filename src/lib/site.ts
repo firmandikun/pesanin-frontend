@@ -1,14 +1,19 @@
-/** Public site contact details and navigation, shared by the landing page, blog, tutorial and affiliate pages. */
+/**
+ * Fallback contact details. The real ones are set by the admin in Console → Pengaturan Platform (served by
+ * /public/site) and read with useContact() / <WaLink>; there is deliberately no WhatsApp number here.
+ */
 export const SITE = {
-  // TODO: ganti dengan nomor & email resmi Pesanin.
-  whatsapp: "6281234567890",
+  whatsapp: "",
   email: "halo@pesaninn.my.id",
-  instagram: "https://instagram.com/pesanin.id",
-  tiktok: "https://tiktok.com/@pesanin.id",
+  instagram: "",
+  tiktok: "",
 };
 
-export const waLink = (text = "Halo tim Pesanin, saya mau tanya tentang fitur dan paket") =>
-  `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(text)}`;
+const DEFAULT_WA_TEXT = "Halo tim Pesanin, saya mau tanya tentang fitur dan paket";
+
+/** wa.me link to Pesanin's WhatsApp, or an email link when the admin hasn't set a number yet. */
+export const contactLink = (c: { whatsapp?: string | null; email?: string | null }, text = DEFAULT_WA_TEXT) =>
+  c.whatsapp ? `https://wa.me/${c.whatsapp}?text=${encodeURIComponent(text)}` : `mailto:${c.email || SITE.email}?subject=${encodeURIComponent("Pesanin")}&body=${encodeURIComponent(text)}`;
 
 export const SITE_NAV: [string, string][] = [
   ["Fitur", "/#fitur"],
@@ -35,6 +40,7 @@ export type SidebarMenuItem = {
 /** Live site config from the admin console (contact, notice banner, registration, plan prices/quotas, sidebar visibility). */
 export type SiteConfig = {
   registration_open: boolean; notice: string | null; notice_tone: "info" | "warning" | "success"; whatsapp: string | null; email: string | null;
+  instagram?: string | null; tiktok?: string | null;
   plans: { id: string; name: string; monthly: number; limits: Record<string, number | null> }[];
   sidebar?: SidebarMenuItem[];
 };

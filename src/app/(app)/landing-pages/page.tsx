@@ -9,7 +9,7 @@ import { api, ApiError, Paginated, Product } from "@/lib/api";
 import { LandingPage } from "@/lib/landing";
 import { Pagination } from "@/components/ui";
 import { Select } from "@/components/Select";
-import { askConfirm, showAlert, askText } from "@/components/Dialogs";
+import { askConfirm, askText } from "@/components/Dialogs";
 
 const STATUS_DOT: Record<string, string> = { published: "bg-emerald-500", draft: "bg-slate-400", archived: "bg-amber-500" };
 
@@ -109,13 +109,6 @@ export default function LandingPages() {
             >
               <PlusCircle size={16} />
               Create New Page
-            </button>
-            <button
-              onClick={() => showAlert("Import halaman dari file JSON segera hadir.", "Segera hadir")}
-              className="flex h-9 shrink-0 items-center gap-2 rounded-lg border border-brand-600 px-4 text-sm font-semibold text-brand-600 transition hover:bg-brand-50"
-            >
-              <Download size={16} />
-              Import Page
             </button>
           </div>
         </div>
@@ -254,8 +247,8 @@ function CreateModal({ templates, onClose, onCreated }: { templates: Record<stri
           <div>
             <div className="mb-2 font-semibold text-slate-800">Template</div>
             <div className="grid grid-cols-3 gap-3">
-              {all.map(([k, name]) => {
-                const soon = k === "link_bio" || k === "product_sales";
+              {all.filter(([k]) => k !== "link_bio" && k !== "product_sales").map(([k, name]) => {
+                const soon = false; // "Link Bio" & "Product Sales" templates are not built yet: hidden instead of "Coming Soon"
                 const on = form.template === k;
                 return (
                   <button type="button" key={k} disabled={soon} onClick={() => setForm({ ...form, template: k })} className="text-left disabled:cursor-not-allowed">

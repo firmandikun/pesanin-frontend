@@ -5,14 +5,8 @@ import { BrandIcon } from "@/components/BrandIcon";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Logo, Wordmark } from "@/components/Logo";
-import { loadSiteConfig, SITE, SITE_NAV, waLink } from "@/lib/site";
-
-/** Contact numbers set in Console → Pengaturan Platform, falling back to lib/site. */
-function useContact() {
-  const [c, setC] = useState({ whatsapp: SITE.whatsapp, email: SITE.email });
-  useEffect(() => { loadSiteConfig().then((s) => s && setC({ whatsapp: s.whatsapp || SITE.whatsapp, email: s.email || SITE.email })); }, []);
-  return { ...c, wa: (text?: string) => waLink(text).replace(SITE.whatsapp, c.whatsapp) };
-}
+import { SITE_NAV } from "@/lib/site";
+import { useContact } from "@/components/marketing/Contact";
 
 /** Public site header: Fitur · Cara Kerja · Harga · FAQ · Tutorial · Blog · Affiliate. */
 export function SiteHeader() {
@@ -65,7 +59,8 @@ export function SiteFooter() {
           <div className="mt-5 flex flex-wrap gap-2">
             <a href={c.wa()} target="_blank" rel="noopener noreferrer" className="flex h-9 items-center gap-2 rounded-lg bg-white/10 px-3 text-xs font-semibold text-white hover:bg-white/20"><BrandIcon name="whatsapp" size={15} />WhatsApp</a>
             <a href={`mailto:${c.email}`} className="flex h-9 items-center gap-2 rounded-lg bg-white/10 px-3 text-xs font-semibold text-white hover:bg-white/20"><Mail size={15} />Email</a>
-            <a href={SITE.instagram} target="_blank" rel="noopener noreferrer" className="flex h-9 items-center gap-2 rounded-lg bg-white/10 px-3 text-xs font-semibold text-white hover:bg-white/20"><BrandIcon name="instagram" size={15} />Instagram</a>
+            {c.instagram && <a href={c.instagram} target="_blank" rel="noopener noreferrer" className="flex h-9 items-center gap-2 rounded-lg bg-white/10 px-3 text-xs font-semibold text-white hover:bg-white/20"><BrandIcon name="instagram" size={15} />Instagram</a>}
+            {c.tiktok && <a href={c.tiktok} target="_blank" rel="noopener noreferrer" className="flex h-9 items-center gap-2 rounded-lg bg-white/10 px-3 text-xs font-semibold text-white hover:bg-white/20"><BrandIcon name="tiktok" size={15} />TikTok</a>}
           </div>
         </div>
         {FOOTER.map(([h, links]) => (

@@ -3,6 +3,7 @@ import { Check, ChevronDown, ChevronRight, ExternalLink, HelpCircle, Layers, Loa
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DateRange, useDefaultRange } from "@/components/DateRange";
 import { PageHead, Panel } from "@/components/kit";
+import { AdsGuardPanel } from "@/components/marketplace/AdsGuardPanel";
 import { Select } from "@/components/Select";
 import { api, ApiError, rupiah } from "@/lib/api";
 
@@ -343,6 +344,8 @@ export default function ShopeeAds() {
           </button>
         </div>
       </PageHead>
+
+      <AdsGuardPanel shopId={shop || undefined} />
 
       {msg && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-sm font-medium text-emerald-800">

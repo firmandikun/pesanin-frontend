@@ -12,6 +12,8 @@ type Site = {
   notice_tone: "info" | "warning" | "success";
   whatsapp: string | null;
   email: string | null;
+  instagram?: string | null;
+  tiktok?: string | null;
 };
 
 const TONES = {
@@ -72,7 +74,7 @@ export default function PlatformSettings() {
       const d = await api<{ site: Site; sidebar?: SidebarMenuItem[] }>("/admin/platform", {
         method: "PUT",
         json: {
-          site: { ...site, notice: site.notice?.trim() || null, whatsapp: site.whatsapp || null, email: site.email || null },
+          site: { ...site, notice: site.notice?.trim() || null, whatsapp: site.whatsapp || null, email: site.email || null, instagram: site.instagram?.trim() || null, tiktok: site.tiktok?.trim() || null },
           sidebar: sidebarMap,
         },
       });
@@ -233,8 +235,18 @@ export default function PlatformSettings() {
             />
           </div>
         </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <FieldLabel>Instagram (link profil)</FieldLabel>
+            <input className="input" placeholder="https://instagram.com/pesanin.id" value={site.instagram ?? ""} onChange={(e) => set("instagram", e.target.value)} />
+          </div>
+          <div>
+            <FieldLabel>TikTok (link profil)</FieldLabel>
+            <input className="input" placeholder="https://tiktok.com/@pesanin.id" value={site.tiktok ?? ""} onChange={(e) => set("tiktok", e.target.value)} />
+          </div>
+        </div>
         <p className="text-xs text-slate-500">
-          Dipakai tombol WhatsApp &ldquo;Perlu bantuan/konsultasi?&rdquo;, Jadwalkan Demo, dan footer website.
+          Dipakai tombol WhatsApp &ldquo;Perlu bantuan/konsultasi?&rdquo;, Jadwalkan Demo, halaman Afiliasi &amp; Tutorial, dan footer website. Kalau WhatsApp kosong, tombolnya membuka email. Instagram/TikTok hanya tampil di footer bila diisi.
         </p>
       </Panel>
     </div>

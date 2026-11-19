@@ -8,7 +8,7 @@ import { Logo } from "@/components/Logo";
 import type { Billing, PlanInfo } from "@/components/billing/types";
 import { api, ApiError, rupiah } from "@/lib/api";
 import { AuthProvider, useAuth } from "@/lib/auth";
-import { waLink } from "@/lib/site";
+import { WaLink } from "@/components/marketing/Contact";
 
 const num = (v: number | null, unit: string) => (v === null ? `${unit} tanpa batas` : `${v.toLocaleString("id-ID")} ${unit}`);
 const fmt = (s: string | null) => (s ? new Date(s).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "");
@@ -138,7 +138,7 @@ function Picker() {
               <div className={`rounded-2xl border border-slate-200 bg-white p-5 ${locked && free ? "" : "sm:col-span-2"}`}>
                 <h3 className="font-bold text-navy">Butuh lebih dari 100.000 pesanan?</h3>
                 <p className="mt-1 text-sm text-slate-600">Paket Custom untuk brand dan agensi. Tim kami juga siap bantu pilih paket yang pas.</p>
-                <a href={waLink(`Halo tim Pesanin, saya pemilik toko ${user!.store_name} dan ingin konsultasi paket.`)} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex h-10 items-center gap-2 rounded-lg bg-emerald-500 px-4 text-sm font-semibold text-white hover:bg-emerald-600"><MessageCircle size={16} />Chat WhatsApp</a>
+                <WaLink text={`Halo tim Pesanin, saya pemilik toko ${user!.store_name} dan ingin konsultasi paket.`} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex h-10 items-center gap-2 rounded-lg bg-emerald-500 px-4 text-sm font-semibold text-white hover:bg-emerald-600"><MessageCircle size={16} />Chat WhatsApp</WaLink>
               </div>
             </div>
           </>

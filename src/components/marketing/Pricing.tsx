@@ -2,7 +2,8 @@
 import { Check, Minus, Star } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { loadSiteConfig, waLink } from "@/lib/site";
+import { loadSiteConfig } from "@/lib/site";
+import { WaLink } from "@/components/marketing/Contact";
 import { COMPARE, PLANS, YEARLY_MONTHS_PAID, rupiah } from "@/lib/plans";
 
 type Card = { id: string; name: string; monthly: number; orders: number | null; highlight?: boolean };
@@ -58,7 +59,7 @@ export function Pricing() {
           <p className="mt-2 min-h-[40px] text-sm text-slate-500">Untuk brand & agensi dengan banyak toko atau kebutuhan khusus</p>
           <div className="mt-4"><p className="text-[28px] font-extrabold leading-none text-navy">Custom</p><p className="mt-2 text-xs text-slate-400">Hubungi kami</p></div>
           <div className="min-h-6 flex-1" />
-          <a href={waLink("Halo tim Pesanin, saya mau tanya paket Custom")} target="_blank" rel="noopener noreferrer" className="flex h-11 items-center justify-center rounded-xl border border-brand-300 text-sm font-bold text-brand-600 transition hover:bg-brand-50">Hubungi Kami</a>
+          <WaLink text={"Halo tim Pesanin, saya mau tanya paket Custom"} target="_blank" rel="noopener noreferrer" className="flex h-11 items-center justify-center rounded-xl border border-brand-300 text-sm font-bold text-brand-600 transition hover:bg-brand-50">Hubungi Kami</WaLink>
         </div>
       </div>
 

@@ -13,6 +13,7 @@ import { Modal } from "@/components/ui";
 import { Check, Dropzone, EdCard, Label, Note, Switch, SwitchRow } from "./parts";
 import { PaymentPanel, ShippingPanel } from "./Step2Panels";
 import { Select } from "@/components/Select";
+import { SavedPixelOptions, savedPixelName, useSavedPixels } from "@/components/SavedPixels";
 
 type Props = {
   p: Partial<Product>; set: <K extends keyof Product>(k: K, v: Product[K] | null) => void; setFs: (patch: Partial<FormSettings>) => void;
@@ -36,7 +37,6 @@ export const PLATFORMS: [Pixel["platform"], string, string[]][] = [
   ["tiktok", "Tiktok Pixel", ["ViewContent", "ClickButton", "AddToCart", "InitiateCheckout", "PlaceAnOrder", "CompletePayment"]],
   ["google_ads", "Google Ads", ["conversion", "page_view", "purchase"]],
   ["gtm", "Google Tag Manager", ["page_view", "purchase"]],
-  ["snack", "Snack Video", ["EVENT_CONTENT_VIEW", "EVENT_PURCHASE"]],
 ];
 
 function loadTemplates(): { name: string; settings: FormSettings }[] {
@@ -270,7 +270,9 @@ export function Step2({ p, set, setFs, products, onLocate }: Props) {
         <Tracking fs={fs} setFs={setFs} pixels={pixels} />
       </EdCard>
 
-      <EdCard icon={ServerCog} tint="violet" title="Server Side Tracking" right={<span className="badge bg-slate-100 text-slate-500">Segera hadir</span>} />
+      <EdCard icon={ServerCog} tint="violet" title="Server Side Tracking (Meta Conversions API)" right={<a href="/settings/tracking" target="_blank" rel="noreferrer" className="text-xs font-semibold text-brand-700 hover:underline">Atur di Pengaturan → Tracking</a>}>
+        <p className="px-4 py-3 text-xs text-slate-500">Event Purchase dikirim dari server untuk pixel Facebook yang Server Side-nya aktif, baik yang ditandai &quot;Semua halaman&quot; maupun yang dipilih di produk ini.</p>
+      </EdCard>
 
       <ComponentEditor k={editing} onClose={() => setEditing(null)} p={p} set={set} c={c} setComp={setComp} />
     </div>
@@ -342,6 +344,7 @@ function Tracking({ fs, setFs, pixels }: { fs: FormSettings; setFs: Props["setFs
   const events = PLATFORMS.find((x) => x[0] === tab)![2];
   const setPixels = (px: Pixel[]) => setFs({ tracking: { ...fs.tracking, pixels: px } });
   const list = pixels.map((px, i) => ({ px, i })).filter(({ px }) => px.platform === tab);
+  const saved = useSavedPixels();
   return (
     <div className="space-y-4">
       <div>
@@ -365,7 +368,7 @@ function Tracking({ fs, setFs, pixels }: { fs: FormSettings; setFs: Props["setFs
       {list.map(({ px, i }) => (
         <div key={i} className="space-y-3 rounded-lg border border-slate-200 p-4">
           <div className="grid grid-cols-2 gap-2">
-            <div><Label>Pixel ID</Label><input className="input" placeholder={tab === "gtm" ? "GTM-XXXXXX" : "Input Pixel ID"} value={px.id} onChange={(ev) => setPixels(pixels.map((x, j) => (j === i ? { ...x, id: ev.target.value.trim() } : x)))} /></div>
+            <div><Label>Pixel ID</Label><input className="input" list={`saved-px-form-${tab}`} placeholder={tab === "gtm" ? "GTM-XXXXXX" : tab === "google_ads" ? "AW-123456789/Label" : "Ketik atau pilih pixel tersimpan"} value={px.id} onChange={(ev) => { const id = ev.target.value.trim(); setPixels(pixels.map((x, j) => (j === i ? { ...x, id, name: x.name || savedPixelName(saved, tab, id) } : x))); }} /><SavedPixelOptions id={`saved-px-form-${tab}`} platform={tab} pixels={saved} /></div>
             <div><Label>Pixel Name</Label><input className="input" placeholder="Pixel Name" value={px.name ?? ""} onChange={(ev) => setPixels(pixels.map((x, j) => (j === i ? { ...x, name: ev.target.value } : x)))} /></div>
           </div>
           <div><Label>Pixel Event</Label>

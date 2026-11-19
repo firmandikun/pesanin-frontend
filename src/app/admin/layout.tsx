@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  BookOpen, Boxes, ChevronRight, CreditCard, FileText, Gauge, LayoutDashboard, LogOut, Megaphone, Menu, Settings2, ShieldCheck, SlidersHorizontal, Store, Users, X,
+  BookOpen, Boxes, ChevronRight, Truck, CreditCard, FileText, Gauge, LayoutDashboard, LogOut, Megaphone, Menu, Settings2, ShieldCheck, SlidersHorizontal, Store, Users, X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -11,7 +11,7 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 
 const GROUPS: [string, [string, string, React.ElementType][]][] = [
   ["Bisnis", [["Ringkasan", "/admin", LayoutDashboard], ["Pengguna", "/admin/users", Users], ["Tagihan", "/admin/invoices", CreditCard]]],
-  ["Produk Pesanin", [["Produk Dropship", "/admin/dropship", Boxes], ["Paket & Fitur", "/admin/plans", SlidersHorizontal], ["Pengaturan Platform", "/admin/settings", Settings2]]],
+  ["Produk Pesanin", [["Produk Dropship", "/admin/dropship", Boxes], ["Pesanan Dropship", "/admin/dropship/orders", Truck], ["Paket & Fitur", "/admin/plans", SlidersHorizontal], ["Pengaturan Platform", "/admin/settings", Settings2]]],
   ["Operasional", [["Toko Shopee", "/admin/shops", Store]]],
   ["Konten", [["Tutorial", "/admin/content/tutorials", BookOpen], ["Blog", "/admin/blog", FileText], ["Pengumuman", "/admin/content/announcements", Megaphone]]],
 ];
@@ -27,7 +27,9 @@ function Console({ children }: { children: React.ReactNode }) {
   // Theme the whole page (incl. modals rendered at the root) with the console palette.
   useEffect(() => { document.documentElement.classList.add("console"); return () => document.documentElement.classList.remove("console"); }, []);
   if (!allowed) return <div className="flex h-screen items-center justify-center bg-slate-950 text-slate-500">Khusus admin Pesanin…</div>;
-  const active = (href: string) => (href === "/admin" ? pathname === href : pathname.startsWith(href));
+  // Most specific entry wins, so /admin/dropship/orders doesn't also light up /admin/dropship.
+  const matches = (href: string) => (href === "/admin" ? pathname === href : pathname === href || pathname.startsWith(href + "/"));
+  const active = (href: string) => matches(href) && !ALL.some(([, h]) => h.length > href.length && h.startsWith(href) && matches(h));
   const current = ALL.find(([, h]) => active(h));
 
   return (

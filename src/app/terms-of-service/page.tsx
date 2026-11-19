@@ -59,7 +59,7 @@ export default function TermsOfServicePage() {
       <div>
         <h2 className="text-xl font-bold text-navy">5. Integrasi API Kurir dan Marketplace</h2>
         <p className="mt-3">
-          Koneksi ke Shopee, TikTok Shop, kurir logistik (Biteship/RajaOngkir), dan Payment Gateway (Midtrans) berjalan di atas protokol API pihak ketiga. Pesanin berusaha semaksimal mungkin menjaga keandalan auto-sync 30 detik, namun tidak bertanggung jawab atas downtime tak terduga dari server mitra pihak ketiga tersebut.
+          Koneksi ke Shopee, TikTok Shop, kurir logistik (RajaOngkir), dan Payment Gateway (Midtrans) berjalan di atas protokol API pihak ketiga. Pesanin berusaha semaksimal mungkin menjaga keandalan auto-sync 30 detik, namun tidak bertanggung jawab atas downtime tak terduga dari server mitra pihak ketiga tersebut.
         </p>
       </div>
 

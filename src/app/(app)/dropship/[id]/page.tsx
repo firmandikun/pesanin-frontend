@@ -43,6 +43,9 @@ import {
   getTemplateHeadline,
   lpTemplateToLandingPage,
   makeDropshipCheckoutPreview,
+  downloadSlidesZip,
+  isVideoFile,
+  useDropshipShipping,
   normalizePaymentMethods,
   saveDropshipAdoptionApi,
   slugify,
@@ -66,6 +69,7 @@ export default function DropshipProductDetail({ params }: { params: Promise<{ id
   const [slideIndexes, setSlideIndexes] = useState<Record<string, number>>({});
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [toast, setToast] = useState("");
+  const [zipping, setZipping] = useState("");
   const [previewDevice, setPreviewDevice] = useState<"mobile" | "desktop">("mobile");
   const [builderTab, setBuilderTab] = useState<"home" | "settings" | null>(
     searchParams.get("builder") === "1" ? "home" : null,
@@ -77,7 +81,7 @@ export default function DropshipProductDetail({ params }: { params: Promise<{ id
   const [comparePrice, setComparePrice] = useState(0);
   const [slug, setSlug] = useState("");
   const [selectedLpId, setSelectedLpId] = useState("");
-  const [paymentMethods, setPaymentMethods] = useState<DropshipPaymentMethod[]>(["cod", "bank_transfer", "epayment"]);
+  const [paymentMethods, setPaymentMethods] = useState<DropshipPaymentMethod[]>(["bank_transfer", "epayment"]);
   const [lpPage, setLpPage] = useState<LandingPage | null>(null);
 
   useEffect(() => {
@@ -128,9 +132,11 @@ export default function DropshipProductDetail({ params }: { params: Promise<{ id
       .finally(() => setLoading(false));
   }, [id]);
 
+  const shipping = useDropshipShipping(product?.warehouse_region_id, product?.weight_gram, product?.product_type === "digital");
   const previewCtx = useMemo(() => {
     if (!product) return { checkout: {}, products: [] };
     return makeDropshipCheckoutPreview(product, {
+      shipping,
       customName: customName || product.name,
       sellingPrice: sellingPrice || product.suggested_price,
       comparePrice: comparePrice || product.compare_price,
@@ -138,7 +144,7 @@ export default function DropshipProductDetail({ params }: { params: Promise<{ id
       paymentMethods,
       productId: existingAdopted?.product_id ?? undefined,
     });
-  }, [product, customName, sellingPrice, comparePrice, profile?.brand_name, paymentMethods, existingAdopted?.product_id]);
+  }, [product, customName, sellingPrice, comparePrice, profile?.brand_name, paymentMethods, existingAdopted?.product_id, shipping]);
 
   if (loading) {
     return <p className="py-24 text-center text-sm text-slate-400">Memuat detail produk dropship…</p>;
@@ -265,7 +271,7 @@ export default function DropshipProductDetail({ params }: { params: Promise<{ id
       setSlug(res.adoption.slug);
       showToast(
         wasExisting
-          ? "Perubahan harga, metode COD/Reguler & Landing Page berhasil disimpan ke database!"
+          ? "Perubahan harga, metode pembayaran & Landing Page berhasil disimpan ke database!"
           : "Produk & Landing Page berhasil ditambahkan dan aktif di /p/" + res.adoption.slug,
       );
       return res.adoption.lp_page ?? normalizedPage;
@@ -528,7 +534,7 @@ export default function DropshipProductDetail({ params }: { params: Promise<{ id
                 ["1. Pilih & Edit Landing Page", "Buka tab 'Pilih & Edit Landing Page', pilih template terbaik, sesuaikan harga jual, teks, warna, & nomor WA Anda, lalu klik Tambahkan."],
                 ["2. Unduh Konten Video & Slide Feed", "Ambil materi video Reels/TikTok, slide carousel, hook, dan caption yang sudah disediakan admin Pesanin untuk iklan atau posting organik."],
                 ["3. Pesanan Masuk ke Pesanan Media Sosial", "Setiap order dari Landing Page otomatis tercatat di menu Pesanan Media Sosial (bukan marketplace)."],
-                ["4. Gudang Pesanin Packing & Kirim (COD/Transfer)", "Kami kirim paket atas nama brand Anda. Selisih harga jual dikurangi modal langsung jadi profit bersih Anda!"],
+                ["4. Pembeli Bayar, Gudang Pesanin Packing & Kirim", "Kami kirim paket atas nama brand Anda. Selisih harga jual dikurangi modal langsung jadi profit bersih Anda!"],
               ].map(([title, desc]) => (
                 <li key={title} className="rounded-xl bg-slate-50/80 p-3">
                   <b className="block text-navy">{title}</b>
@@ -546,13 +552,19 @@ export default function DropshipProductDetail({ params }: { params: Promise<{ id
           {product.videos.map((v) => (
             <Panel key={v.id} className="flex flex-col overflow-hidden">
               <div className="relative aspect-[16/10] bg-slate-900 overflow-hidden">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={v.thumbnail} alt={v.title} className="h-full w-full object-cover opacity-90" />
-                <span className="absolute inset-0 flex items-center justify-center">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-navy shadow-lg">
-                    <Play size={20} fill="currentColor" />
-                  </span>
-                </span>
+                {isVideoFile(v.video_url) ? (
+                  <video src={v.video_url} poster={v.thumbnail || undefined} controls playsInline preload="metadata" className="h-full w-full object-contain" />
+                ) : (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {v.thumbnail && <img src={v.thumbnail} alt={v.title} className="h-full w-full object-cover opacity-90" />}
+                    <span className="absolute inset-0 flex items-center justify-center">
+                      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-navy shadow-lg">
+                        <Play size={20} fill="currentColor" />
+                      </span>
+                    </span>
+                  </>
+                )}
                 <span className="absolute left-3 top-3 rounded-md bg-slate-900/75 px-2 py-0.5 text-[10px] font-bold text-white">
                   {v.format}
                 </span>
@@ -588,13 +600,19 @@ export default function DropshipProductDetail({ params }: { params: Promise<{ id
                     {copiedKey === v.id ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />}
                     {copiedKey === v.id ? "Script Disalin!" : "Salin Script"}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => showToast(`Menyiapkan unduhan video "${v.title}" (${v.format})…`)}
-                    className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-navy text-xs font-semibold text-white hover:bg-slate-800"
-                  >
-                    <Download size={13} /> Unduh Video
-                  </button>
+                  {v.video_url ? (
+                    <a
+                      href={v.video_url}
+                      download
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-navy text-xs font-semibold text-white hover:bg-slate-800"
+                    >
+                      <Download size={13} /> {isVideoFile(v.video_url) ? "Unduh Video" : "Buka Link Video"}
+                    </a>
+                  ) : (
+                    <span className="flex h-9 flex-1 items-center justify-center rounded-lg bg-slate-100 text-xs font-semibold text-slate-400">Video belum tersedia</span>
+                  )}
                 </div>
               </div>
             </Panel>
@@ -693,10 +711,20 @@ export default function DropshipProductDetail({ params }: { params: Promise<{ id
                       </button>
                       <button
                         type="button"
-                        onClick={() => showToast(`Mengunduh ${totalSlides} gambar "${pack.title}" (ZIP)…`)}
-                        className="flex h-10 items-center gap-2 rounded-lg bg-navy px-4 text-xs font-semibold text-white hover:bg-slate-800"
+                        disabled={zipping === pack.id || !totalSlides}
+                        onClick={async () => {
+                          setZipping(pack.id);
+                          try {
+                            await downloadSlidesZip(product.id, pack.id);
+                          } catch (e) {
+                            showToast(e instanceof Error ? e.message : "Gagal mengunduh slide.");
+                          } finally {
+                            setZipping("");
+                          }
+                        }}
+                        className="flex h-10 items-center gap-2 rounded-lg bg-navy px-4 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
                       >
-                        <Download size={14} /> Unduh Semua Slide ({totalSlides})
+                        <Download size={14} /> {zipping === pack.id ? "Menyiapkan ZIP…" : `Unduh Semua Slide (${totalSlides})`}
                       </button>
                     </div>
                   </div>
@@ -817,53 +845,16 @@ export default function DropshipProductDetail({ params }: { params: Promise<{ id
                 </Field>
               </div>
 
-              {/* Metode Pemesanan: COD vs Reguler */}
+              {/* Metode Pembayaran (dropship: tanpa COD) */}
               <div className="space-y-2.5 rounded-xl border border-slate-200 bg-slate-50/50 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p className="text-xs font-bold text-navy">Pilihan Metode Pemesanan (COD / Reguler)</p>
-                    <p className="text-[11px] text-slate-500">
-                      Tentukan apakah pembeli di Formulir Pemesanan dapat memilih <b>COD</b>, <b>Reguler</b>, atau keduanya.
-                    </p>
-                  </div>
-                  <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-[11px] font-semibold">
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethods(["cod", "bank_transfer", "epayment"])}
-                      className={`rounded-md px-2.5 py-1 transition ${
-                        paymentMethods.includes("cod") && paymentMethods.some((m) => m !== "cod")
-                          ? "bg-navy text-white"
-                          : "text-slate-600 hover:text-navy"
-                      }`}
-                    >
-                      COD &amp; Reguler
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethods(["bank_transfer", "epayment"])}
-                      className={`rounded-md px-2.5 py-1 transition ${
-                        !paymentMethods.includes("cod")
-                          ? "bg-navy text-white"
-                          : "text-slate-600 hover:text-navy"
-                      }`}
-                    >
-                      Reguler Saja
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethods(["cod"])}
-                      className={`rounded-md px-2.5 py-1 transition ${
-                        paymentMethods.length === 1 && paymentMethods[0] === "cod"
-                          ? "bg-navy text-white"
-                          : "text-slate-600 hover:text-navy"
-                      }`}
-                    >
-                      COD Saja
-                    </button>
-                  </div>
+                <div>
+                  <p className="text-xs font-bold text-navy">Metode Pembayaran</p>
+                  <p className="text-[11px] text-slate-500">
+                    Produk dropship <b>tidak bisa COD</b>: pembeli bayar dulu lewat transfer bank atau E-Payment (Midtrans) sebelum gudang Pesanin mengirim paket.
+                  </p>
                 </div>
 
-                <div className="grid gap-2 sm:grid-cols-3">
+                <div className="grid gap-2 sm:grid-cols-2">
                   {DROPSHIP_PAYMENT_OPTIONS.map((opt) => {
                     const checked = paymentMethods.includes(opt.key);
                     return (

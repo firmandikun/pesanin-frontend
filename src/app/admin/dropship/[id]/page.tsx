@@ -23,8 +23,10 @@ import {
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
+import { RegionSelect } from "@/components/RegionSelect";
 import { useRouter } from "next/navigation";
-import { use, useEffect, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useRef, useState } from "react";
+import { showAlert } from "@/components/Dialogs";
 import { Panel } from "@/components/kit";
 import { BlockView } from "@/components/landing/BlockRenderer";
 import { CreatePageModal, CreatePageValues } from "@/components/landing/CreatePageModal";
@@ -48,6 +50,11 @@ import {
   getTemplateHeadline,
   lpTemplateToLandingPage,
   makeDropshipCheckoutPreview,
+  DROPSHIP_VIDEO_MAX_MB,
+  isVideoFile,
+  uploadDropshipImage,
+  uploadDropshipVideo,
+  useDropshipShipping,
   normalizePaymentMethods,
   updateAdminDropshipProduct,
 } from "@/lib/dropship";
@@ -67,7 +74,8 @@ function blankProduct(): DropshipProduct {
     images: [defaultImg],
     weight_gram: 300,
     stock: 200,
-    warehouse_city: "Jakarta Barat",
+    warehouse_city: "",
+    warehouse_region_id: null,
     digital_format: "",
     digital_access_url: "",
     digital_license: "Reseller / Hak Jual Kembali",
@@ -75,7 +83,7 @@ function blankProduct(): DropshipProduct {
     min_price: 89000,
     suggested_price: 119000,
     compare_price: 179000,
-    payment_methods: ["cod", "bank_transfer", "epayment"],
+    payment_methods: ["bank_transfer", "epayment"],
     variants: [{ id: "v1", name: "Standar", sku: "PSN-DS-STD", stock: 200, wholesale_price: 45000 }],
     videos: [],
     slides: [],
@@ -134,16 +142,18 @@ export default function AdminDropshipEditor({ params }: { params: Promise<{ id: 
       .finally(() => setLoading(false));
   }, [id, isNew]);
 
+  const shipping = useDropshipShipping(form.warehouse_region_id, form.weight_gram, form.product_type === "digital");
   const previewCtx = useMemo(
     () =>
       makeDropshipCheckoutPreview(form, {
+        shipping,
         customName: form.name || "Produk Dropship",
         sellingPrice: form.suggested_price || 99000,
         comparePrice: form.compare_price,
         brandName: "Toko Dropshipper Anda",
         paymentMethods: form.payment_methods,
       }),
-    [form],
+    [form, shipping],
   );
 
   const estProfit = Math.max(0, (form.suggested_price || 0) - (form.wholesale_price || 0));
@@ -178,6 +188,7 @@ export default function AdminDropshipEditor({ params }: { params: Promise<{ id: 
         weight_gram: form.weight_gram,
         stock: form.stock,
         warehouse_city: form.warehouse_city,
+        warehouse_region_id: form.product_type === "physical" ? form.warehouse_region_id ?? null : null,
         digital_format: form.digital_format,
         digital_access_url: form.digital_access_url,
         digital_license: form.digital_license,
@@ -240,7 +251,7 @@ export default function AdminDropshipEditor({ params }: { params: Promise<{ id: 
       images: nextImages,
       weight_gram: isNowDigital ? 0 : form.weight_gram || 300,
       stock: isNowDigital ? 9999 : form.stock === 9999 ? 200 : form.stock,
-      warehouse_city: isNowDigital ? "Kirim Otomatis" : form.warehouse_city === "Kirim Otomatis" ? "Jakarta Barat" : form.warehouse_city,
+      warehouse_city: isNowDigital ? "Kirim Otomatis" : form.warehouse_city === "Kirim Otomatis" ? "" : form.warehouse_city,
       digital_format: isNowDigital ? form.digital_format || "Link Canva + File PDF & Video Panduan" : form.digital_format,
       digital_license: isNowDigital ? form.digital_license || "Reseller / Hak Jual Kembali" : form.digital_license,
     };
@@ -269,7 +280,7 @@ export default function AdminDropshipEditor({ params }: { params: Promise<{ id: 
       hook: "Tulis kalimat pembuka 3 detik pertama yang menghentikan scroll audiens…",
       script: isDigital
         ? "[0-3s] Hook masalah\n[3-15s] Preview isi produk digital\n[15-25s] Manfaat & bonus\n[25-30s] CTA klik link bio — akses kirim otomatis via WA & Email"
-        : "[0-3s] Hook masalah\n[3-15s] Demo produk\n[15-25s] Bukti & keunggulan\n[25-30s] CTA klik link bio / bisa COD",
+        : "[0-3s] Hook masalah\n[3-15s] Demo produk\n[15-25s] Bukti & keunggulan\n[25-30s] CTA klik link bio, bayar transfer / QRIS",
       platforms: ["TikTok", "Instagram Reels", "FB Ads"],
     };
     setForm({ ...form, videos: [...form.videos, item] });
@@ -300,7 +311,7 @@ export default function AdminDropshipEditor({ params }: { params: Promise<{ id: 
       ],
       copywriting: isDigital
         ? `Mau lebih hemat waktu pakai ${form.name || "produk digital siap pakai"}?\n\n✅ Akses instan kirim otomatis ke WA & Email\n✅ Sekali bayar, akses selamanya\n\nKlik link di bio untuk miliki sekarang! 👇`
-        : `Lagi cari ${form.name || "produk praktis"} dengan harga terjangkau?\n\n✅ Kualitas terjamin\n✅ Bisa bayar di tempat (COD)\n\nKlik link di bio untuk pesan sekarang! 👇`,
+        : `Lagi cari ${form.name || "produk praktis"} dengan harga terjangkau?\n\n✅ Kualitas terjamin\n✅ Bayar mudah via transfer, QRIS & e-wallet\n\nKlik link di bio untuk pesan sekarang! 👇`,
       hashtags: isDigital ? "#produkdigital #templatecanva #bisnisonline" : "#promohariini #produkviral #codseluruhindonesia",
     };
     setForm({ ...form, slides: [...form.slides, pack] });
@@ -500,7 +511,7 @@ export default function AdminDropshipEditor({ params }: { params: Promise<{ id: 
                     <div>
                       <b className="block text-sm text-slate-900">Produk Fisik</b>
                       <p className="mt-0.5 text-xs text-slate-500">
-                        Stok di gudang Pesanin, packing atas nama toko dropshipper &amp; support COD.
+                        Stok di gudang Pesanin, packing atas nama toko dropshipper. Tanpa COD: pembeli bayar dulu.
                       </p>
                     </div>
                   </button>
@@ -603,13 +614,14 @@ export default function AdminDropshipEditor({ params }: { params: Promise<{ id: 
                   </>
                 ) : (
                   <>
-                    <Field label="Kota Gudang Pengiriman">
-                      <input
-                        className="input"
-                        placeholder="Jakarta Barat"
-                        value={form.warehouse_city}
-                        onChange={(e) => setForm({ ...form, warehouse_city: e.target.value })}
+                    <Field label="Wilayah Gudang Pengiriman (asal ongkir)">
+                      <RegionSelect
+                        value={form.warehouse_region_id ?? null}
+                        label={form.warehouse_region ?? (form.warehouse_region_id ? form.warehouse_city : null)}
+                        placeholder="Cari kecamatan / kota gudang"
+                        onChange={(r) => setForm({ ...form, warehouse_region_id: r.id, warehouse_region: r.label, warehouse_city: `${r.district}, ${r.city}` })}
                       />
+                      <p className="mt-1 text-[11px] text-slate-500">Ongkir di checkout dihitung asli dari wilayah ini lewat RajaOngkir.</p>
                     </Field>
                     <div className="grid grid-cols-2 gap-3">
                       <Field label="Berat (gram)">
@@ -620,13 +632,14 @@ export default function AdminDropshipEditor({ params }: { params: Promise<{ id: 
                           onChange={(e) => setForm({ ...form, weight_gram: Number(e.target.value) || 0 })}
                         />
                       </Field>
-                      <Field label="Stok Gudang">
+                      <Field label="Stok Gudang (sisa)">
                         <input
                           type="number"
                           className="input"
                           value={form.stock}
                           onChange={(e) => setForm({ ...form, stock: Number(e.target.value) || 0 })}
                         />
+                        <p className="mt-1 text-[11px] text-slate-500">Berkurang otomatis dari pesanan. Ubah hanya saat stok fisik dihitung ulang.</p>
                       </Field>
                     </div>
                   </>
@@ -848,7 +861,7 @@ export default function AdminDropshipEditor({ params }: { params: Promise<{ id: 
               </div>
 
               <div className="border-t border-slate-100 pt-3 space-y-2.5">
-                <p className="text-xs font-bold text-slate-800">Metode Pemesanan (COD / Reguler)</p>
+                <p className="text-xs font-bold text-slate-800">Metode Pembayaran (tanpa COD)</p>
                 <p className="text-[11px] text-slate-500">
                   Pilih metode pembayaran yang tersedia di Formulir Pemesanan Landing Page (minimal 1 aktif).
                 </p>
@@ -944,9 +957,14 @@ export default function AdminDropshipEditor({ params }: { params: Promise<{ id: 
               {form.videos.map((v, idx) => (
                 <Panel key={v.id} className="p-5 space-y-4">
                   <div className="flex items-start gap-4">
-                    <div className="relative h-28 w-20 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-900">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={v.thumbnail} alt="" className="h-full w-full object-cover opacity-90" />
+                    <div className="group relative h-28 w-20 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-900">
+                      {v.thumbnail ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={v.thumbnail} alt="" className="h-full w-full object-cover opacity-90" />
+                      ) : isVideoFile(v.video_url) ? (
+                        <video src={`${v.video_url}#t=0.5`} muted playsInline preload="metadata" className="h-full w-full object-cover" />
+                      ) : null}
+                      <ThumbnailUpload onUploaded={(url) => updateVideo(idx, { thumbnail: url })} />
                       <span className="absolute inset-0 flex items-center justify-center">
                         <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow">
                           <Play size={14} fill="currentColor" />
@@ -993,14 +1011,10 @@ export default function AdminDropshipEditor({ params }: { params: Promise<{ id: 
                     </div>
                   </div>
 
-                  <Field label="URL File Video / Link Drive Unduhan">
-                    <input
-                      className="input h-9 text-xs font-mono"
-                      placeholder="https://cdn.pesanin.id/dropship/video-1.mp4"
-                      value={v.video_url}
-                      onChange={(e) => updateVideo(idx, { video_url: e.target.value })}
-                    />
-                  </Field>
+                  <VideoSourceField
+                    value={v.video_url}
+                    onChange={(url, duration) => updateVideo(idx, duration ? { video_url: url, duration } : { video_url: url })}
+                  />
 
                   <Field label="Hook 3 Detik Pertama">
                     <input
@@ -1482,5 +1496,109 @@ export default function AdminDropshipEditor({ params }: { params: Promise<{ id: 
         </div>
       )}
     </div>
+  );
+}
+
+/** "mm:ss" from a video file's metadata, read in the browser. */
+function readDuration(file: File): Promise<string | null> {
+  return new Promise((resolve) => {
+    const el = document.createElement("video");
+    el.preload = "metadata";
+    el.onloadedmetadata = () => {
+      URL.revokeObjectURL(el.src);
+      const t = Math.round(el.duration || 0);
+      resolve(t ? `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}` : null);
+    };
+    el.onerror = () => resolve(null);
+    el.src = URL.createObjectURL(file);
+  });
+}
+
+/** Video source: upload an MP4/MOV/WEBM to Pesanin (with progress) or paste a Drive / CDN link. */
+function VideoSourceField({ value, onChange }: { value: string; onChange: (url: string, duration?: string) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [pct, setPct] = useState<number | null>(null);
+  const [error, setError] = useState("");
+  const pick = async (file?: File) => {
+    if (!file) return;
+    setError("");
+    if (file.size > DROPSHIP_VIDEO_MAX_MB * 1024 * 1024) return setError(`Ukuran video maksimal ${DROPSHIP_VIDEO_MAX_MB} MB (file ini ${Math.round(file.size / 1048576)} MB).`);
+    const duration = await readDuration(file);
+    setPct(0);
+    try {
+      const r = await uploadDropshipVideo(file, setPct);
+      onChange(r.url, duration ?? undefined);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload gagal.");
+    } finally {
+      setPct(null);
+      if (input.current) input.current.value = "";
+    }
+  };
+  return (
+    <Field label="File Video (upload) atau Link Drive / CDN">
+      <div className="flex gap-2">
+        <input
+          className="input h-9 min-w-0 flex-1 text-xs font-mono"
+          placeholder="Upload file, atau tempel link Google Drive / .mp4"
+          value={value}
+          disabled={pct !== null}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <input ref={input} type="file" accept="video/mp4,video/quicktime,video/webm" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
+        <button
+          type="button"
+          onClick={() => input.current?.click()}
+          disabled={pct !== null}
+          className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-slate-900 px-3 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+        >
+          <Film size={14} />
+          {pct !== null ? `${pct}%` : value && isVideoFile(value) ? "Ganti video" : "Upload video"}
+        </button>
+      </div>
+      {pct !== null && (
+        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
+          <div className="h-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
+        </div>
+      )}
+      {error ? (
+        <p className="mt-1 text-[11px] text-rose-600">{error}</p>
+      ) : (
+        <p className="mt-1 text-[11px] text-slate-500">MP4, MOV, atau WEBM, maks. {DROPSHIP_VIDEO_MAX_MB} MB. Durasi terisi otomatis. Jangan lupa klik Simpan setelah upload.</p>
+      )}
+      {value && isVideoFile(value) && pct === null && (
+        <video src={value} controls preload="metadata" className="mt-2 max-h-56 rounded-lg border border-slate-200 bg-black" />
+      )}
+    </Field>
+  );
+}
+
+/** Small overlay button on the thumbnail: upload a cover image (max 4 MB). */
+function ThumbnailUpload({ onUploaded }: { onUploaded: (url: string) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const pick = async (file?: File) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      onUploaded(await uploadDropshipImage(file));
+    } catch (e) {
+      showAlert(e instanceof Error ? e.message : "Upload thumbnail gagal.", "Gagal");
+    } finally {
+      setBusy(false);
+      if (input.current) input.current.value = "";
+    }
+  };
+  return (
+    <>
+      <input ref={input} type="file" accept="image/*" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
+      <button
+        type="button"
+        onClick={() => input.current?.click()}
+        className="absolute left-1 top-1 z-10 rounded bg-white/90 px-1.5 py-0.5 text-[9px] font-bold text-slate-800 opacity-0 shadow transition group-hover:opacity-100"
+      >
+        {busy ? "…" : "Thumbnail"}
+      </button>
+    </>
   );
 }
