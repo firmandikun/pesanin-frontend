@@ -258,11 +258,11 @@ function Orders() {
                   <td className="td text-xs">{o.channel === "website" && o.utm_campaign ? <><span className="font-medium text-slate-700">{o.utm_campaign}</span><div className="text-slate-400">{TRAFFIC[trafficOf(o.utm_source)].short}</div></> : "-"}</td>
                   <td className={actionCell} onClick={(e) => e.stopPropagation()}>
                     <div className="flex flex-col gap-1.5">
+                      <RowAction icon={Info} onClick={() => setDetail(o)}>Detail</RowAction>
                       {canInputResi(o) && booking && !o.locked && <RowAction tone="shopee" icon={Truck} busy={shipping.includes(o.id)} onClick={() => bookCourier([o.id])}>Pesan kurir</RowAction>}
                       {canInputResi(o) && <RowAction icon={Truck} busy={shipping.includes(o.id)} onClick={() => inputResi(o)}>Input resi</RowAction>}
                       {canPrintWeb(o) && <RowAction tone="primary" icon={Printer} href={labelUrl([o.id])}>Cetak resi</RowAction>}
                       {canTrackWeb(o) && <RowAction icon={PackageSearch} onClick={() => setTrack(o)}>Lacak resi</RowAction>}
-                      {!canPrintWeb(o) && !canTrackWeb(o) && <span className="block text-center text-xs text-slate-300">-</span>}
                     </div>
                   </td>
                 </tr>
