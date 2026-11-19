@@ -1,5 +1,5 @@
 "use client";
-import { AlertTriangle, ArrowUpRight, Check, Clock, Crown, Eye, Minus, Receipt, Sparkles } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, Check, Clock, Crown, Eye, Minus, Receipt, Star } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckoutDialog, InvoiceDialog, PayDialog } from "@/components/billing/Dialogs";
@@ -141,7 +141,7 @@ export default function BillingPage() {
             return (
               <div key={p.id} className={`surface surface-hover relative flex flex-col p-5 ${isCurrent ? "ring-2 ring-brand-500" : ""}`}>
                 {isCurrent && <span className="absolute -top-2.5 left-5 rounded-full bg-brand-500 px-2.5 py-0.5 text-[11px] font-bold text-white">Paket kamu</span>}
-                {p.id === "bisnis" && !isCurrent && <span className="absolute -top-2.5 left-5 flex items-center gap-1 rounded-full bg-navy px-2.5 py-0.5 text-[11px] font-bold text-white"><Sparkles size={11} />Populer</span>}
+                {p.id === "bisnis" && !isCurrent && <span className="absolute -top-2.5 left-5 flex items-center gap-1 rounded-full bg-navy px-2.5 py-0.5 text-[11px] font-bold text-white"><Star size={11} />Populer</span>}
                 <h3 className="font-bold text-navy">{p.name}</h3>
                 <p className="mt-2"><span className="text-2xl font-extrabold text-navy">{rupiah(Math.round(price))}</span><span className="text-sm text-slate-500">/bln</span></p>
                 <p className="h-4 text-xs text-slate-500">{p.monthly && period === "yearly" ? `${rupiah(p.yearly)} per tahun` : ""}</p>

@@ -8,9 +8,9 @@ const COMMON = ["/dashboard", "/tutorial", "/segera", "/settings/notifications",
 const OWNER_ONLY = ["/settings/billing", "/settings/integrations", "/settings/account", "/settings/banned", "/settings/activity", "/settings/domains", "/settings/balance", "/marketplace/balance", "/others/team-members"];
 const ROLE_PAGES: Record<Member["role"], string[]> = {
   admin: [],
-  cs: ["/chat", "/customers", "/orders", "/products", "/marketplace/orders", "/marketplace/products", "/others/inventory", "/others/payments", "/whatsapp-rotator/chats"],
+  cs: ["/chat", "/customers", "/orders", "/products", "/dropship", "/marketplace/orders", "/marketplace/products", "/others/inventory", "/others/payments", "/whatsapp-rotator/chats"],
   gudang: ["/orders", "/products", "/marketplace/orders", "/marketplace/products", "/others/inventory", "/others/transactions"],
-  advertiser: ["/broadcast", "/customers", "/reports", "/landing-pages", "/marketplace/ads", "/settings/tracking", "/products", "/affiliate", "/others/coupons", "/others/product-reports", "/whatsapp-rotator"],
+  advertiser: ["/broadcast", "/customers", "/reports", "/landing-pages", "/marketplace/ads", "/settings/tracking", "/products", "/dropship", "/affiliate", "/others/coupons", "/others/product-reports", "/whatsapp-rotator"],
 };
 
 const under = (path: string, base: string) => path === base || path.startsWith(base + "/") || path.startsWith(base + "?");

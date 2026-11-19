@@ -57,7 +57,7 @@ export default function LandingReports() {
       </Panel>
 
       <Panel>
-        <CardTitle icon={UsersRound} title="Active Sessions" tint="pink" right={<Select className="h-10 rounded-lg border border-brand-600 px-3 text-sm"><option>All Active Sessions</option></Select>} />
+        <CardTitle icon={UsersRound} title="Active Sessions" tint="pink" right={<Select className="h-10 w-48 rounded-lg border border-brand-600 px-3 text-sm"><option>All Active Sessions</option></Select>} />
         <div className="grid divide-slate-100 p-3 sm:grid-cols-2 lg:grid-cols-4 lg:divide-x">
           {metric("Session", s?.sessions ?? 0, s?.sessions_growth)}{metric("Users", s?.users ?? 0, s?.users_growth)}
           {metric("Page/Session", s?.page_per_session ?? 0)}{metric("Average Session Duration", dur(s?.avg_duration ?? 0))}

@@ -20,10 +20,23 @@ export const SITE_NAV: [string, string][] = [
   ["Affiliate", "/afiliasi"],
 ];
 
-/** Live site config from the admin console (contact, notice banner, registration, plan prices/quotas). */
+export type SidebarMenuItem = {
+  key: string;
+  label: string;
+  description?: string;
+  icon: string;
+  href?: string;
+  badge?: string;
+  locked?: boolean;
+  visible?: boolean;
+  children?: { label: string; href: string }[];
+};
+
+/** Live site config from the admin console (contact, notice banner, registration, plan prices/quotas, sidebar visibility). */
 export type SiteConfig = {
   registration_open: boolean; notice: string | null; notice_tone: "info" | "warning" | "success"; whatsapp: string | null; email: string | null;
   plans: { id: string; name: string; monthly: number; limits: Record<string, number | null> }[];
+  sidebar?: SidebarMenuItem[];
 };
 
 let cached: Promise<SiteConfig | null> | null = null;

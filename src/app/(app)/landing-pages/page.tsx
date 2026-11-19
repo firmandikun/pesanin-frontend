@@ -72,20 +72,51 @@ export default function LandingPages() {
       </div>
 
       <div className="surface">
-        <div className="flex flex-wrap items-center gap-2 p-4">
-          <div className="relative w-56">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input className="h-9 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-sm outline-none focus:border-brand-600" placeholder="Search" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-4">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="relative w-56">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                className="h-9 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-sm outline-none focus:border-brand-600"
+                placeholder="Search"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              />
+            </div>
+            <Select
+              className="h-9 w-40 rounded-lg border border-slate-200 px-3 text-sm"
+              value={status}
+              onChange={(e) => { setStatus(e.target.value); setPage(1); }}
+            >
+              <option value="">All Pages</option>
+              <option value="published">Published</option>
+              <option value="draft">Draft</option>
+              <option value="archived">Archived</option>
+            </Select>
+            <Select
+              className="h-9 w-36 rounded-lg border border-slate-200 px-3 text-sm"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+            >
+              <option value="">Label</option>
+              {data?.labels.map((l) => <option key={l}>{l}</option>)}
+            </Select>
           </div>
-          <Select className="h-9 rounded-lg border border-slate-200 px-3 text-sm" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
-            <option value="">All Pages</option><option value="published">Published</option><option value="draft">Draft</option><option value="archived">Archived</option>
-          </Select>
-          <Select className="h-9 rounded-lg border border-slate-200 px-3 text-sm" value={label} onChange={(e) => setLabel(e.target.value)}>
-            <option value="">Label</option>{data?.labels.map((l) => <option key={l}>{l}</option>)}
-          </Select>
-          <div className="ml-auto flex gap-2">
-            <button onClick={() => setCreating(true)} className="flex h-9 items-center gap-2 rounded-lg bg-brand-600 px-5 text-sm font-semibold text-white"><PlusCircle size={16} />Create New Page</button>
-            <button onClick={() => showAlert("Import halaman dari file JSON segera hadir.", "Segera hadir")} className="flex h-9 items-center gap-2 rounded-lg border border-brand-600 px-4 text-sm font-semibold text-brand-600"><Download size={16} />Import Page</button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCreating(true)}
+              className="flex h-9 shrink-0 items-center gap-2 rounded-lg bg-brand-600 px-5 text-sm font-semibold text-white transition hover:bg-brand-700"
+            >
+              <PlusCircle size={16} />
+              Create New Page
+            </button>
+            <button
+              onClick={() => showAlert("Import halaman dari file JSON segera hadir.", "Segera hadir")}
+              className="flex h-9 shrink-0 items-center gap-2 rounded-lg border border-brand-600 px-4 text-sm font-semibold text-brand-600 transition hover:bg-brand-50"
+            >
+              <Download size={16} />
+              Import Page
+            </button>
           </div>
         </div>
 

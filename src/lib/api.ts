@@ -69,7 +69,7 @@ export const STATUS_COLOR: Record<string, string> = {
 export const SHIPPING_LABEL: Record<string, string> = {
   not_shipped: "Belum Dikirim", picked_up: "Picked Up", in_transit: "Dalam Perjalanan", delivered: "Diterima", returned: "Retur",
 };
-export const PAYMENT_LABEL: Record<string, string> = { bank_transfer: "Bank Transfer", cod: "COD (Bayar di Tempat)", epayment: "E-Payment", marketplace: "Shopee" };
+export const PAYMENT_LABEL: Record<string, string> = { bank_transfer: "Reguler — Bank Transfer", cod: "COD (Bayar di Tempat)", epayment: "Reguler — E-Payment (QRIS / VA / E-Wallet)", marketplace: "Shopee" };
 export const CHANNEL_LABEL: Record<string, string> = { website: "Checkout Web", shopee: "Shopee", manual: "Input manual" };
 export const PAY_STATUS_LABEL: Record<string, string> = { unpaid: "Unpaid", paid: "Paid" };
 export const PAY_STATUS_COLOR: Record<string, string> = { unpaid: "bg-red-100 text-red-700", paid: "bg-emerald-100 text-emerald-700" };

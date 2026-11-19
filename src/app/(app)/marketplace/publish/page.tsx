@@ -1,5 +1,5 @@
 "use client";
-import { CheckCircle2, ChevronRight, Circle, Film, FolderTree, ImagePlus, Loader2, Megaphone, Plus, RotateCcw, Search, Sparkles, Trash2, X, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronRight, Circle, Film, FolderTree, ImagePlus, Loader2, Megaphone, Plus, RotateCcw, Search, Target, Trash2, X, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
@@ -433,7 +433,7 @@ function Publish() {
         <aside className="hidden xl:block">
           <div className="sticky top-24 space-y-4">
             <Panel className="p-4">
-              <p className="mb-1 flex items-center gap-1.5 text-sm font-bold text-navy"><Sparkles size={15} className="text-[#ee4d2d]" />Misi</p>
+              <p className="mb-1 flex items-center gap-1.5 text-sm font-bold text-navy"><Target size={15} className="text-[#ee4d2d]" />Misi</p>
               <p className="mb-3 text-xs text-slate-500">Lengkapi agar produk mudah ditemukan pembeli.</p>
               <ul className="space-y-2 text-xs">
                 {mission.map(([t, ok]) => <li key={t} className={`flex items-start gap-2 ${ok ? "text-slate-400 line-through" : "text-slate-700"}`}>{ok ? <CheckCircle2 size={14} className="mt-px shrink-0 text-emerald-500" /> : <Circle size={14} className="mt-px shrink-0 text-slate-300" />}{t}</li>)}

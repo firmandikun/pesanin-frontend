@@ -1,15 +1,19 @@
+
 "use client";
-import { BadgeCheck, ChevronRight, Copy, ExternalLink, MonitorDown, Package, Pencil, Plus, Search, ShoppingBag, Trash2, Truck } from "lucide-react";
+import { BadgeCheck, Boxes, ChevronRight, Copy, ExternalLink, MonitorDown, Package, Pencil, Plus, Search, ShoppingBag, Trash2, Truck } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { api, Paginated, Product, rupiah } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { Empty, IconTile, Modal, PageHeader, Pagination, StatCard, Tabs } from "@/components/ui";
 import { Select } from "@/components/Select";
 import { askConfirm } from "@/components/Dialogs";
 
 export default function Products() {
   const router = useRouter();
+  const { user } = useAuth();
+  const dropshipEnabled = !user?.sidebar || user.sidebar.some((m) => m.key === "dropship" && m.visible !== false);
   const [type, setType] = useState<"physical" | "digital">("physical");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
@@ -37,6 +41,7 @@ export default function Products() {
   return (
     <div className="space-y-5">
       <PageHeader title="Produk" desc="Setiap produk punya halaman checkout sendiri yang siap dibagikan.">
+        {dropshipEnabled && <Link href="/dropship" className="btn-outline"><Boxes size={15} />Katalog Dropship</Link>}
         <button className="btn-primary" onClick={() => setChooser(true)}><Plus size={16} />Tambah Produk</button>
       </PageHeader>
 
@@ -119,6 +124,19 @@ export default function Products() {
             <span><b className="block">Produk Digital</b><span className="text-sm text-slate-500">Produk yang bisa diunduh secara online, seperti e-book atau software.</span></span>
             <ChevronRight size={18} className="ml-auto text-slate-400" />
           </button>
+          {dropshipEnabled && (
+            <button onClick={() => router.push("/dropship")} className="card flex w-full items-center gap-4 p-4 text-left transition hover:border-brand-300 hover:bg-brand-50/40">
+              <IconTile icon={Boxes} tone="emerald" />
+              <span>
+                <span className="flex flex-wrap items-center gap-1.5">
+                  <b className="text-navy">Produk Dropship Pesanin</b>
+                  <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-600">Fisik &amp; Digital · Media Sosial</span>
+                </span>
+                <span className="mt-0.5 block text-sm text-slate-500">Bingung mau jualan apa? Ambil produk fisik &amp; digital siap jual lengkap dengan video, slide feed, &amp; landing page editable.</span>
+              </span>
+              <ChevronRight size={18} className="ml-auto shrink-0 text-slate-400" />
+            </button>
+          )}
         </div>
       </Modal>
     </div>

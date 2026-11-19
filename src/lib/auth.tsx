@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError, getToken, setToken } from "./api";
 import type { Member } from "./roles";
+import type { SidebarMenuItem } from "./site";
 
 export type User = {
   id: number; name: string; store_name: string; store_slug: string; email: string; whatsapp?: string;
@@ -15,6 +16,8 @@ export type User = {
   is_admin?: boolean;
   /** Set when a team member (not the owner) is signed in. */
   member?: Member | null;
+  /** Seller sidebar items configured from Admin Console (/admin/settings). */
+  sidebar?: SidebarMenuItem[];
 };
 
 /** See backend Plans::status(). */

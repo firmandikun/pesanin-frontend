@@ -1,5 +1,5 @@
 "use client";
-import { BarChart3, BookOpen, ChevronDown, ClipboardCheck, Gift, LayoutDashboard, LogOut, Maximize2, Megaphone, Menu, MessageCircle, MessageSquareMore, Package, Settings, Store, User, Wallet } from "lucide-react";
+import { BarChart3, BookOpen, Boxes, ChevronDown, ClipboardCheck, Gift, LayoutDashboard, LogOut, Maximize2, Megaphone, Menu, MessageCircle, MessageSquareMore, Package, Settings, Store, User, Wallet } from "lucide-react";
 import { AlertTriangle, Crown } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
@@ -7,30 +7,47 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { AuthProvider, useAuth } from "@/lib/auth";
-import { loadSiteConfig } from "@/lib/site";
+import { api } from "@/lib/api";
+import { loadSiteConfig, SidebarMenuItem } from "@/lib/site";
 import { canOpen } from "@/lib/roles";
 import { Logo, LogoMark } from "@/components/Logo";
 import { WhatsNew } from "@/components/WhatsNew";
 
 type Child = { label: string; href: string };
-type NavItem = { label: string; icon: LucideIcon; href?: string; badge?: string; children?: Child[]; external?: boolean };
+type NavItem = { key: string; label: string; icon: LucideIcon; href?: string; badge?: string; children?: Child[]; external?: boolean };
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  Megaphone,
+  LayoutDashboard,
+  Package,
+  Boxes,
+  ClipboardCheck,
+  MessageCircle,
+  Store,
+  BarChart3,
+  Wallet,
+  Gift,
+  Settings,
+  BookOpen,
+};
 
 const soon = (f: string) => `/segera?f=${encodeURIComponent(f)}`;
 
 const PLAN_NAME: Record<string, string> = { gratis: "Gratis", starter: "Starter", bisnis: "Bisnis", pro: "Pro" };
 
-// Sidebar: grouped by what a seller does day to day. Pages that were only mock-ups are left out.
-const NAV_ALL: NavItem[] = [
-  { label: "Info Terbaru", icon: Megaphone, href: "#whats-new" },
-  { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
-  { label: "Produk", icon: Package, href: "/products" },
-  { label: "Pesanan Media Sosial", icon: ClipboardCheck, children: [
+// Fallback navigation used only if the server response has not yet returned `sidebar`.
+const NAV_FALLBACK: SidebarMenuItem[] = [
+  { key: "whats_new", label: "Info Terbaru", icon: "Megaphone", href: "#whats-new", visible: true },
+  { key: "dashboard", label: "Dashboard", icon: "LayoutDashboard", href: "/dashboard", visible: true },
+  { key: "products", label: "Produk", icon: "Package", href: "/products", visible: true },
+  { key: "dropship", label: "Dropship Pesanin", icon: "Boxes", href: "/dropship", visible: true },
+  { key: "orders", label: "Pesanan Media Sosial", icon: "ClipboardCheck", visible: true, children: [
     { label: "Semua Pesanan Medsos", href: "/orders" },
     { label: "Checkout Ditinggalkan", href: "/orders?view=abandoned" },
     { label: "Diarsipkan", href: "/orders?view=archived" },
     { label: "Konfirmasi Pembayaran", href: "/others/payments" },
   ] },
-  { label: "Chat", icon: MessageCircle, children: [
+  { key: "chat", label: "Chat", icon: "MessageCircle", visible: true, children: [
     { label: "Kotak Masuk", href: "/chat" },
     { label: "Broadcast", href: "/broadcast" },
     { label: "Template WhatsApp", href: "/broadcast/templates" },
@@ -38,13 +55,13 @@ const NAV_ALL: NavItem[] = [
     { label: "Balasan Cepat & Label", href: "/chat/quick-replies" },
     { label: "Team Members", href: "/others/team-members" },
   ] },
-  { label: "Marketplace", icon: Store, badge: "Baru", children: [
+  { key: "marketplace", label: "Marketplace", icon: "Store", visible: true, children: [
     { label: "Daftar Toko", href: "/marketplace/shops" },
     { label: "Semua Produk", href: "/marketplace/products" },
     { label: "Pesanan & Pengiriman", href: "/marketplace/orders" },
     { label: "Saldo", href: "/marketplace/balance" },
   ] },
-  { label: "Laporan Bisnis", icon: BarChart3, children: [
+  { key: "reports", label: "Laporan Bisnis", icon: "BarChart3", visible: true, children: [
     { label: "Laporan Penjualan", href: "/reports/sales" },
     { label: "Statistik Penjualan", href: "/reports/statistics" },
     { label: "Laba Bersih", href: "/reports/profit" },
@@ -55,19 +72,19 @@ const NAV_ALL: NavItem[] = [
     { label: "Riset Produk", href: "/reports/research" },
     { label: "Riset Pasar", href: "/reports/market" },
   ] },
-  { label: "Operasional Media Sosial", icon: Wallet, children: [
+  { key: "operations", label: "Operasional Media Sosial", icon: "Wallet", visible: true, children: [
     { label: "Inventori Medsos", href: "/others/inventory" },
     { label: "Transaksi Medsos", href: "/others/transactions" },
     { label: "Saldo", href: "/settings/balance" },
   ] },
-  { label: "Promosi", icon: Gift, children: [
+  { key: "promotions", label: "Promosi", icon: "Gift", visible: true, children: [
     { label: "Landing Page", href: "/landing-pages" },
     { label: "Laporan Landing Page", href: "/landing-pages/reports" },
     { label: "Kupon", href: "/others/coupons" },
     { label: "Afiliasi", href: "/affiliate" },
     { label: "Follow Up Manual", href: "/settings/followup" },
   ] },
-  { label: "Pengaturan", icon: Settings, children: [
+  { key: "settings", label: "Pengaturan", icon: "Settings", visible: true, children: [
     { label: "Akun", href: "/settings/account" },
     { label: "Paket & Tagihan", href: "/settings/billing" },
     { label: "Integrasi", href: "/settings/integrations" },
@@ -80,12 +97,12 @@ const NAV_ALL: NavItem[] = [
     { label: "Perangkat Diblokir", href: "/settings/banned" },
     { label: "Log Aktivitas", href: "/settings/activity" },
   ] },
-  { label: "Tutorial", icon: BookOpen, href: "/tutorial" },
+  { key: "tutorial", label: "Tutorial", icon: "BookOpen", href: "/tutorial", visible: true },
 ];
 
 
 function Shell({ children }: { children: React.ReactNode }) {
-  const { user, logout } = useAuth();
+  const { user, setUser, logout } = useAuth();
   const member = user!.member ?? null;
   const router = useRouter();
   const pathname = usePathname();
@@ -97,7 +114,45 @@ function Shell({ children }: { children: React.ReactNode }) {
   const lockedPath = !consoleOnly && sub?.status === "expired" && !pathname.startsWith("/settings/billing");
   useEffect(() => { if (lockedPath) router.replace("/langganan"); }, [lockedPath, router]);
   const [notice, setNotice] = useState<{ text: string; tone: string } | null>(null);
-  useEffect(() => { loadSiteConfig().then((s) => s?.notice && setNotice({ text: s.notice, tone: s.notice_tone })); }, []);
+  const [sidebarItems, setSidebarItems] = useState<SidebarMenuItem[]>(() => user!.sidebar ?? NAV_FALLBACK);
+  useEffect(() => {
+    if (user?.sidebar) setSidebarItems(user.sidebar);
+  }, [user?.sidebar]);
+  useEffect(() => {
+    loadSiteConfig().then((s) => {
+      if (s?.notice) setNotice({ text: s.notice, tone: s.notice_tone });
+    });
+    const refreshSidebar = () => {
+      api<{ items: SidebarMenuItem[] }>("/sidebar")
+        .then((res) => {
+          if (Array.isArray(res?.items)) {
+            setSidebarItems(res.items);
+            setUser({ ...user!, sidebar: res.items });
+          }
+        })
+        .catch(() => {});
+    };
+    refreshSidebar();
+    window.addEventListener("focus", refreshSidebar);
+    const onVis = () => { if (document.visibilityState === "visible") refreshSidebar(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("focus", refreshSidebar);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const NAV_ALL: NavItem[] = sidebarItems
+    .filter((item) => item.visible !== false)
+    .map((item) => ({
+      key: item.key,
+      label: item.label,
+      icon: ICON_MAP[item.icon] ?? Package,
+      href: item.href,
+      badge: item.badge,
+      children: item.children,
+    }));
+
   // Team members only see the pages their role can use.
   const NAV = member ? NAV_ALL.flatMap((item) => {
     if (item.children) { const children = item.children.filter((c) => canOpen(member, c.href)); return children.length ? [{ ...item, children }] : []; }
@@ -178,7 +233,6 @@ function Shell({ children }: { children: React.ReactNode }) {
               <span className={`group relative flex items-center gap-4 rounded-xl px-2 py-2 font-medium transition-all duration-200 ease-out ${active ? "bg-white text-brand-600" : childActive ? "text-brand-600" : "text-slate-700 hover:bg-white/70 hover:text-brand-600"}`}>
                 <span className={`flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[10px] transition-all duration-200 ease-out ${active ? "bg-brand-600 text-white" : childActive ? "bg-brand-50 text-brand-600" : "text-slate-600 group-hover:bg-brand-50 group-hover:text-brand-600"}`}><Icon size={20} strokeWidth={1.8} className="transition-transform duration-200 group-hover:scale-105" /></span>
                 {!collapsed && <span className="flex-1 truncate leading-tight">{item.label}</span>}
-                {!collapsed && item.badge && <span className="rounded-full border border-emerald-400 bg-emerald-50 px-2 text-[11px] font-semibold text-emerald-600">{item.badge}</span>}
                 {!collapsed && item.children && <ChevronDown size={16} className={`text-slate-500 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`} />}
                 <span className={`absolute -right-3 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-full bg-brand-600 transition-all duration-300 ease-out ${active || (collapsed && childActive) ? "scale-y-100 opacity-100" : "scale-y-0 opacity-0"}`} />
               </span>

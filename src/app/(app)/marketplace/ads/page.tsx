@@ -1,5 +1,5 @@
 "use client";
-import { Check, ChevronDown, ChevronRight, ExternalLink, HelpCircle, Layers, Loader2, Megaphone, RefreshCcw, Search, ShieldCheck, Sparkles, Wallet } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, ExternalLink, HelpCircle, Layers, Loader2, Megaphone, RefreshCcw, Search, ShieldCheck, Wallet } from "lucide-react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DateRange, useDefaultRange } from "@/components/DateRange";
 import { PageHead, Panel } from "@/components/kit";
@@ -131,7 +131,7 @@ function CollageThumb({ images, fallbackIcon = "auto" }: { images: (string | nul
   if (valid.length === 0) {
     return (
       <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md border border-orange-200 bg-orange-50 text-[#ee4d2d]">
-        {fallbackIcon === "group" ? <Layers size={20} /> : <Sparkles size={20} />}
+        {fallbackIcon === "group" ? <Layers size={20} /> : <Megaphone size={20} />}
       </span>
     );
   }
@@ -1029,7 +1029,7 @@ function AutoProductAdsView({
   if (campaigns.length === 0) {
     return (
       <div className="flex flex-col items-center gap-2 py-14 text-center">
-        <Sparkles size={28} className="text-slate-300" />
+        <Megaphone size={28} className="text-slate-300" />
         <p className="text-sm font-semibold text-slate-700">Belum ada Iklan Produk Otomatis</p>
         <p className="max-w-md text-xs text-slate-500">
           Jika Anda memiliki Iklan Produk Otomatis di Shopee Seller Centre, klik tombol di bawah untuk menarik datanya dari Shopee.

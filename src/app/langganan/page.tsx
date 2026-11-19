@@ -1,5 +1,5 @@
 "use client";
-import { ArrowRight, Check, Clock, Database, Hourglass, LogOut, MessageCircle, Sparkles, Users } from "lucide-react";
+import { ArrowRight, Check, Clock, Database, Hourglass, LogOut, MessageCircle, Star, Users } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -108,7 +108,7 @@ function Picker() {
                 const lines = [num(p.limits.orders, "pesanan/bulan"), num(p.limits.products, "produk"), num(p.limits.landing_pages, "landing page"), num(p.limits.team, "anggota tim"), num(p.limits.research, "riset pasar/hari"), p.limits.domains ? num(p.limits.domains, "custom domain") : null].filter(Boolean) as string[];
                 return (
                   <div key={p.id} className={`relative flex flex-col rounded-2xl bg-white p-6 ${popular ? "shadow-xl shadow-brand-500/10 ring-2 ring-brand-500" : "border border-slate-200"}`}>
-                    {popular && <span className="absolute -top-3 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full bg-brand-500 px-3 py-1 text-xs font-bold text-white"><Sparkles size={12} />Paling Populer</span>}
+                    {popular && <span className="absolute -top-3 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full bg-brand-500 px-3 py-1 text-xs font-bold text-white"><Star size={12} />Paling Populer</span>}
                     <h3 className="text-lg font-bold text-navy">{p.name}</h3>
                     <p className="mt-1 text-sm text-slate-500">Sampai dengan {p.limits.orders === null ? "tanpa batas" : p.limits.orders.toLocaleString("id-ID")} pesanan per bulan</p>
                     <p className="mt-5"><span className="text-3xl font-extrabold text-navy">{rupiah(perMonth)}</span><span className="text-sm text-slate-500">/bulan</span></p>
