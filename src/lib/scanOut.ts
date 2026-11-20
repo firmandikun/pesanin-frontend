@@ -1,6 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 
-export type ScanStatus = "ok" | "unknown" | "duplicate" | "invalid";
+export type ScanStatus = "ok" | "unknown" | "duplicate" | "not_resi" | "invalid";
 export type Parcel = {
   id: number; code: string; matched: boolean; shop_name: string | null; courier: string | null; order_sn: string | null;
   customer_name: string | null; items_summary: string | null; scanned_by: string | null; scanned_at: string;
@@ -27,7 +27,7 @@ function fit(text: string, font: PDFFont, size: number, width: number) {
   return t + "...";
 }
 
-/** "Bukti Serah Terima Paket": totals per shop & courier, every resi with its shop, and signature lines. */
+/** "Bukti Serah Terima Paket": totals per shop, every resi with its shop, and signature lines. */
 export async function scanOutPdf(d: ScanPayload): Promise<Blob> {
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
@@ -51,8 +51,8 @@ export async function scanOutPdf(d: ScanPayload): Promise<Blob> {
   if (summary.unknown) { text(`* ${summary.unknown} resi tidak ditemukan di pesanan Pesanin (tetap dihitung).`, M, 8, font, warn); y -= 13; }
   y -= 8;
 
-  // Totals per shop and per courier, side by side.
-  const colW = (W - 2 * M - 20) / 2;
+  // Totals per shop.
+  const colW = W - 2 * M;
   const box = (title: string, rows: Count[], x: number, top: number) => {
     let yy = top;
     page.drawText(title, { x, y: yy, size: 10, font: bold, color: ink }); yy -= 6;
@@ -65,13 +65,12 @@ export async function scanOutPdf(d: ScanPayload): Promise<Blob> {
     });
     return yy;
   };
-  need(30 + 13 * Math.max(summary.by_shop.length, summary.by_courier.length));
-  const top = y;
-  y = Math.min(box("Per Toko", summary.by_shop, M, top), box("Per Kurir", summary.by_courier, M + colW + 20, top)) - 12;
+  need(30 + 13 * summary.by_shop.length);
+  y = box("Per Toko", summary.by_shop, M, y) - 12;
 
   // Resi table.
   const cols = [
-    { h: "No", w: 26 }, { h: "Resi", w: 120 }, { h: "Toko", w: 110 }, { h: "Kurir", w: 80 }, { h: "No. Pesanan", w: 112 }, { h: "Jam", w: 67 },
+    { h: "No", w: 32 }, { h: "Resi", w: 190 }, { h: "Toko", w: 220 }, { h: "Jam", w: 73 },
   ];
   const header = () => {
     page.drawRectangle({ x: M, y: y - 5, width: W - 2 * M, height: 17, color: rgb(0.13, 0.2, 0.33) });
@@ -84,7 +83,7 @@ export async function scanOutPdf(d: ScanPayload): Promise<Blob> {
   rows.forEach((p, i) => {
     if (need(15)) header();
     if (i % 2) page.drawRectangle({ x: M, y: y - 4, width: W - 2 * M, height: 14, color: zebra });
-    const vals = [String(i + 1), p.code, p.shop_name ?? "Tidak dikenal", p.courier ?? "-", p.order_sn ?? "-", scanTime(p.scanned_at)];
+    const vals = [String(i + 1), p.code, p.shop_name ?? "Tidak dikenal", scanTime(p.scanned_at)];
     let x = M + 4;
     vals.forEach((v, k) => {
       page.drawText(fit(v, k === 1 ? bold : font, 8, cols[k].w - 6), { x, y, size: 8, font: k === 1 ? bold : font, color: !p.matched && k === 2 ? warn : ink });
@@ -139,5 +138,6 @@ export const STATUS_STYLE: Record<ScanStatus, { box: string; label: string }> = 
   ok: { box: "bg-emerald-50 text-emerald-800 ring-emerald-200", label: "Tercatat" },
   unknown: { box: "bg-amber-50 text-amber-800 ring-amber-200", label: "Tidak dikenal" },
   duplicate: { box: "bg-rose-50 text-rose-800 ring-rose-200", label: "DOBEL!" },
+  not_resi: { box: "bg-rose-50 text-rose-800 ring-rose-200", label: "BUKAN RESI" },
   invalid: { box: "bg-slate-100 text-slate-700 ring-slate-200", label: "Tidak valid" },
 };

@@ -114,14 +114,12 @@ export default function ScanOutPage() {
               {!cur.parcels.length ? <p className="p-8 text-center text-sm text-slate-400">Belum ada resi. Mulai scan dari HP atau ketik resi di kolom kiri.</p> : (
                 <div className="max-h-[480px] overflow-auto">
                   <table className="w-full text-sm">
-                    <thead className="sticky top-0 bg-slate-50 text-left text-xs text-slate-500"><tr><th className="px-4 py-2">Resi</th><th className="px-4 py-2">Toko</th><th className="px-4 py-2">Kurir</th><th className="px-4 py-2">No. Pesanan</th><th className="px-4 py-2">Jam</th><th /></tr></thead>
+                    <thead className="sticky top-0 bg-slate-50 text-left text-xs text-slate-500"><tr><th className="px-4 py-2">Resi</th><th className="px-4 py-2">Toko</th><th className="px-4 py-2">Jam</th><th /></tr></thead>
                     <tbody>
                       {cur.parcels.map((p) => (
                         <tr key={p.id} className="border-t border-slate-100">
                           <td className="px-4 py-2 font-mono text-xs font-semibold text-slate-800">{p.code}</td>
                           <td className="px-4 py-2">{p.matched ? p.shop_name : <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">Tidak dikenal</span>}</td>
-                          <td className="px-4 py-2 text-slate-600">{p.courier ?? "-"}</td>
-                          <td className="px-4 py-2 text-xs text-slate-500">{p.order_sn ?? "-"}{p.items_summary && <div className="max-w-[260px] truncate text-slate-400">{p.items_summary}</div>}</td>
                           <td className="px-4 py-2 text-xs text-slate-500">{scanTime(p.scanned_at)}</td>
                           <td className="px-2"><button onClick={() => remove(p.id, p.code)} className="rounded p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Hapus"><Trash2 size={15} /></button></td>
                         </tr>
@@ -179,7 +177,7 @@ export default function ScanOutPage() {
   );
 }
 
-/** Total + count per shop + per courier. */
+/** Total + count per shop. */
 function Totals({ summary }: { summary: Summary }) {
   const list = (title: string, rows: Count[]) => (
     <div className="rounded-xl bg-slate-50 p-3">
@@ -190,14 +188,13 @@ function Totals({ summary }: { summary: Summary }) {
     </div>
   );
   return (
-    <div className="mt-4 grid gap-3 sm:grid-cols-[150px_1fr_1fr]">
+    <div className="mt-4 grid gap-3 sm:grid-cols-[150px_1fr]">
       <div className="flex flex-col justify-center rounded-xl bg-brand-50 p-3 text-center">
         <div className="text-3xl font-bold text-brand-700">{summary.total}</div>
         <div className="text-xs text-brand-700/80">total paket</div>
         {summary.unknown > 0 && <div className="mt-1 text-[11px] text-amber-700">{summary.unknown} tidak dikenal</div>}
       </div>
       {list("Per toko", summary.by_shop)}
-      {list("Per kurir", summary.by_courier)}
     </div>
   );
 }

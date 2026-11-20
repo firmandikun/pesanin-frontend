@@ -45,9 +45,9 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
     try {
       const r = await api<ScanResult>(`${base}/scan`, { method: "POST", json: { code } });
       feedback(r.status);
-      setLast({ ...r, message: r.message, parcel: r.parcel ?? { code } as Parcel });
+      setLast({ ...r, parcel: r.parcel ?? ({ code } as Parcel) });
       if (r.summary) setSummary(r.summary);
-      if (r.parcel && r.status !== "duplicate" && r.status !== "invalid") setRecent((x) => [r.parcel!, ...x].slice(0, 30));
+      if (r.parcel && (r.status === "ok" || r.status === "unknown")) setRecent((x) => [r.parcel!, ...x].slice(0, 30));
     } catch (e) {
       feedback("invalid");
       const msg = e instanceof ApiError ? e.message : "Gagal mengirim, cek koneksi.";
@@ -126,12 +126,6 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
           {summary.by_shop.map((s) => <div key={s.name} className="flex justify-between border-b border-slate-100 py-2 text-sm"><span className="text-slate-600">{s.name}</span><b>{s.count} paket</b></div>)}
           {!summary.by_shop.length && <p className="text-sm text-slate-400">Tidak ada paket.</p>}
         </div>
-        {summary.by_courier.length > 0 && (
-          <div>
-            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Per kurir</div>
-            {summary.by_courier.map((s) => <div key={s.name} className="flex justify-between border-b border-slate-100 py-2 text-sm"><span className="text-slate-600">{s.name}</span><b>{s.count}</b></div>)}
-          </div>
-        )}
       </div>
     </Shell>
   );
