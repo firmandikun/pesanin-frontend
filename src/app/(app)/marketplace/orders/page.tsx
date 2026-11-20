@@ -1,6 +1,7 @@
 "use client";
 import { ORDERS_EVENT } from "@/components/NotificationBell";
-import { ArrowDownUp, FileText, Info, Loader2, MessageSquare, PackageCheck, PackageSearch, Printer, RefreshCcw, Search, Store, Truck, XCircle } from "lucide-react";
+import { ArrowDownUp, CheckCircle2, FileText, Info, Loader2, MessageSquare, PackageCheck, PackageSearch, Printer, RefreshCcw, Search, Store, Truck, XCircle } from "lucide-react";
+import { askConfirm } from "@/components/Dialogs";
 import { TrackingModal } from "@/components/TrackingModal";
 import { ShipModal } from "@/components/marketplace/ShipModal";
 import { openShopeeAwb, openShopeeAwbMerged, type AwbResult } from "@/lib/awb";
@@ -119,8 +120,8 @@ function Products({ items }: { items: Item[] }) {
   );
 }
 
-function ActionLink({ children, onClick, busy, disabled, icon: Icon, tone = "sky" }: { children: React.ReactNode; onClick: () => void; busy?: boolean; disabled?: boolean; icon?: typeof Truck; tone?: "sky" | "rose" | "amber" }) {
-  const color = tone === "rose" ? "text-rose-600 hover:text-rose-700" : tone === "amber" ? "text-amber-600 hover:text-amber-700" : "text-sky-600 hover:text-sky-700";
+function ActionLink({ children, onClick, busy, disabled, icon: Icon, tone = "sky" }: { children: React.ReactNode; onClick: () => void; busy?: boolean; disabled?: boolean; icon?: typeof Truck; tone?: "sky" | "rose" | "amber" | "emerald" }) {
+  const color = tone === "rose" ? "text-rose-600 hover:text-rose-700" : tone === "amber" ? "text-amber-600 hover:text-amber-700" : tone === "emerald" ? "text-emerald-600 hover:text-emerald-700" : "text-sky-600 hover:text-sky-700";
   return (
     <button onClick={onClick} disabled={disabled || busy} className={`flex items-center gap-1.5 text-left text-[13px] font-medium hover:underline disabled:opacity-50 ${color}`}>
       {busy ? <Loader2 size={13} className="animate-spin" /> : Icon ? <Icon size={13} /> : null}{children}
@@ -134,8 +135,8 @@ export default function ShopeeOrders() {
   const [kind, setKind] = useState<"" | "order" | "kilat">("");
   const [shopId, setShopId] = useState("");
   const [by, setBy] = useState("sn");
-  const [draft, setDraft] = useState({ search: "", courier: "" });
-  const [filters, setFilters] = useState({ search: "", courier: "" });
+  const [draft, setDraft] = useState({ search: "", courier: "", printed: "" });
+  const [filters, setFilters] = useState({ search: "", courier: "", printed: "" });
   const [dir, setDir] = useState<"desc" | "asc">("desc");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
@@ -169,14 +170,21 @@ export default function ShopeeOrders() {
     if (selectedShop) setShopId(selectedShop);
     // ?search=<no. pesanan> (e.g. from Kesehatan Akun → pesanan terlambat): find it in every tab.
     const search = q.get("search");
-    if (search) { setDraft({ search, courier: "" }); setFilters({ search, courier: "" }); setTab(""); }
+    if (search) { setDraft({ search, courier: "", printed: "" }); setFilters({ search, courier: "", printed: "" }); setTab(""); }
   }, []);
+
+  // Keep the chosen shop in the URL so a reload/remount restores it instead of snapping back to "Semua toko".
+  useEffect(() => {
+    const u = new URL(window.location.href);
+    if (shopId) u.searchParams.set("shop_id", shopId); else u.searchParams.delete("shop_id");
+    window.history.replaceState(null, "", u.toString());
+  }, [shopId]);
 
   const state = tab === "perlu_kirim" ? sub : tab === "cancelled" ? "pembatalan" : tab;
   const showingReturns = tab === "cancelled" && retTab === "returns";
   const base = useCallback((extra: Record<string, string>) => new URLSearchParams({
     channel: "shopee", ...(shopId ? { marketplace_shop_id: shopId } : {}),
-    ...(filters.search ? { search: filters.search } : {}), ...(filters.courier ? { shopee_courier: filters.courier } : {}), ...extra,
+    ...(filters.search ? { search: filters.search } : {}), ...(filters.courier ? { shopee_courier: filters.courier } : {}), ...(filters.printed ? { printed: filters.printed } : {}), ...extra,
   }).toString(), [shopId, filters]);
 
   // Only the newest request may fill the list: switching tabs fast must not show an older tab's result.
@@ -278,6 +286,14 @@ export default function ShopeeOrders() {
     catch (e) { afterPrint(null, e); } finally { setBusy(""); }
   }
   async function handleCancel(o: Order, operation: "REJECT" | "ACCEPT" = "REJECT") {
+    const sn = o.external_order_sn ?? o.code;
+    const ok = await askConfirm(
+      operation === "ACCEPT"
+        ? `Setujui pembatalan pesanan ${sn}? Pesanan dibatalkan dan dana dikembalikan ke pembeli. Tindakan ini tidak bisa diurungkan.`
+        : `Tolak pembatalan pesanan ${sn}? Pesanan tetap diproses dan wajib kamu kirim.`,
+      { title: operation === "ACCEPT" ? "Setujui Pembatalan" : "Tolak Pembatalan", confirmLabel: operation === "ACCEPT" ? "Setujui" : "Tolak", danger: operation === "ACCEPT" },
+    );
+    if (!ok) return;
     setBusy(`cancel${o.id}`); setNotice("");
     try {
       const r = await api<{ order: Order; message: string }>("/labels/shopee/cancel", {
@@ -314,7 +330,7 @@ export default function ShopeeOrders() {
   // Seller Centre's Dikirim tab has no "Semua" type: it opens on Pesanan.
   const pickTab = (k: string) => { setTab(k); setSub("perlu_kirim"); setKind(k === "shipping" ? "order" : ""); setStock(""); setDoneScope("today"); setRetTab("returns"); setPage(1); };
   const apply = () => { setFilters(draft); setPage(1); };
-  const reset = () => { const empty = { search: "", courier: "" }; setDraft(empty); setFilters(empty); setKind(tab === "shipping" ? "order" : ""); setStock(""); setPage(1); };
+  const reset = () => { const empty = { search: "", courier: "", printed: "" }; setDraft(empty); setFilters(empty); setKind(tab === "shipping" ? "order" : ""); setStock(""); setPage(1); };
   const toggle = (id: number, on: boolean) => setSelected(on ? [...selected, id] : selected.filter((x) => x !== id));
   const pill = (on: boolean) => `h-8 rounded-full border px-4 text-[13px] transition ${on ? "border-brand-500 bg-white font-semibold text-brand-600" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"}`;
 
@@ -403,6 +419,14 @@ export default function ShopeeOrders() {
               <Select className="input h-10 flex-1 rounded-l-none" value={draft.courier || "all"} onChange={(e) => setDraft({ ...draft, courier: e.target.value === "all" ? "" : e.target.value })} aria-label="Jasa Kirim">
                 <option value="all">Semua Jasa Kirim</option>
                 {couriers.map((c) => <option key={c} value={c}>{cleanCourier(c)}</option>)}
+              </Select>
+            </div>}
+            {!showingReturns && ["perlu_kirim", "shipping", "done"].includes(tab) && <div className="flex min-w-[220px]">
+              <span className="flex h-10 shrink-0 items-center rounded-l-lg border border-r-0 border-slate-200 bg-slate-50 px-3 text-sm text-slate-500">Label</span>
+              <Select className="input h-10 flex-1 rounded-l-none" value={draft.printed || "all"} onChange={(e) => setDraft({ ...draft, printed: e.target.value === "all" ? "" : e.target.value })} aria-label="Status Label">
+                <option value="all">Semua Label</option>
+                <option value="yes">Sudah dicetak</option>
+                <option value="no">Belum dicetak</option>
               </Select>
             </div>}
             <button onClick={apply} className="h-10 rounded-lg border border-brand-500 px-5 text-sm font-semibold text-brand-600 hover:bg-brand-50">Terapkan</button>
@@ -514,10 +538,14 @@ export default function ShopeeOrders() {
                         <p className="font-medium text-slate-800">{o.courier_service || cleanCourier(o.courier)}</p>
                         {o.courier_service && <p className="mt-0.5 text-xs text-slate-500">{cleanCourier(o.courier)}</p>}
                         <p className="mt-0.5 font-mono text-[11px] text-slate-400">{o.tracking_number || "resi belum terbit"}</p>
+                        {o.awb_printed_at && <span className="mt-1 inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700"><CheckCircle2 size={11} />Label sudah dicetak</span>}
                       </div>
                       <div className="space-y-2">
                         {o.external_status === "IN_CANCEL" && (
-                          <ActionLink icon={XCircle} tone="rose" busy={busy === `cancel${o.id}`} disabled={!!busy} onClick={() => handleCancel(o, "REJECT")}>Tolak Pembatalan</ActionLink>
+                          <>
+                            <ActionLink icon={CheckCircle2} tone="emerald" busy={busy === `cancel${o.id}`} disabled={!!busy} onClick={() => handleCancel(o, "ACCEPT")}>Setujui Pembatalan</ActionLink>
+                            <ActionLink icon={XCircle} tone="rose" busy={busy === `cancel${o.id}`} disabled={!!busy} onClick={() => handleCancel(o, "REJECT")}>Tolak Pembatalan</ActionLink>
+                          </>
                         )}
                         {needsShipping(o) && <ActionLink icon={Truck} disabled={!!busy} onClick={() => setShipTarget({ orders: [o.id], bookings: [] })}>Atur Pengiriman</ActionLink>}
                         {o.external_status === "PENDING" && <p className="text-[13px] font-medium text-amber-600" title="Atur pengiriman bisa dilakukan setelah Shopee selesai meninjau pesanan ini. Jika atur otomatis aktif, Pesanin mengaturnya begitu Shopee melepasnya.">Tertunda</p>}
@@ -547,6 +575,7 @@ export default function ShopeeOrders() {
           order={detail}
           busy={busy}
           onRejectCancel={() => handleCancel(detail, "REJECT")}
+          onAcceptCancel={() => handleCancel(detail, "ACCEPT")}
           onPrint={() => print([detail])}
           onClose={() => setDetail(null)}
         />
@@ -621,7 +650,7 @@ function ReturnsList({ data, onPage, perPage, onPerPage, showShop }: { data: Pag
 }
 
 /** "Periksa Rincian": buyer, address, items and money for one Shopee order. */
-function OrderDetail({ order: o, busy, onRejectCancel, onPrint, onClose }: { order: Order; busy?: string; onRejectCancel?: () => void; onPrint?: () => void; onClose: () => void }) {
+function OrderDetail({ order: o, busy, onRejectCancel, onAcceptCancel, onPrint, onClose }: { order: Order; busy?: string; onRejectCancel?: () => void; onAcceptCancel?: () => void; onPrint?: () => void; onClose: () => void }) {
   const [title, desc, tone] = statusText(o);
   const items = (o.items ?? []) as Item[];
   const rows: [string, string][] = [
@@ -650,6 +679,11 @@ function OrderDetail({ order: o, busy, onRejectCancel, onPrint, onClose }: { ord
             {canPrint(o) && onPrint && (
               <button onClick={onPrint} disabled={!!busy} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 text-xs font-semibold text-navy hover:bg-slate-50 disabled:opacity-50">
                 {busy === "print" ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}Cetak Label
+              </button>
+            )}
+            {o.external_status === "IN_CANCEL" && onAcceptCancel && (
+              <button onClick={onAcceptCancel} disabled={!!busy} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-4 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+                {busy === `cancel${o.id}` ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}Setujui Pembatalan
               </button>
             )}
             {o.external_status === "IN_CANCEL" && onRejectCancel && (

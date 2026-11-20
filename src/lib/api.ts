@@ -139,7 +139,7 @@ export type Order = {
   is_dropship?: boolean;
   /** Placed over the monthly plan quota: buyer details hidden until the seller upgrades. */
   locked?: boolean;
-  channel: "website" | "shopee" | "manual"; marketplace_shop_id?: number | null; external_order_sn?: string | null; external_status?: string | null; shopee_auto_ship?: boolean;
+  channel: "website" | "shopee" | "manual"; marketplace_shop_id?: number | null; external_order_sn?: string | null; external_status?: string | null; shopee_auto_ship?: boolean; awb_printed_at?: string | null;
   items?: { item_id: number; model_id: number; name: string; variant?: string | null; sku?: string | null; item_sku?: string | null; model_sku?: string | null; qty: number; price: number; product_id?: number | null }[] | null;
   marketplace_fee: number; seller_shipping_fee: number; escrow_amount: number | null; payment_channel?: string | null;
   marketplace_shop?: { id: number; shop_name: string; is_demo: boolean } | null;
