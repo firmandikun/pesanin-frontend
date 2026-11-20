@@ -2,8 +2,9 @@
 import Link from "next/link";
 import {
   AlertTriangle, Calculator, Check, CheckCircle2, ChevronDown, ChevronUp,
-  Copy, ExternalLink, Loader2, Megaphone, Package, Pencil, Plus, RefreshCcw, Search, X,
+  Archive, BarChart3, Copy, Eye, ExternalLink, Loader2, Megaphone, Package, Pencil, Plus, RefreshCcw, Rocket, Search, Tag, X,
 } from "lucide-react";
+import { addToBoost, BoostPanel, PriceDialog, StatLine, TextDialog, type ItemStat } from "@/components/marketplace/ProductTools";
 import { BulkCostDialog } from "@/components/marketplace/BulkCostDialog";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
@@ -29,7 +30,7 @@ type Stats = {
   tabs?: { all: number; live: number; action: number; reviewing: number; unlist: number };
 };
 
-type Data = { listings: Paginated<Listing>; stats: Stats };
+type Data = { listings: Paginated<Listing>; stats: Stats; item_stats?: Record<string, ItemStat> };
 
 const STATUS_TABS: { key: string; label: string; tabKey: keyof NonNullable<Stats["tabs"]> }[] = [
   { key: "", label: "Semua", tabKey: "all" },
@@ -135,6 +136,11 @@ function Products() {
   // Expanded variation lists (by default show up to 3 SKU variations per product, like Shopee Seller Centre).
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<string[]>([]);
+  const [priceKeys, setPriceKeys] = useState<string[] | null>(null);
+  const [textItem, setTextItem] = useState<{ shop: number; item: number } | null>(null);
+  const [boostKey, setBoostKey] = useState(0);
+  const [boosted, setBoosted] = useState<Set<string>>(new Set());
+  const [toolBusy, setToolBusy] = useState("");
 
   const load = useCallback(() => {
     const qs = new URLSearchParams({
@@ -181,6 +187,33 @@ function Products() {
     }
   };
 
+  const syncStats = async () => {
+    setToolBusy("stats"); setNotice("");
+    try {
+      const r = await api<{ products: number; errors: string[] }>("/marketplace/listings/stats/sync", { method: "POST" });
+      if (r.errors.length) showAlert(r.errors.join("\n"), "Sebagian gagal");
+      setNotice(`Statistik ${r.products} produk diperbarui dari Shopee.`);
+      load();
+    } catch (e) { showAlert(e instanceof ApiError ? e.message : "Gagal memperbarui statistik", "Gagal"); } finally { setToolBusy(""); }
+  };
+  const selectedItems = () => selected.map((k) => k.split(":").map(Number) as [number, number]);
+  const setListed = async (unlist: boolean) => {
+    setToolBusy(unlist ? "unlist" : "list"); setNotice("");
+    try {
+      const r = await api<{ updated: number; failed: Record<string, string> }>("/marketplace/listings/unlist", { method: "POST", json: { unlist, items: selectedItems().map(([shop_id, item_id]) => ({ shop_id, item_id })) } });
+      const f = Object.entries(r.failed);
+      if (f.length) showAlert(f.map(([k, v]) => `${k}: ${v}`).join("\n"), `${f.length} produk gagal`);
+      setNotice(`${r.updated} produk ${unlist ? "diarsipkan (tidak ditampilkan)" : "ditampilkan lagi"} di Shopee.`);
+      setSelected([]); load();
+    } catch (e) { showAlert(e instanceof ApiError ? e.message : "Gagal", "Gagal"); } finally { setToolBusy(""); }
+  };
+  const boostSelected = async () => {
+    setToolBusy("boost"); setNotice("");
+    try { await addToBoost(selected); setNotice(`${selected.length} produk masuk daftar Naikkan Otomatis.`); setSelected([]); setBoostKey((n) => n + 1); }
+    catch (e) { showAlert(e instanceof ApiError ? e.message : "Gagal", "Gagal"); } finally { setToolBusy(""); }
+  };
+  const realSelected = selected.filter((k) => !(d?.listings.data.find((l) => `${l.marketplace_shop_id}:${l.item_id}` === k)?.shop.is_demo));
+
   const s = d?.stats;
   const missingCost = s ? Math.max(0, s.total - s.with_cost) : 0;
   // Group variation rows by Shopee product (shop + item_id) keeping the server's order.
@@ -224,6 +257,9 @@ function Products() {
         <button onClick={syncProducts} disabled={syncing || !shops.length} className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
           {syncing ? <Loader2 size={15} className="animate-spin" /> : <RefreshCcw size={15} />}Sinkronkan Produk
         </button>
+        <button onClick={syncStats} disabled={!!toolBusy || !shops.length} className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+          {toolBusy === "stats" ? <Loader2 size={15} className="animate-spin" /> : <BarChart3 size={15} />}Perbarui Statistik
+        </button>
         <button onClick={() => setBulk(true)} className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">
           <Calculator size={15} />Input HPP Massal
         </button>
@@ -236,6 +272,25 @@ function Products() {
         <p className="flex items-center gap-2 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700">
           <CheckCircle2 size={16} />{notice}
         </p>
+      )}
+      <BoostPanel reloadKey={boostKey} onChanged={setBoosted} />
+      {priceKeys && d && (
+        <PriceDialog rows={d.listings.data.filter((l) => priceKeys.includes(`${l.marketplace_shop_id}:${l.item_id}`))} onClose={() => setPriceKeys(null)}
+          onSaved={(p, msg) => { Object.entries(p).forEach(([id, price]) => patch(Number(id), { price })); if (msg) { setNotice(msg); setPriceKeys(null); setSelected([]); } }} />
+      )}
+      {textItem && (
+        <TextDialog shopId={textItem.shop} itemId={textItem.item} onClose={() => setTextItem(null)}
+          onSaved={(name) => { setD((cur) => cur && { ...cur, listings: { ...cur.listings, data: cur.listings.data.map((x) => (x.marketplace_shop_id === textItem.shop && x.item_id === textItem.item ? { ...x, name } : x)) } }); setTextItem(null); setNotice("Judul & deskripsi diperbarui di Shopee."); }} />
+      )}
+      {realSelected.length > 0 && (
+        <div className="sticky top-2 z-20 flex flex-wrap items-center gap-2 rounded-xl bg-navy px-4 py-2.5 text-sm text-white shadow-lg">
+          <b className="mr-2">{realSelected.length} produk dipilih</b>
+          <button onClick={() => setPriceKeys(realSelected)} className="flex h-8 items-center gap-1.5 rounded-lg bg-white/10 px-3 font-semibold hover:bg-white/20"><Tag size={14} />Ubah Harga</button>
+          <button onClick={boostSelected} disabled={!!toolBusy} className="flex h-8 items-center gap-1.5 rounded-lg bg-white/10 px-3 font-semibold hover:bg-white/20 disabled:opacity-50">{toolBusy === "boost" ? <Loader2 size={14} className="animate-spin" /> : <Rocket size={14} />}Naikkan Otomatis</button>
+          <button onClick={() => setListed(true)} disabled={!!toolBusy} className="flex h-8 items-center gap-1.5 rounded-lg bg-white/10 px-3 font-semibold hover:bg-white/20 disabled:opacity-50">{toolBusy === "unlist" ? <Loader2 size={14} className="animate-spin" /> : <Archive size={14} />}Arsipkan</button>
+          <button onClick={() => setListed(false)} disabled={!!toolBusy} className="flex h-8 items-center gap-1.5 rounded-lg bg-white/10 px-3 font-semibold hover:bg-white/20 disabled:opacity-50">{toolBusy === "list" ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}Tampilkan</button>
+          <button onClick={() => setSelected([])} className="ml-auto flex h-8 items-center gap-1 rounded-lg px-2 text-white/80 hover:text-white"><X size={14} />Batal</button>
+        </div>
       )}
       {bulk && <BulkCostDialog onClose={() => setBulk(false)} onSaved={(m) => { setBulk(false); setNotice(m); load(); }} />}
 
@@ -459,7 +514,9 @@ function Products() {
                           </p>
                           <p className="text-xs text-slate-400">
                             ID Produk: <span className="font-mono text-slate-500">{first.item_id}</span>
+                            {boosted.has(key) && <span className="ml-2 inline-flex items-center gap-0.5 rounded bg-orange-50 px-1.5 text-[10px] font-semibold text-[#ee4d2d]"><Rocket size={10} />Naikkan otomatis</span>}
                           </p>
+                          {!first.shop.is_demo && <StatLine s={d?.item_stats?.[key]} />}
                         </div>
                       </div>
 
@@ -519,6 +576,12 @@ function Products() {
                             >
                               Ubah <ExternalLink size={11} />
                             </a>
+                            <button onClick={() => setTextItem({ shop: first.marketplace_shop_id, item: first.item_id })} className="flex items-center gap-1 font-medium text-sky-600 hover:text-sky-700 hover:underline">
+                              <Pencil size={12} />Judul & Deskripsi
+                            </button>
+                            <button onClick={() => setPriceKeys([key])} className="flex items-center gap-1 font-medium text-sky-600 hover:text-sky-700 hover:underline">
+                              <Tag size={12} />Ubah Harga
+                            </button>
                             <Link
                               href={`/marketplace/publish?copy_shop=${first.marketplace_shop_id}&copy_item=${first.item_id}`}
                               className="flex items-center gap-1 font-medium text-sky-600 hover:text-sky-700 hover:underline"
