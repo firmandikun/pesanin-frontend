@@ -1,18 +1,22 @@
 "use client";
-import { AlertTriangle, ChevronDown, Loader2, Pause, Play, Settings2, ShieldCheck, Target, TrendingDown } from "lucide-react";
+import { AlertTriangle, ChevronDown, Loader2, Pause, Play, Settings2, ShieldCheck, Stethoscope, Target, TrendingDown } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { showAlert } from "@/components/Dialogs";
 import { Panel, Toggle } from "@/components/kit";
 import { Select } from "@/components/Select";
+import { Modal } from "@/components/ui";
 import { api, ApiError, rupiah } from "@/lib/api";
 
 type Status = "rugi" | "tanpa_penjualan" | "tipis" | "hpp_kosong" | "sehat" | "data_kurang";
 type Row = {
   id: number; campaign_id: number; shop_id: number; name: string; ad_type: string | null; bidding_method: string | null; roas_target: number | null;
-  expense: number; gmv: number; orders: number; roas: number | null; fee_rate: number; hpp_ratio: number | null;
+  expense: number; expense_real: number; gmv: number; orders: number; roas: number | null; roas_real: number | null; fee_rate: number; hpp_ratio: number | null;
+  impressions: number; clicks: number; ctr: number | null; cr: number | null; cpc: number | null; cost_per_order: number | null;
+  evaluation: Verdict[];
   break_even: number | null; break_even_min: number; suggested_target: number | null; profit: number | null; status: Status; editable: boolean;
   items: { item_id: number; name: string | null; image: string | null; price: number; hpp: number | null }[];
 };
+type Verdict = { key: "hook" | "conversion" | "profit"; title: string; status: string; tone: "good" | "ok" | "bad" | "wait"; desc: string };
 type Settings = { notify: boolean; days: number; min_spend: number; action: "off" | "pause" | "raise_target" };
 type Data = { days: number; settings: Settings; campaigns: Row[]; summary: Record<Status, number> & { loss: number; wasted: number } };
 
@@ -36,6 +40,7 @@ export function AdsGuardPanel({ shopId }: { shopId?: string }) {
   const [showAll, setShowAll] = useState(false);
   const [busy, setBusy] = useState("");
   const [cfgOpen, setCfgOpen] = useState(false);
+  const [evalRow, setEvalRow] = useState<Row | null>(null);
 
   const load = useCallback(() => { api<Data>(`/marketplace/ads/guard?days=${days}`).then(setD).catch(() => setD(null)); }, [days]);
   useEffect(load, [load]);
@@ -94,7 +99,7 @@ export function AdsGuardPanel({ shopId }: { shopId?: string }) {
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[860px] text-sm">
                     <thead className="text-left text-xs text-slate-500"><tr>
-                      {["Iklan", "Status", "Biaya iklan", "ROAS", "Titik impas", "Laba/rugi iklan", ""].map((h) => <th key={h} className="px-2 py-2 font-semibold">{h}</th>)}
+                      {["Iklan", "Status", "Biaya iklan (+PPN)", "ROAS riil", "Titik impas", "Laba/rugi iklan", ""].map((h) => <th key={h} className="px-2 py-2 font-semibold">{h}</th>)}
                     </tr></thead>
                     <tbody>
                       {visible.map((r) => {
@@ -109,18 +114,20 @@ export function AdsGuardPanel({ shopId }: { shopId?: string }) {
                               </div>
                             </td>
                             <td className="px-2 py-2.5"><span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ${META[r.status][1]}`}>{META[r.status][0]}</span></td>
-                            <td className="whitespace-nowrap px-2 py-2.5 font-medium text-navy">{rupiah(r.expense)}</td>
-                            <td className={`px-2 py-2.5 font-bold ${r.status === "rugi" || r.status === "tanpa_penjualan" ? "text-rose-600" : r.status === "tipis" ? "text-amber-600" : "text-navy"}`}>{r.roas ?? "-"}</td>
+                            <td className="whitespace-nowrap px-2 py-2.5 font-medium text-navy">{rupiah(r.expense_real)}<span className="block text-[11px] font-normal text-slate-400">Shopee {rupiah(r.expense)}</span></td>
+                            <td className={`px-2 py-2.5 font-bold ${r.status === "rugi" || r.status === "tanpa_penjualan" ? "text-rose-600" : r.status === "tipis" ? "text-amber-600" : "text-navy"}`}>{r.roas_real ?? "-"}<span className="block text-[11px] font-normal text-slate-400">Shopee {r.roas ?? "-"} · CTR {r.ctr ?? "-"}% · CR {r.cr ?? "-"}%</span></td>
                             <td className="px-2 py-2.5">
                               {r.break_even ? <b className="text-navy">{r.break_even}</b> : r.status === "hpp_kosong" ? <span className="text-xs text-slate-500">≥ {r.break_even_min}<span className="block">isi HPP dulu</span></span> : <span className="text-xs text-rose-600">rugi sebelum iklan</span>}
                               <span className="block text-[11px] text-slate-400">biaya Shopee {Math.round(r.fee_rate * 100)}%{r.hpp_ratio !== null ? ` · HPP ${Math.round(r.hpp_ratio * 100)}%` : ""}</span>
                             </td>
                             <td className={`whitespace-nowrap px-2 py-2.5 font-semibold ${r.profit === null ? "text-slate-400" : r.profit < 0 ? "text-rose-600" : "text-emerald-600"}`}>
-                              {r.status === "tanpa_penjualan" ? `−${rupiah(r.expense)}` : r.profit === null ? "-" : `${r.profit < 0 ? "−" : "+"}${rupiah(Math.abs(r.profit))}`}
+                              {r.status === "tanpa_penjualan" ? `−${rupiah(r.expense_real)}` : r.profit === null ? "-" : `${r.profit < 0 ? "−" : "+"}${rupiah(Math.abs(r.profit))}`}
                             </td>
                             <td className="px-2 py-2.5">
+                              <div className="flex flex-wrap justify-end gap-1.5">
+                                <button onClick={() => setEvalRow(r)} className="flex h-8 items-center gap-1 rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-navy hover:border-[#ee4d2d] hover:text-[#ee4d2d]"><Stethoscope size={13} />Evaluasi</button>
                               {r.editable ? (
-                                <div className="flex flex-wrap justify-end gap-1.5">
+                                <>
                                   {r.status === "rugi" && r.bidding_method === "auto" && r.suggested_target && (r.roas_target ?? 0) < r.suggested_target && (
                                     <button onClick={() => act(r, "change_roas_target", r.suggested_target)} disabled={!!busy} title={`Target ROAS ${r.suggested_target} = titik impas + 20% margin aman`}
                                       className="flex h-8 items-center gap-1 rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-navy hover:border-[#ee4d2d] hover:text-[#ee4d2d] disabled:opacity-50">
@@ -133,8 +140,9 @@ export function AdsGuardPanel({ shopId }: { shopId?: string }) {
                                       {busy === `${r.id}pause` ? <Loader2 size={13} className="animate-spin" /> : <Pause size={13} />}Jeda
                                     </button>
                                   )}
-                                </div>
-                              ) : <span className="block text-right text-[11px] text-slate-400">Iklan otomatis toko, atur di Seller Centre</span>}
+                                </>
+                              ) : <span className="block w-full text-right text-[11px] text-slate-400">Iklan otomatis toko, atur di Seller Centre</span>}
+                              </div>
                             </td>
                           </tr>
                         );
@@ -144,7 +152,7 @@ export function AdsGuardPanel({ shopId }: { shopId?: string }) {
                 </div>
               )}
               <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-                <span className="flex items-center gap-1.5"><TrendingDown size={13} />Titik impas = 1 ÷ (1 − biaya Shopee − HPP/harga). ROAS di bawahnya berarti iklan menghabiskan lebih dari laba produk.</span>
+                <span className="flex items-center gap-1.5"><TrendingDown size={13} />Titik impas = 1 ÷ (1 − biaya Shopee − HPP/harga). ROAS riil = penjualan ÷ (biaya iklan + PPN 11%); di bawah titik impas berarti iklan menghabiskan lebih dari laba produk.</span>
                 <button onClick={() => setShowAll(!showAll)} className="font-semibold text-[#ee4d2d]">{showAll ? "Sembunyikan yang sehat" : `Tampilkan semua (${rows.length})`}</button>
               </div>
               {s && s.hpp_kosong > 0 && <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800"><AlertTriangle size={13} className="mt-0.5 shrink-0" />{s.hpp_kosong} iklan belum bisa dinilai karena HPP produknya kosong. Isi lewat Semua Produk → Input HPP massal.</p>}
@@ -152,7 +160,52 @@ export function AdsGuardPanel({ shopId }: { shopId?: string }) {
           )}
         </div>
       )}
+      <EvaluationModal row={evalRow} days={d?.days ?? days} onClose={() => setEvalRow(null)} />
     </Panel>
+  );
+}
+
+const TONE: Record<Verdict["tone"], string> = {
+  good: "border-emerald-200 bg-emerald-50 text-emerald-700", ok: "border-indigo-200 bg-indigo-50 text-indigo-700",
+  bad: "border-rose-200 bg-rose-50 text-rose-700", wait: "border-slate-200 bg-slate-50 text-slate-600",
+};
+
+/** Evaluasi iklan: Hook (CTR), Konversi (CR), ROAS & laba, each with what to do next. */
+function EvaluationModal({ row: r, days, onClose }: { row: Row | null; days: number; onClose: () => void }) {
+  const num = (n: number) => n.toLocaleString("id-ID");
+  const dec = (n: number | null, unit: string) => (n === null ? "-" : `${n.toLocaleString("id-ID")}${unit}`);
+  const stats: [string, string][] = r ? [
+    ["Tayangan", num(r.impressions)], ["Klik", num(r.clicks)], ["CTR", dec(r.ctr, "%")], ["CR", dec(r.cr, "%")],
+    ["Pesanan", num(r.orders)], ["Penjualan", rupiah(r.gmv)], ["Biaya riil (+PPN)", rupiah(r.expense_real)], ["Biaya / pesanan", r.cost_per_order ? rupiah(r.cost_per_order) : "-"],
+    ["Biaya / klik", r.cpc ? rupiah(r.cpc) : "-"], ["ROAS riil", dec(r.roas_real, "x")], ["Titik impas", dec(r.break_even, "x")],
+    ["Laba/rugi", r.profit === null ? "-" : `${r.profit < 0 ? "−" : "+"}${rupiah(Math.abs(r.profit))}`],
+  ] : [];
+  return (
+    <Modal open={!!r} onClose={onClose} title="Evaluasi Iklan" icon={Stethoscope} wide>
+      {r && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            {r.items[0]?.image ? <img src={r.items[0].image} alt="" className="h-11 w-11 rounded-lg object-cover" /> : <span className="h-11 w-11 rounded-lg bg-slate-100" />}
+            <div className="min-w-0"><b className="block truncate text-navy">{r.name}</b><span className="text-xs text-slate-500">{days} hari terakhir · {META[r.status][0]}</span></div>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {stats.map(([k, v]) => (
+              <div key={k} className="rounded-lg bg-slate-50 px-3 py-2"><span className="block text-[11px] text-slate-500">{k}</span><b className={`text-sm ${k === "Laba/rugi" && r.profit !== null ? (r.profit < 0 ? "text-rose-600" : "text-emerald-600") : "text-navy"}`}>{v}</b></div>
+            ))}
+          </div>
+          {r.evaluation.map((v, i) => (
+            <div key={v.key} className={`rounded-xl border p-3.5 ${TONE[v.tone]}`}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <b className="text-sm text-navy">{i + 1}. {v.title}</b>
+                <span className="rounded-full bg-white/70 px-2.5 py-0.5 text-xs font-bold">{v.status}</span>
+              </div>
+              <p className="mt-1.5 text-[13px] leading-relaxed text-slate-700">{v.desc}</p>
+            </div>
+          ))}
+          <p className="text-[11px] text-slate-400">Standar: CTR rendah &lt; 1,5%, tinggi ≥ 3% · CR rendah &lt; 2,5%, tinggi ≥ 5% · biaya iklan riil = biaya Shopee + PPN 11%.</p>
+        </div>
+      )}
+    </Modal>
   );
 }
 

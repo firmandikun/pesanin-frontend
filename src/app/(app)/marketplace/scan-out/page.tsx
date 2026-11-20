@@ -1,5 +1,5 @@
 "use client";
-import { CheckCircle2, FileDown, History, Loader2, PackageCheck, QrCode, ScanLine, Smartphone, Trash2 } from "lucide-react";
+import { CheckCircle2, FileDown, History, Loader2, PackageCheck, QrCode, RefreshCcw, ScanLine, Smartphone, Trash2 } from "lucide-react";
 import QRCode from "qrcode";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { askConfirm } from "@/components/Dialogs";
@@ -70,6 +70,21 @@ export default function ScanOutPage() {
       .then((r) => setCur((c) => c && { ...c, summary: r.summary, parcels: c.parcels.filter((p) => p.id !== pid) })).catch((e) => fail(e, "Gagal menghapus"));
   };
   const pdf = (sid: number) => api<ScanPayload>(`/scan-out/sessions/${sid}`).then(downloadScanPdf).catch((e) => fail(e, "Gagal membuat PDF"));
+  const [matching, setMatching] = useState(false);
+  const [matchMsg, setMatchMsg] = useState("");
+  /** Pull the latest resi from Shopee now and give the unknown parcels their shop. */
+  const rematch = (sid: number, into: "cur" | "done") => {
+    setMatching(true); setMatchMsg("");
+    api<ScanPayload & { refresh: { shops: number; orders: number; resi: number; errors: string[] } }>(`/scan-out/sessions/${sid}/rematch`, { method: "POST" })
+      .then(({ refresh: r, ...p }) => {
+        if (into === "cur") setCur(p); else setDone(p);
+        setMatchMsg(!r.shops ? "Belum ada toko Shopee yang terhubung, resi Shopee tidak bisa dicocokkan."
+          : r.errors.length ? `Gagal mengambil data Shopee: ${r.errors.join("; ")}`
+          : `${r.shops} toko dicek, ${r.orders} pesanan diperbarui, ${r.resi} resi baru. ${p.summary.unknown ? `${p.summary.unknown} resi masih tidak dikenal: pastikan pesanannya dari toko yang terhubung di Pesanin.` : "Semua resi sudah dikenali."}`);
+      })
+      .catch((e) => setMatchMsg(e instanceof ApiError ? e.message : "Gagal mencocokkan ulang"))
+      .finally(() => setMatching(false));
+  };
   const view = (sid: number) => api<ScanPayload>(`/scan-out/sessions/${sid}`).then(setDone).catch((e) => fail(e, "Gagal memuat sesi"));
 
   return (
@@ -108,6 +123,14 @@ export default function ScanOutPage() {
                 <button onClick={finish} disabled={busy} className="ml-auto flex h-10 items-center gap-2 rounded-lg bg-navy px-5 text-sm font-semibold text-white disabled:opacity-50"><CheckCircle2 size={16} />Selesai</button>
               </div>
               <Totals summary={cur.summary} />
+              {cur.summary.unknown > 0 && (
+              <div className="mt-3 space-y-2">
+                <button onClick={() => rematch(cur.session.id, "cur")} disabled={matching} className="flex h-9 items-center gap-2 rounded-lg bg-amber-50 px-3 text-xs font-semibold text-amber-800 ring-1 ring-amber-200 hover:bg-amber-100 disabled:opacity-60">
+                  {matching ? <Loader2 size={14} className="animate-spin" /> : <RefreshCcw size={14} />}Cocokkan ulang toko ({cur.summary.unknown} tidak dikenal)
+                </button>
+                {matchMsg && <p className="text-xs text-slate-600">{matchMsg}</p>}
+              </div>
+            )}
             </Panel>
             <Panel className="overflow-hidden">
               <div className="border-b border-slate-100 px-5 py-3 text-sm font-semibold text-slate-700">Resi ter-scan ({cur.summary.total})</div>
@@ -164,11 +187,19 @@ export default function ScanOutPage() {
         {hist && hist.last_page > 1 && <div className="border-t border-slate-100 p-3"><Pagination page={page} last={hist.last_page} onChange={setPage} total={hist.total} /></div>}
       </Panel>
 
-      <Modal open={!!done} onClose={() => setDone(null)} title={`Rekap Scan Out #${done?.session.id ?? ""}`} icon={PackageCheck}>
+      <Modal open={!!done} onClose={() => { setDone(null); setMatchMsg(""); }} title={`Rekap Scan Out #${done?.session.id ?? ""}`} icon={PackageCheck}>
         {done && (
           <div className="space-y-4">
             <p className="text-xs text-slate-500">{scanTime(done.session.started_at, true)}{done.session.finished_at && ` – ${scanTime(done.session.finished_at, true)}`} · {done.session.scanned_by}</p>
             <Totals summary={done.summary} />
+            {done.summary.unknown > 0 && (
+              <div className="mt-3 space-y-2">
+                <button onClick={() => rematch(done.session.id, "done")} disabled={matching} className="flex h-9 items-center gap-2 rounded-lg bg-amber-50 px-3 text-xs font-semibold text-amber-800 ring-1 ring-amber-200 hover:bg-amber-100 disabled:opacity-60">
+                  {matching ? <Loader2 size={14} className="animate-spin" /> : <RefreshCcw size={14} />}Cocokkan ulang toko ({done.summary.unknown} tidak dikenal)
+                </button>
+                {matchMsg && <p className="text-xs text-slate-600">{matchMsg}</p>}
+              </div>
+            )}
             <button onClick={() => downloadScanPdf(done)} className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-brand-600 text-sm font-semibold text-white hover:bg-brand-700"><FileDown size={16} />Export PDF Bukti Serah Terima</button>
           </div>
         )}
