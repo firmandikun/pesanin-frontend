@@ -2,7 +2,7 @@
 import Link from "next/link";
 import {
   AlertTriangle, Calculator, Check, CheckCircle2, ChevronDown, ChevronUp,
-  Archive, BarChart3, Copy, Eye, ExternalLink, Loader2, Megaphone, Package, Pencil, Plus, RefreshCcw, Rocket, Search, Tag, X,
+  Archive, BarChart3, Eye, ExternalLink, Loader2, Package, Pencil, Plus, RefreshCcw, Rocket, Search, Tag, X,
 } from "lucide-react";
 import { addToBoost, BoostPanel, PriceDialog, StatLine, TextDialog, type ItemStat } from "@/components/marketplace/ProductTools";
 import { BulkCostDialog } from "@/components/marketplace/BulkCostDialog";
@@ -114,6 +114,46 @@ function StockCell({ l, onSaved }: { l: Listing; onSaved: (v: number) => void })
 }
 
 // Column layout matching Shopee Seller Centre's "Produk Saya" table.
+/** "Lainnya" dropdown like Seller Centre. Fixed position so the table's horizontal scroll never clips it. */
+function MoreMenu({ items }: { items: [string, (() => void) | string | null][] }) {
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  useEffect(() => {
+    if (!pos) return;
+    const close = () => setPos(null);
+    window.addEventListener("click", close);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => { window.removeEventListener("click", close); window.removeEventListener("scroll", close, true); window.removeEventListener("resize", close); };
+  }, [pos]);
+  const item = "block w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50";
+  return (
+    <>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (pos) return setPos(null);
+          const b = e.currentTarget.getBoundingClientRect();
+          const h = items.length * 41 + 12;
+          setPos({ top: b.bottom + 4 + h > window.innerHeight ? Math.max(8, b.top - h - 4) : b.bottom + 4, left: Math.min(b.left, window.innerWidth - 232) });
+        }}
+        className="flex items-center gap-0.5 font-medium text-sky-600 hover:text-sky-700 hover:underline"
+      >
+        Lainnya <ChevronDown size={13} className={pos ? "rotate-180" : ""} />
+      </button>
+      {pos && (
+        <div style={{ top: pos.top, left: pos.left }} className="fixed z-50 w-56 rounded-lg bg-white py-1.5 shadow-xl ring-1 ring-slate-200" onClick={(e) => e.stopPropagation()}>
+          {items.map(([label, act]) => typeof act === "string" ? (
+            <Link key={label} href={act} className={item}>{label}</Link>
+          ) : (
+            <button key={label} type="button" disabled={!act} onClick={() => { setPos(null); act?.(); }} className={`${item} disabled:cursor-default disabled:text-slate-400 disabled:hover:bg-white`}>{label}</button>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
 const COLS = "grid grid-cols-[minmax(0,2.7fr)_minmax(0,1.05fr)_minmax(0,0.75fr)_minmax(0,1.05fr)_minmax(0,1fr)_minmax(0,0.8fr)] gap-4 items-start";
 
 function Products() {
@@ -196,20 +236,19 @@ function Products() {
       load();
     } catch (e) { showAlert(e instanceof ApiError ? e.message : "Gagal memperbarui statistik", "Gagal"); } finally { setToolBusy(""); }
   };
-  const selectedItems = () => selected.map((k) => k.split(":").map(Number) as [number, number]);
-  const setListed = async (unlist: boolean) => {
+  const setListed = async (unlist: boolean, keys: string[] = selected) => {
     setToolBusy(unlist ? "unlist" : "list"); setNotice("");
     try {
-      const r = await api<{ updated: number; failed: Record<string, string> }>("/marketplace/listings/unlist", { method: "POST", json: { unlist, items: selectedItems().map(([shop_id, item_id]) => ({ shop_id, item_id })) } });
+      const r = await api<{ updated: number; failed: Record<string, string> }>("/marketplace/listings/unlist", { method: "POST", json: { unlist, items: keys.map((k) => k.split(":").map(Number)).map(([shop_id, item_id]) => ({ shop_id, item_id })) } });
       const f = Object.entries(r.failed);
       if (f.length) showAlert(f.map(([k, v]) => `${k}: ${v}`).join("\n"), `${f.length} produk gagal`);
       setNotice(`${r.updated} produk ${unlist ? "diarsipkan (tidak ditampilkan)" : "ditampilkan lagi"} di Shopee.`);
       setSelected([]); load();
     } catch (e) { showAlert(e instanceof ApiError ? e.message : "Gagal", "Gagal"); } finally { setToolBusy(""); }
   };
-  const boostSelected = async () => {
+  const boostKeys = async (keys: string[]) => {
     setToolBusy("boost"); setNotice("");
-    try { await addToBoost(selected); setNotice(`${selected.length} produk masuk daftar Naikkan Otomatis.`); setSelected([]); setBoostKey((n) => n + 1); }
+    try { await addToBoost(keys); setNotice(`${keys.length} produk masuk daftar Naikkan Otomatis.`); setSelected([]); setBoostKey((n) => n + 1); }
     catch (e) { showAlert(e instanceof ApiError ? e.message : "Gagal", "Gagal"); } finally { setToolBusy(""); }
   };
   const realSelected = selected.filter((k) => !(d?.listings.data.find((l) => `${l.marketplace_shop_id}:${l.item_id}` === k)?.shop.is_demo));
@@ -286,9 +325,9 @@ function Products() {
         <div className="sticky top-2 z-20 flex flex-wrap items-center gap-2 rounded-xl bg-navy px-4 py-2.5 text-sm text-white shadow-lg">
           <b className="mr-2">{realSelected.length} produk dipilih</b>
           <button onClick={() => setPriceKeys(realSelected)} className="flex h-8 items-center gap-1.5 rounded-lg bg-white/10 px-3 font-semibold hover:bg-white/20"><Tag size={14} />Ubah Harga</button>
-          <button onClick={boostSelected} disabled={!!toolBusy} className="flex h-8 items-center gap-1.5 rounded-lg bg-white/10 px-3 font-semibold hover:bg-white/20 disabled:opacity-50">{toolBusy === "boost" ? <Loader2 size={14} className="animate-spin" /> : <Rocket size={14} />}Naikkan Otomatis</button>
-          <button onClick={() => setListed(true)} disabled={!!toolBusy} className="flex h-8 items-center gap-1.5 rounded-lg bg-white/10 px-3 font-semibold hover:bg-white/20 disabled:opacity-50">{toolBusy === "unlist" ? <Loader2 size={14} className="animate-spin" /> : <Archive size={14} />}Arsipkan</button>
-          <button onClick={() => setListed(false)} disabled={!!toolBusy} className="flex h-8 items-center gap-1.5 rounded-lg bg-white/10 px-3 font-semibold hover:bg-white/20 disabled:opacity-50">{toolBusy === "list" ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}Tampilkan</button>
+          <button onClick={() => boostKeys(realSelected)} disabled={!!toolBusy} className="flex h-8 items-center gap-1.5 rounded-lg bg-white/10 px-3 font-semibold hover:bg-white/20 disabled:opacity-50">{toolBusy === "boost" ? <Loader2 size={14} className="animate-spin" /> : <Rocket size={14} />}Naikkan Otomatis</button>
+          <button onClick={() => setListed(true, realSelected)} disabled={!!toolBusy} className="flex h-8 items-center gap-1.5 rounded-lg bg-white/10 px-3 font-semibold hover:bg-white/20 disabled:opacity-50">{toolBusy === "unlist" ? <Loader2 size={14} className="animate-spin" /> : <Archive size={14} />}Arsipkan</button>
+          <button onClick={() => setListed(false, realSelected)} disabled={!!toolBusy} className="flex h-8 items-center gap-1.5 rounded-lg bg-white/10 px-3 font-semibold hover:bg-white/20 disabled:opacity-50">{toolBusy === "list" ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}Tampilkan</button>
           <button onClick={() => setSelected([])} className="ml-auto flex h-8 items-center gap-1 rounded-lg px-2 text-white/80 hover:text-white"><X size={14} />Batal</button>
         </div>
       )}
@@ -576,24 +615,14 @@ function Products() {
                             >
                               Ubah <ExternalLink size={11} />
                             </a>
-                            <button onClick={() => setTextItem({ shop: first.marketplace_shop_id, item: first.item_id })} className="flex items-center gap-1 font-medium text-sky-600 hover:text-sky-700 hover:underline">
-                              <Pencil size={12} />Judul & Deskripsi
-                            </button>
-                            <button onClick={() => setPriceKeys([key])} className="flex items-center gap-1 font-medium text-sky-600 hover:text-sky-700 hover:underline">
-                              <Tag size={12} />Ubah Harga
-                            </button>
-                            <Link
-                              href={`/marketplace/publish?copy_shop=${first.marketplace_shop_id}&copy_item=${first.item_id}`}
-                              className="flex items-center gap-1 font-medium text-sky-600 hover:text-sky-700 hover:underline"
-                            >
-                              <Copy size={12} />Salin Produk
-                            </Link>
-                            <Link
-                              href={`/marketplace/ads?shop=${first.marketplace_shop_id}`}
-                              className="flex items-center gap-1 font-medium text-sky-600 hover:text-sky-700 hover:underline"
-                            >
-                              <Megaphone size={12} />Diiklankan
-                            </Link>
+                            <MoreMenu items={[
+                              ["Judul & Deskripsi", () => setTextItem({ shop: first.marketplace_shop_id, item: first.item_id })],
+                              ["Ubah Harga", () => setPriceKeys([key])],
+                              ["Salin Produk", `/marketplace/publish?copy_shop=${first.marketplace_shop_id}&copy_item=${first.item_id}`],
+                              [boosted.has(key) ? "Sudah di Naikkan Otomatis" : "Naikkan Produk", boosted.has(key) ? null : () => boostKeys([key])],
+                              [first.status === "UNLIST" ? "Tampilkan" : "Arsipkan", () => setListed(first.status !== "UNLIST", [key])],
+                              ["Lihat Iklan", `/marketplace/ads?shop=${first.marketplace_shop_id}`],
+                            ]} />
                           </>
                         )}
                       </div>
