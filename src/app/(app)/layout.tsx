@@ -60,6 +60,7 @@ const NAV_FALLBACK: SidebarMenuItem[] = [
     { label: "Stok Master", href: "/marketplace/stock" },
     { label: "Pesanan & Pengiriman", href: "/marketplace/orders" },
     { label: "Scan Out", href: "/marketplace/scan-out" },
+    { label: "Promosi", href: "/marketplace/promotions" },
     { label: "Ulasan", href: "/marketplace/reviews" },
     { label: "Kesehatan Akun", href: "/marketplace/health" },
     { label: "Saldo", href: "/marketplace/balance" },
@@ -303,10 +304,6 @@ function Shell({ children }: { children: React.ReactNode }) {
           )}
         </div>
       </main>
-      <footer className={`print:hidden flex flex-wrap items-center justify-between gap-2 bg-[#e8eaf1] px-10 py-2.5 text-sm text-slate-500 transition-all ${collapsed ? "lg:pl-[100px]" : "lg:pl-10"}`}>
-        <span>{new Date().getFullYear()} © Pesanin</span>
-        <span className="flex gap-8">{([["Syarat & Ketentuan", "/terms-of-service"], ["Kebijakan Privasi", "/privacy-policy"]] as const).map(([l, href]) => <a key={l} href={href} target="_blank" rel="noreferrer" className="hover:text-brand-600">{l}</a>)}</span>
-      </footer>
       <button className="print:hidden fixed bottom-5 left-5 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-brand-600 text-white shadow-lg" aria-label="Bantuan"><MessageSquareMore size={22} /></button>
     </div>
   );

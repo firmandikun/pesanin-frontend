@@ -10,7 +10,7 @@ const ROLE_PAGES: Record<Member["role"], string[]> = {
   admin: [],
   cs: ["/chat", "/customers", "/orders", "/products", "/dropship", "/marketplace/orders", "/marketplace/products", "/others/inventory", "/others/payments", "/whatsapp-rotator/chats"],
   gudang: ["/orders", "/products", "/marketplace/orders", "/marketplace/scan-out", "/marketplace/products", "/others/inventory", "/others/transactions"],
-  advertiser: ["/broadcast", "/customers", "/reports", "/landing-pages", "/marketplace/ads", "/settings/tracking", "/products", "/dropship", "/affiliate", "/others/coupons", "/others/product-reports", "/whatsapp-rotator"],
+  advertiser: ["/broadcast", "/customers", "/reports", "/landing-pages", "/marketplace/ads", "/marketplace/promotions", "/settings/tracking", "/products", "/dropship", "/affiliate", "/others/coupons", "/others/product-reports", "/whatsapp-rotator"],
 };
 
 const under = (path: string, base: string) => path === base || path.startsWith(base + "/") || path.startsWith(base + "?");

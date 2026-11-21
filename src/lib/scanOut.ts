@@ -3,10 +3,10 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf
 export type ScanStatus = "ok" | "unknown" | "duplicate" | "not_resi" | "invalid";
 export type Parcel = {
   id: number; code: string; matched: boolean; shop_name: string | null; courier: string | null; order_sn: string | null;
-  customer_name: string | null; items_summary: string | null; scanned_by: string | null; scanned_at: string;
+  customer_name: string | null; items_summary: string | null; scanned_by: string | null; scanned_at: string; expedition?: string;
 };
 export type Count = { name: string; count: number };
-export type Summary = { total: number; unknown: number; by_shop: Count[]; by_courier: Count[] };
+export type Summary = { total: number; unknown: number; by_shop: Count[]; by_expedition: Count[] };
 export type ScanSession = {
   id: number; status: "open" | "closed"; scanned_by: string | null; started_at: string; finished_at: string | null;
   expires_at: string; open: boolean; token?: string;
@@ -27,22 +27,42 @@ function fit(text: string, font: PDFFont, size: number, width: number) {
   return t + "...";
 }
 
-/** "Bukti Serah Terima Paket": totals per shop, every resi with its shop, and signature lines. */
+/**
+ * "Bukti Serah Terima Paket". Page 1: totals per expedition and per shop. Then one section per expedition (each on its
+ * own page, so every courier gets their own sheet): its resi with the shop, and signature lines for that courier.
+ */
 export async function scanOutPdf(d: ScanPayload): Promise<Blob> {
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const W = 595, H = 842, M = 40;
-  const ink = rgb(0.12, 0.16, 0.23), muted = rgb(0.42, 0.46, 0.52), line = rgb(0.85, 0.87, 0.9), zebra = rgb(0.96, 0.97, 0.98), warn = rgb(0.75, 0.4, 0.05);
+  const ink = rgb(0.12, 0.16, 0.23), muted = rgb(0.42, 0.46, 0.52), line = rgb(0.85, 0.87, 0.9), zebra = rgb(0.96, 0.97, 0.98), warn = rgb(0.75, 0.4, 0.05), brand = rgb(0.93, 0.3, 0.18);
   let page: PDFPage = doc.addPage([W, H]);
   let y = H - M;
   const text = (t: string, x: number, size = 9, f = font, color = ink) => page.drawText(safe(t), { x, y, size, font: f, color });
   const newPage = () => { page = doc.addPage([W, H]); y = H - M; };
   const need = (h: number) => { if (y - h < M + 20) { newPage(); return true; } return false; };
-
   const { session: s, summary } = d;
-  text("BUKTI SERAH TERIMA PAKET", M, 16, bold); y -= 18;
-  text(`${d.store_name ?? "Toko"} - Scan Out #${s.id}`, M, 10, font, muted); y -= 22;
+
+  const head = (sub: string) => {
+    text("BUKTI SERAH TERIMA PAKET", M, 16, bold); y -= 18;
+    text(`${d.store_name ?? "Toko"} - Scan Out #${s.id}${sub ? ` - ${sub}` : ""}`, M, 10, font, muted); y -= 20;
+  };
+  const box = (title: string, rows: Count[], x: number, top: number, w: number) => {
+    let yy = top;
+    page.drawText(title, { x, y: yy, size: 10, font: bold, color: ink }); yy -= 6;
+    page.drawLine({ start: { x, y: yy }, end: { x: x + w, y: yy }, thickness: 0.6, color: line }); yy -= 13;
+    rows.forEach((r) => {
+      page.drawText(fit(r.name, font, 9, w - 60), { x, y: yy, size: 9, font, color: ink });
+      const c = `${r.count} paket`;
+      page.drawText(c, { x: x + w - bold.widthOfTextAtSize(c, 9), y: yy, size: 9, font: bold, color: ink });
+      yy -= 13;
+    });
+    return yy;
+  };
+
+  // Page 1: summary.
+  head("");
   const meta: [string, string][] = [
     ["Mulai", scanTime(s.started_at, true)], ["Selesai", s.finished_at ? scanTime(s.finished_at, true) : "Belum selesai"],
     ["Petugas", s.scanned_by ?? "-"], ["Total paket", `${summary.total} paket`],
@@ -50,58 +70,52 @@ export async function scanOutPdf(d: ScanPayload): Promise<Blob> {
   meta.forEach(([k, v]) => { text(k, M, 9, font, muted); text(`: ${v}`, M + 70, 9, k === "Total paket" ? bold : font); y -= 13; });
   if (summary.unknown) { text(`* ${summary.unknown} resi tidak ditemukan di pesanan Pesanin (tetap dihitung).`, M, 8, font, warn); y -= 13; }
   y -= 8;
+  const colW = (W - 2 * M - 20) / 2;
+  need(30 + 13 * Math.max(summary.by_shop.length, summary.by_expedition.length));
+  const top = y;
+  y = Math.min(box("Per Ekspedisi", summary.by_expedition, M, top, colW), box("Per Toko", summary.by_shop, M + colW + 20, top, colW)) - 12;
 
-  // Totals per shop.
-  const colW = W - 2 * M;
-  const box = (title: string, rows: Count[], x: number, top: number) => {
-    let yy = top;
-    page.drawText(title, { x, y: yy, size: 10, font: bold, color: ink }); yy -= 6;
-    page.drawLine({ start: { x, y: yy }, end: { x: x + colW, y: yy }, thickness: 0.6, color: line }); yy -= 13;
-    rows.forEach((r) => {
-      page.drawText(fit(r.name, font, 9, colW - 60), { x, y: yy, size: 9, font, color: ink });
-      const c = `${r.count} paket`;
-      page.drawText(c, { x: x + colW - bold.widthOfTextAtSize(c, 9), y: yy, size: 9, font: bold, color: ink });
-      yy -= 13;
-    });
-    return yy;
-  };
-  need(30 + 13 * summary.by_shop.length);
-  y = box("Per Toko", summary.by_shop, M, y) - 12;
-
-  // Resi table.
-  const cols = [
-    { h: "No", w: 32 }, { h: "Resi", w: 190 }, { h: "Toko", w: 220 }, { h: "Jam", w: 73 },
-  ];
-  const header = () => {
+  // One section per expedition.
+  const cols = [{ h: "No", w: 32 }, { h: "Resi", w: 190 }, { h: "Toko", w: 220 }, { h: "Jam", w: 73 }];
+  const tableHead = () => {
     page.drawRectangle({ x: M, y: y - 5, width: W - 2 * M, height: 17, color: rgb(0.13, 0.2, 0.33) });
     let x = M + 4;
     cols.forEach((c) => { page.drawText(c.h, { x, y, size: 8.5, font: bold, color: rgb(1, 1, 1) }); x += c.w; });
     y -= 17;
   };
-  need(40); text("Daftar Resi", M, 10, bold); y -= 16; header();
-  const rows = [...d.parcels].sort((a, b) => a.scanned_at.localeCompare(b.scanned_at));
-  rows.forEach((p, i) => {
-    if (need(15)) header();
-    if (i % 2) page.drawRectangle({ x: M, y: y - 4, width: W - 2 * M, height: 14, color: zebra });
-    const vals = [String(i + 1), p.code, p.shop_name ?? "Tidak dikenal", scanTime(p.scanned_at)];
-    let x = M + 4;
-    vals.forEach((v, k) => {
-      page.drawText(fit(v, k === 1 ? bold : font, 8, cols[k].w - 6), { x, y, size: 8, font: k === 1 ? bold : font, color: !p.matched && k === 2 ? warn : ink });
-      x += cols[k].w;
+  const groups = summary.by_expedition.map((e) => ({ name: e.name, rows: d.parcels.filter((p) => (p.expedition ?? "Ekspedisi lain") === e.name).sort((a, b) => a.scanned_at.localeCompare(b.scanned_at)) }));
+  groups.forEach((g) => {
+    newPage();
+    head(g.name);
+    page.drawRectangle({ x: M, y: y - 6, width: W - 2 * M, height: 22, color: rgb(1, 0.95, 0.93) });
+    text(`${g.name}`, M + 8, 12, bold, brand);
+    const cnt = `${g.rows.length} paket`;
+    page.drawText(cnt, { x: W - M - 8 - bold.widthOfTextAtSize(cnt, 12), y, size: 12, font: bold, color: brand });
+    y -= 26;
+    const byShop = Object.entries(g.rows.reduce<Record<string, number>>((a, p) => { const k = p.shop_name ?? "Tidak dikenal"; a[k] = (a[k] ?? 0) + 1; return a; }, {}));
+    text(byShop.map(([k, n]) => `${k}: ${n}`).join("   |   "), M, 8.5, font, muted); y -= 16;
+    tableHead();
+    g.rows.forEach((p, i) => {
+      if (need(15)) { head(`${g.name} (lanjutan)`); tableHead(); }
+      if (i % 2) page.drawRectangle({ x: M, y: y - 4, width: W - 2 * M, height: 14, color: zebra });
+      const vals = [String(i + 1), p.code, p.shop_name ?? "Tidak dikenal", scanTime(p.scanned_at)];
+      let x = M + 4;
+      vals.forEach((v, k) => {
+        page.drawText(fit(v, k === 1 ? bold : font, 8, cols[k].w - 6), { x, y, size: 8, font: k === 1 ? bold : font, color: !p.matched && k === 2 ? warn : ink });
+        x += cols[k].w;
+      });
+      y -= 14;
     });
-    y -= 14;
+    need(110);
+    y -= 30;
+    const sigW = 180;
+    ([["Diserahkan oleh (Toko)", M], [`Diterima oleh (Kurir ${g.name})`, W - M - sigW]] as const).forEach(([label, x]) => {
+      page.drawText(fit(label, font, 9, sigW), { x, y, size: 9, font, color: muted });
+      page.drawLine({ start: { x, y: y - 55 }, end: { x: x + sigW, y: y - 55 }, thickness: 0.6, color: ink });
+      page.drawText(`Nama & tanda tangan · ${g.rows.length} paket`, { x, y: y - 67, size: 7.5, font, color: muted });
+    });
   });
-  if (!rows.length) { text("Belum ada resi yang di-scan.", M + 4, 9, font, muted); y -= 14; }
-
-  // Signatures.
-  if (need(110)) y -= 0;
-  y -= 30;
-  const sigW = 180;
-  [["Diserahkan oleh (Toko)", M], ["Diterima oleh (Kurir/Ekspedisi)", W - M - sigW]].forEach(([label, x]) => {
-    page.drawText(label as string, { x: x as number, y, size: 9, font, color: muted });
-    page.drawLine({ start: { x: x as number, y: y - 55 }, end: { x: (x as number) + sigW, y: y - 55 }, thickness: 0.6, color: ink });
-    page.drawText("Nama & tanda tangan", { x: x as number, y: y - 67, size: 7.5, font, color: muted });
-  });
+  if (!groups.length) { text("Belum ada resi yang di-scan.", M, 9, font, muted); }
 
   const pages = doc.getPages();
   pages.forEach((pg, i) => pg.drawText(safe(`Dibuat dengan Pesanin - ${scanTime(new Date().toISOString(), true)} - Hal ${i + 1}/${pages.length}`), { x: M, y: 22, size: 7, font, color: muted }));

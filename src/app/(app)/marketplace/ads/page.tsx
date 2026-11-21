@@ -149,12 +149,14 @@ function CollageThumb({ images, fallbackIcon = "auto" }: { images: (string | nul
 /** Iklan Shopee: Seller Centre Shopee Ads style performance dashboard + Individual, Group & Auto Product Ads. */
 export default function ShopeeAds() {
   const [range, setRange] = useState(useDefaultRange());
+  const [guardKey, setGuardKey] = useState(0);
   const [shops, setShops] = useState<Shop[]>([]);
   const [shop, setShop] = useState("");
   const [d, setD] = useState<Data | null>(null);
   const [mainTab, setMainTab] = useState<"list" | "auto">("list");
   const [kindFilter, setKindFilter] = useState<"all" | "manual" | "group" | "auto">("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  // Default: only running ads, like what the seller checks first.
+  const [statusFilter, setStatusFilter] = useState<string>("ongoing");
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
@@ -210,6 +212,7 @@ export default function ShopeeAds() {
       .then(() => {
         if (sid === syncId.current) {
           loadRef.current();
+          setGuardKey((k) => k + 1); // Penjaga Iklan re-reads with the freshly synced numbers
         }
       })
       .finally(() => {
@@ -345,7 +348,7 @@ export default function ShopeeAds() {
         </div>
       </PageHead>
 
-      <AdsGuardPanel shopId={shop || undefined} />
+      <AdsGuardPanel shopId={shop || undefined} range={range} reloadKey={guardKey} />
 
       {msg && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-sm font-medium text-emerald-800">
@@ -539,68 +542,10 @@ export default function ShopeeAds() {
                 </div>
               </div>
 
-              {/* Shopee Seller Centre 2 Main Mode Tabs: "Iklan Individual & Grup Iklan" vs "Iklan Produk Otomatis" */}
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <button
-                  onClick={() => setMainTab("list")}
-                  className={`inline-flex items-center gap-1.5 rounded-md border px-3.5 py-2 text-xs font-semibold transition ${
-                    mainTab === "list"
-                      ? "border-[#ee4d2d] bg-white text-[#ee4d2d] shadow-2xs"
-                      : "border-slate-200 bg-slate-50/70 text-slate-600 hover:border-slate-300 hover:text-slate-900"
-                  }`}
-                >
-                  <span>Iklan Individual &amp; Grup Iklan</span>
-                  <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">
-                    {tableRows.length}
-                  </span>
-                  <HelpCircle size={12} className="text-slate-400" />
-                </button>
-
-                <button
-                  onClick={() => setMainTab("auto")}
-                  className={`inline-flex items-center gap-1.5 rounded-md border px-3.5 py-2 text-xs font-semibold transition ${
-                    mainTab === "auto"
-                      ? "border-[#ee4d2d] bg-white text-[#ee4d2d] shadow-2xs"
-                      : "border-slate-200 bg-slate-50/70 text-slate-600 hover:border-slate-300 hover:text-slate-900"
-                  }`}
-                >
-                  <span>Iklan Produk Otomatis</span>
-                  <span className="rounded-full bg-orange-50 px-1.5 py-0.5 text-[10px] text-[#ee4d2d]">
-                    {autoCampaigns.length}
-                  </span>
-                  <HelpCircle size={12} className="text-slate-400" />
-                </button>
-              </div>
-
               {mainTab === "list" && (
                 <>
-                  {/* Jenis Iklan Filter (Semua / Individual / Grup / Otomatis) */}
-                  <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
-                    <span className="mr-1 text-slate-500">Jenis Iklan:</span>
-                    {KIND_FILTERS.map((kf) => {
-                      const active = kindFilter === kf.key;
-                      const count =
-                        kf.key === "all"
-                          ? tableRows.length
-                          : tableRows.filter((r) => r.kind === kf.key).length;
-                      return (
-                        <button
-                          key={kf.key}
-                          onClick={() => setKindFilter(kf.key)}
-                          className={`rounded-md border px-2.5 py-1 font-medium transition ${
-                            active
-                              ? "border-[#ee4d2d] bg-orange-50/60 text-[#ee4d2d]"
-                              : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-                          }`}
-                        >
-                          {kf.label} ({count})
-                        </button>
-                      );
-                    })}
-                  </div>
-
                   {/* Status Iklan Filter Pills + Search */}
-                  <div className="mt-2.5 flex flex-wrap items-center justify-between gap-3">
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-wrap items-center gap-1.5 text-xs">
                       <span className="mr-1 text-slate-500">Status Iklan:</span>
                       {STATUS_FILTERS.map((sf) => {

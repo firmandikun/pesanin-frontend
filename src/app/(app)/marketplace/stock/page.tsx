@@ -1,16 +1,16 @@
 "use client";
-import { AlertTriangle, Boxes, Check, History, Link2, Loader2, Package, Pencil, Plus, RefreshCcw, Sparkles, Trash2, Unlink, X } from "lucide-react";
+import { AlertTriangle, Boxes, Wallet, Check, History, Link2, Loader2, Package, Pencil, Plus, RefreshCcw, Sparkles, Trash2, Unlink, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { ShopeeMark } from "@/components/ChannelBadge";
 import { askConfirm, showAlert } from "@/components/Dialogs";
 import { Dialog, Pager, PageHead, Panel, SearchBox } from "@/components/kit";
 import { Select } from "@/components/Select";
-import { api, ApiError, Paginated } from "@/lib/api";
+import { api, ApiError, Paginated, rupiah } from "@/lib/api";
 
 type Linked = { id: number; marketplace_shop_id: number; item_id: number; model_id: number; name: string; model_name: string | null; sku: string | null; stock: number; stock_push_error: string | null; image: string | null; status: string;
   shop: { id: number; shop_name: string; is_demo: boolean; status: string } | null };
 type Master = { id: number; sku: string; name: string | null; image: string | null; stock: number; push_pending: boolean; pushed_at: string | null; listings: Linked[] };
-type Stats = { masters: number; linked: number; unlinked_with_sku: number; without_sku: number; candidates: number; empty: number; errors: number };
+type Stats = { stock_value: number; stock_units: number; sell_value: number; no_hpp: number; masters: number; linked: number; unlinked_with_sku: number; without_sku: number; candidates: number; empty: number; errors: number };
 type Movement = { id: number; kind: "sale" | "restore" | "adjust"; qty: number; stock_after: number; note: string | null; created_at: string };
 type ListingRow = { id: number; name: string; model_name: string | null; sku: string | null; stock: number; image: string | null; stock_master_id: number | null; shop: { shop_name: string } };
 
@@ -77,6 +77,24 @@ export default function StockMasterPage() {
 
       {notice && <p className="flex items-start justify-between gap-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700"><span className="flex items-center gap-2"><Check size={16} />{notice}</span><button onClick={() => setNotice("")} aria-label="Tutup"><X size={15} /></button></p>}
 
+      {s && (
+        <div className="surface flex flex-wrap items-center gap-x-8 gap-y-3 p-5">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 text-amber-600"><Wallet size={22} /></span>
+          <div>
+            <p className="text-xs font-medium text-slate-500">Modal tertahan di gudang (belum muter)</p>
+            <p className="mt-0.5 text-2xl font-bold text-navy">{rupiah(s.stock_value)}</p>
+            <p className="text-xs text-slate-400">Sisa stok × HPP · {s.stock_units.toLocaleString("id-ID")} pcs</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-slate-500">Potensi omzet kalau terjual semua</p>
+            <p className="mt-0.5 text-lg font-bold text-emerald-600">{rupiah(s.sell_value)}</p>
+            <p className="text-xs text-slate-400">Sisa stok × harga jual saat ini</p>
+          </div>
+          {s.no_hpp > 0 && (
+            <p className="flex max-w-sm items-start gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800"><AlertTriangle size={13} className="mt-0.5 shrink-0" />{s.no_hpp.toLocaleString("id-ID")} SKU masih ada stok tapi HPP-nya kosong, belum ikut dihitung. Isi lewat Semua Produk → Input HPP Massal.</p>
+          )}
+        </div>
+      )}
       {s && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {([["Stok master", s.masters, "text-navy"], ["Listing terhubung", s.linked, "text-emerald-600"], ["Belum terhubung (ada SKU)", s.unlinked_with_sku, "text-amber-600"],

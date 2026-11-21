@@ -142,7 +142,7 @@ export default function ScanOutPage() {
                       {cur.parcels.map((p) => (
                         <tr key={p.id} className="border-t border-slate-100">
                           <td className="px-4 py-2 font-mono text-xs font-semibold text-slate-800">{p.code}</td>
-                          <td className="px-4 py-2">{p.matched ? p.shop_name : <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">Tidak dikenal</span>}</td>
+                          <td className="px-4 py-2">{p.matched ? p.shop_name : <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">Tidak dikenal</span>}{p.expedition && <span className="block text-[11px] text-slate-400">{p.expedition}</span>}</td>
                           <td className="px-4 py-2 text-xs text-slate-500">{scanTime(p.scanned_at)}</td>
                           <td className="px-2"><button onClick={() => remove(p.id, p.code)} className="rounded p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Hapus"><Trash2 size={15} /></button></td>
                         </tr>
@@ -162,7 +162,7 @@ export default function ScanOutPage() {
       )}
 
       <Panel className="overflow-hidden">
-        <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-3 text-sm font-semibold text-slate-700"><History size={16} />Riwayat Scan Out</div>
+        <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-3 text-sm font-semibold text-slate-700"><History size={16} />Riwayat Scan Out<span className="ml-auto text-xs font-normal text-slate-400">Disimpan 10 hari, lalu dihapus otomatis. Unduh PDF bila perlu arsip lebih lama.</span></div>
         {!hist ? <p className="p-6 text-sm text-slate-400"><Loader2 size={16} className="inline animate-spin" /> Memuat…</p>
           : !hist.data.length ? <p className="p-8 text-center text-sm text-slate-400">Belum ada sesi scan.</p> : (
             <table className="w-full text-sm">
@@ -208,7 +208,7 @@ export default function ScanOutPage() {
   );
 }
 
-/** Total + count per shop. */
+/** Total + count per expedition and per shop. */
 function Totals({ summary }: { summary: Summary }) {
   const list = (title: string, rows: Count[]) => (
     <div className="rounded-xl bg-slate-50 p-3">
@@ -219,12 +219,13 @@ function Totals({ summary }: { summary: Summary }) {
     </div>
   );
   return (
-    <div className="mt-4 grid gap-3 sm:grid-cols-[150px_1fr]">
+    <div className="mt-4 grid gap-3 sm:grid-cols-[150px_1fr_1fr]">
       <div className="flex flex-col justify-center rounded-xl bg-brand-50 p-3 text-center">
         <div className="text-3xl font-bold text-brand-700">{summary.total}</div>
         <div className="text-xs text-brand-700/80">total paket</div>
         {summary.unknown > 0 && <div className="mt-1 text-[11px] text-amber-700">{summary.unknown} tidak dikenal</div>}
       </div>
+      {list("Per ekspedisi", summary.by_expedition)}
       {list("Per toko", summary.by_shop)}
     </div>
   );

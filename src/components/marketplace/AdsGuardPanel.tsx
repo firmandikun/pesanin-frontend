@@ -12,13 +12,13 @@ type Row = {
   id: number; campaign_id: number; shop_id: number; name: string; ad_type: string | null; bidding_method: string | null; roas_target: number | null;
   expense: number; expense_real: number; gmv: number; orders: number; roas: number | null; roas_real: number | null; fee_rate: number; hpp_ratio: number | null;
   impressions: number; clicks: number; ctr: number | null; cr: number | null; cpc: number | null; cost_per_order: number | null;
-  evaluation: Verdict[];
+  evaluation: Verdict[]; hpp_total: number | null; fee_total: number;
   break_even: number | null; break_even_min: number; suggested_target: number | null; profit: number | null; status: Status; editable: boolean;
   items: { item_id: number; name: string | null; image: string | null; price: number; hpp: number | null }[];
 };
 type Verdict = { key: "hook" | "conversion" | "profit"; title: string; status: string; tone: "good" | "ok" | "bad" | "wait"; desc: string };
 type Settings = { notify: boolean; days: number; min_spend: number; action: "off" | "pause" | "raise_target" };
-type Data = { days: number; settings: Settings; campaigns: Row[]; summary: Record<Status, number> & { loss: number; wasted: number } };
+type Data = { days: number; from?: string; to?: string; settings: Settings; campaigns: Row[]; summary: Record<Status, number> & { loss: number; wasted: number } };
 
 const META: Record<Status, [string, string]> = {
   rugi: ["Rugi", "bg-rose-50 text-rose-700 ring-rose-200"],
@@ -33,7 +33,7 @@ const META: Record<Status, [string, string]> = {
  * Penjaga Iklan: each Shopee ad against ITS break-even ROAS (from HPP + the shop's real Shopee fees), so the seller
  * sees which ads lose money and can pause them or raise their ROAS target in one click.
  */
-export function AdsGuardPanel({ shopId }: { shopId?: string }) {
+export function AdsGuardPanel({ shopId, range, reloadKey = 0 }: { shopId?: string; range?: { from: string; to: string }; reloadKey?: number }) {
   const [days, setDays] = useState(7);
   const [d, setD] = useState<Data | null>(null);
   const [open, setOpen] = useState(true);
@@ -42,8 +42,12 @@ export function AdsGuardPanel({ shopId }: { shopId?: string }) {
   const [cfgOpen, setCfgOpen] = useState(false);
   const [evalRow, setEvalRow] = useState<Row | null>(null);
 
-  const load = useCallback(() => { api<Data>(`/marketplace/ads/guard?days=${days}`).then(setD).catch(() => setD(null)); }, [days]);
-  useEffect(load, [load]);
+  // Follows the ads page's date filter when given; otherwise its own "N hari terakhir".
+  const load = useCallback(() => {
+    const qs = range ? `from=${range.from}&to=${range.to}` : `days=${days}`;
+    api<Data>(`/marketplace/ads/guard?${qs}`).then(setD).catch(() => setD(null));
+  }, [days, range?.from, range?.to]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(load, [load, reloadKey]);
 
   const act = async (r: Row, action: "pause" | "resume" | "change_roas_target", target?: number | null) => {
     setBusy(`${r.id}${action}`);
@@ -68,16 +72,18 @@ export function AdsGuardPanel({ shopId }: { shopId?: string }) {
             <b className="block text-sm text-navy">Penjaga Iklan</b>
             <span className="block text-xs text-slate-500">
               {!d ? "Menghitung titik impas tiap iklan…"
-                : alerting.length ? `${alerting.length} iklan merugi ${d.days} hari terakhir${s?.loss || s?.wasted ? ` · rugi ±${rupiah(Math.abs(s.loss) + s.wasted)}` : ""}`
+                : alerting.length ? `${alerting.length} iklan merugi ${range ? "di periode ini" : `${d.days} hari terakhir`}${s?.loss || s?.wasted ? ` · rugi ±${rupiah(Math.abs(s.loss) + s.wasted)}` : ""}`
                 : "Tidak ada iklan yang merugi"}
             </span>
           </span>
           <ChevronDown size={16} className={`text-slate-400 transition ${open ? "rotate-180" : ""}`} />
         </button>
         <div className="flex items-center gap-2">
-          <Select className="input h-9 w-36 text-sm" value={days} onChange={(e) => setDays(Number(e.target.value))}>
-            {[3, 7, 14, 30].map((n) => <option key={n} value={n}>{n} hari terakhir</option>)}
-          </Select>
+          {range ? <span className="text-xs text-slate-500">Periode {range.from === range.to ? range.from : `${range.from} s/d ${range.to}`}</span> : (
+            <Select className="input h-9 w-36 text-sm" value={days} onChange={(e) => setDays(Number(e.target.value))}>
+              {[3, 7, 14, 30].map((n) => <option key={n} value={n}>{n} hari terakhir</option>)}
+            </Select>
+          )}
           <button onClick={() => setCfgOpen(!cfgOpen)} className={`flex h-9 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium ${cfgOpen ? "border-[#ee4d2d] text-[#ee4d2d]" : "border-slate-200 text-slate-600"}`}><Settings2 size={15} />Atur</button>
         </div>
       </div>
@@ -192,6 +198,23 @@ function EvaluationModal({ row: r, days, onClose }: { row: Row | null; days: num
             {stats.map(([k, v]) => (
               <div key={k} className="rounded-lg bg-slate-50 px-3 py-2"><span className="block text-[11px] text-slate-500">{k}</span><b className={`text-sm ${k === "Laba/rugi" && r.profit !== null ? (r.profit < 0 ? "text-rose-600" : "text-emerald-600") : "text-navy"}`}>{v}</b></div>
             ))}
+          </div>
+          <div className="rounded-xl border border-slate-200 p-3.5">
+            <b className="text-sm text-navy">Perhitungan laba / rugi iklan</b>
+            <dl className="mt-2 space-y-1.5 text-[13px]">
+              {([
+                ["Penjualan dari iklan", r.gmv, ""],
+                [`Total HPP produk terjual${r.hpp_ratio !== null ? ` (${Math.round(r.hpp_ratio * 100)}% dari harga)` : ""}`, r.hpp_total, "−"],
+                [`Potongan Shopee (${Math.round(r.fee_rate * 100)}%)`, r.fee_total, "−"],
+                ["Biaya iklan riil (+PPN 11%)", r.expense_real, "−"],
+              ] as const).map(([l, v, sign]) => (
+                <div key={l} className="flex justify-between gap-3"><dt className="text-slate-500">{l}</dt>
+                  <dd className="font-medium text-navy">{v === null ? <span className="text-xs text-amber-600">HPP belum diisi</span> : `${sign}${rupiah(v)}`}</dd></div>
+              ))}
+              <div className="flex justify-between gap-3 border-t border-slate-200 pt-1.5"><dt className="font-semibold text-navy">Laba / rugi bersih iklan</dt>
+                <dd className={`font-bold ${r.profit === null ? "text-slate-400" : r.profit < 0 ? "text-rose-600" : "text-emerald-600"}`}>{r.profit === null ? "Isi HPP dulu" : `${r.profit < 0 ? "−" : "+"}${rupiah(Math.abs(r.profit))}`}</dd></div>
+            </dl>
+            {r.hpp_total === null && <p className="mt-2 text-[11px] text-amber-700">Isi HPP produk ini di Semua Produk → Input HPP Massal agar laba/rugi bisa dihitung.</p>}
           </div>
           {r.evaluation.map((v, i) => (
             <div key={v.key} className={`rounded-xl border p-3.5 ${TONE[v.tone]}`}>

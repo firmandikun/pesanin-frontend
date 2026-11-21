@@ -26,6 +26,10 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
   const controls = useRef<IScannerControls | null>(null);
   const busy = useRef(false);
   const gen = useRef(0);
+  // Viewfinder follows the label: wide for a barcode, square for a QR / Data Matrix; and a box around the code just read.
+  const [guide, setGuide] = useState<"bar" | "qr">("bar");
+  const [hit, setHit] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+  const hitTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const seen = useRef<{ code: string; at: number }>({ code: "", at: 0 });
 
   useEffect(() => {
@@ -59,6 +63,26 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
     }
   }, [base]);
 
+  /** Box around the decoded code, in on-screen pixels (the video is object-cover, so scale + crop offset). */
+  const markHit = (pts: [number, number][], square: boolean) => {
+    const v = video.current;
+    if (!v || !pts.length || !v.videoWidth) return;
+    const el = v.getBoundingClientRect();
+    const scale = Math.max(el.width / v.videoWidth, el.height / v.videoHeight);
+    const ox = (el.width - v.videoWidth * scale) / 2, oy = (el.height - v.videoHeight * scale) / 2;
+    const xs = pts.map(([x]) => x * scale + ox), ys = pts.map(([, y]) => y * scale + oy);
+    let [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+    const w = Math.max(x1 - x0, 40);
+    // A 1D barcode only reports points along one line: give it the usual bar height. QR points are corners.
+    const h = square ? Math.max(y1 - y0, w) : Math.max(y1 - y0, w * 0.35);
+    const pad = square ? w * 0.15 : 12;
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    [x0, x1, y0, y1] = [cx - w / 2 - pad, cx + w / 2 + pad, cy - h / 2 - pad, cy + h / 2 + pad];
+    setHit({ left: Math.max(0, x0), top: Math.max(0, y0), width: Math.min(el.width, x1) - Math.max(0, x0), height: Math.min(el.height, y1) - Math.max(0, y0) });
+    clearTimeout(hitTimer.current);
+    hitTimer.current = setTimeout(() => setHit(null), 900);
+  };
+
   const stopCam = () => { gen.current++; controls.current?.stop(); controls.current = null; setCamOn(false); };
   const startCam = useCallback(async () => {
     setCamErr("");
@@ -76,7 +100,13 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
       const c = await reader.decodeFromConstraints(
         { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } } },
         video.current!,
-        (res) => { if (res) send(res.getText()); },
+        (res) => {
+          if (!res) return;
+          const square = res.getBarcodeFormat() === BarcodeFormat.QR_CODE || res.getBarcodeFormat() === BarcodeFormat.DATA_MATRIX;
+          setGuide(square ? "qr" : "bar");
+          markHit(res.getResultPoints().map((p) => [p.getX(), p.getY()] as [number, number]), square);
+          send(res.getText());
+        },
       );
       if (my !== gen.current) { c.stop(); return; } // closed/restarted meanwhile
       controls.current = c;
@@ -122,6 +152,10 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
         </div>
         <div className="rounded-xl bg-brand-50 p-4 text-center"><div className="text-4xl font-bold text-brand-700">{summary.total}</div><div className="text-sm text-brand-700/80">total paket</div></div>
         <div>
+          <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Per ekspedisi</div>
+          {summary.by_expedition.map((s) => <div key={s.name} className="flex justify-between border-b border-slate-100 py-2 text-sm"><span className="text-slate-600">{s.name}</span><b>{s.count} paket</b></div>)}
+        </div>
+        <div>
           <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Per toko</div>
           {summary.by_shop.map((s) => <div key={s.name} className="flex justify-between border-b border-slate-100 py-2 text-sm"><span className="text-slate-600">{s.name}</span><b>{s.count} paket</b></div>)}
           {!summary.by_shop.length && <p className="text-sm text-slate-400">Tidak ada paket.</p>}
@@ -134,7 +168,17 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
     <Shell store={info.store_name}>
       <div className="relative overflow-hidden rounded-2xl bg-black">
         <video ref={video} className="aspect-[4/3] w-full object-cover" muted playsInline />
-        {camOn && <div className="pointer-events-none absolute inset-x-8 top-1/2 h-24 -translate-y-1/2 rounded-xl border-2 border-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />}
+        {camOn && (
+          <div className={`pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl border-2 border-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)] transition-all duration-300 ${guide === "qr" ? "aspect-square w-[58%]" : "h-24 w-[85%]"}`} />
+        )}
+        {camOn && hit && <div className="pointer-events-none absolute rounded-lg border-[3px] border-emerald-400 bg-emerald-400/15 transition-all duration-150" style={hit} />}
+        {camOn && (
+          <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 overflow-hidden rounded-full bg-black/60 text-xs font-semibold text-white">
+            {(["bar", "qr"] as const).map((g) => (
+              <button key={g} onClick={() => setGuide(g)} className={`px-3 py-1.5 ${guide === g ? "bg-white text-slate-800" : ""}`}>{g === "bar" ? "Barcode" : "QR / kotak"}</button>
+            ))}
+          </div>
+        )}
         {!camOn && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
             {camErr && <p className="text-sm text-white/90">{camErr}</p>}
@@ -166,7 +210,9 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
       </div>
 
       <div className="rounded-2xl bg-white p-4 shadow-sm">
-        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Per toko</div>
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Per ekspedisi</div>
+        {summary.by_expedition.map((s) => <div key={s.name} className="flex justify-between py-1 text-sm"><span className="text-slate-600">{s.name}</span><b>{s.count}</b></div>)}
+        <div className="mb-2 mt-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Per toko</div>
         {summary.by_shop.map((s) => <div key={s.name} className="flex justify-between py-1 text-sm"><span className="text-slate-600">{s.name}</span><b>{s.count}</b></div>)}
         {!summary.by_shop.length && <p className="text-sm text-slate-400">Belum ada paket.</p>}
         {recent.length > 0 && (
@@ -175,7 +221,7 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
             {recent.slice(0, 10).map((p) => (
               <div key={p.id} className="flex items-center justify-between gap-2 border-t border-slate-100 py-1.5 text-xs">
                 <span className="font-mono font-semibold text-slate-700">{p.code}</span>
-                <span className={`truncate ${p.matched ? "text-slate-500" : "text-amber-600"}`}>{p.shop_name ?? "Tidak dikenal"} · {scanTime(p.scanned_at).slice(0, 5)}</span>
+                <span className={`truncate ${p.matched ? "text-slate-500" : "text-amber-600"}`}>{p.shop_name ?? "Tidak dikenal"}{p.expedition ? ` · ${p.expedition}` : ""} · {scanTime(p.scanned_at).slice(0, 5)}</span>
               </div>
             ))}
           </>

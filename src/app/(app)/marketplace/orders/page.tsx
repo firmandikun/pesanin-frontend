@@ -1,6 +1,7 @@
 "use client";
 import { ORDERS_EVENT } from "@/components/NotificationBell";
-import { ArrowDownUp, CheckCircle2, FileText, Info, Loader2, MessageSquare, PackageCheck, PackageSearch, Printer, RefreshCcw, Search, Store, Truck, XCircle } from "lucide-react";
+import { ArrowDownUp, CheckCircle2, FileText, Info, Loader2, MessageSquare, PackageCheck, PackageSearch, PackageX, Printer, RefreshCcw, Search, StickyNote, Store, Truck, XCircle } from "lucide-react";
+import { CancelStockDialog, ReturnDialog, SellerNote } from "@/components/marketplace/AfterSales";
 import { askConfirm } from "@/components/Dialogs";
 import { TrackingModal } from "@/components/TrackingModal";
 import { ShipModal } from "@/components/marketplace/ShipModal";
@@ -163,6 +164,8 @@ export default function ShopeeOrders() {
   const [shipTarget, setShipTarget] = useState<{ orders: number[]; bookings: number[] } | null>(null);
   const [track, setTrack] = useState<Order | null>(null);
   const [detail, setDetail] = useState<Order | null>(null);
+  const [cancelStock, setCancelStock] = useState<Order | null>(null);
+  const [retOpen, setRetOpen] = useState<number | null>(null);
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -434,7 +437,7 @@ export default function ShopeeOrders() {
           </div>
         </div>
 
-        {showingReturns ? <ReturnsList data={returns} onPage={setPage} perPage={perPage} onPerPage={setPerPage} showShop={!shopId} /> : (<>
+        {showingReturns ? <ReturnsList data={returns} onPage={setPage} perPage={perPage} onPerPage={setPerPage} showShop={!shopId} onOpen={setRetOpen} /> : (<>
         {/* Result count, sort, mass actions */}
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <h2 className="text-lg font-bold text-navy">{data ? `${total.toLocaleString("id-ID")} Pesanan` : "Memuat…"}</h2>
@@ -553,6 +556,8 @@ export default function ShopeeOrders() {
                         {awaitingAwb(o) && <ActionLink icon={RefreshCcw} busy={busy === `awb${o.id}`} onClick={async () => { setBusy(`awb${o.id}`); await refreshAwb([o.id], [], 1); setBusy(""); }}>Cek resi</ActionLink>}
                         {canTrack(o) && <ActionLink icon={PackageSearch} onClick={() => setTrack(o)}>Lacak Paket</ActionLink>}
                         <ActionLink icon={FileText} onClick={() => setDetail(o)}>Periksa Rincian</ActionLink>
+                        {canSellerCancel(o) && <ActionLink icon={PackageX} tone="rose" disabled={!!busy} onClick={() => setCancelStock(o)}>Batalkan (stok habis)</ActionLink>}
+                        {o.seller_note && <p className="flex items-start gap-1 text-[11px] text-amber-700" title={o.seller_note}><StickyNote size={11} className="mt-0.5 shrink-0" /><span className="line-clamp-2">{o.seller_note}</span></p>}
                       </div>
                     </div>
                   </div>
@@ -578,8 +583,12 @@ export default function ShopeeOrders() {
           onAcceptCancel={() => handleCancel(detail, "ACCEPT")}
           onPrint={() => print([detail])}
           onClose={() => setDetail(null)}
+          onCancelStock={canSellerCancel(detail) ? () => { setCancelStock(detail); setDetail(null); } : undefined}
+          onNoteSaved={(note) => { setDetail({ ...detail, seller_note: note }); load(); }}
         />
       )}
+      {cancelStock && <CancelStockDialog order={cancelStock} onClose={() => setCancelStock(null)} onDone={(_, m) => { setCancelStock(null); setNotice(m); load(); }} />}
+      {retOpen && <ReturnDialog id={retOpen} onClose={() => setRetOpen(null)} onDone={(m) => { setRetOpen(null); setNotice(m); load(); }} />}
       {track && <TrackingModal orderId={track.id} title={`Lacak · ${track.external_order_sn}`} onClose={() => setTrack(null)} />}
       {shipTarget && (
         <ShipModal
@@ -600,7 +609,7 @@ export default function ShopeeOrders() {
 }
 
 /** Pengembalian Barang/Dana: return / refund requests, laid out like Seller Centre's list. */
-function ReturnsList({ data, onPage, perPage, onPerPage, showShop }: { data: Paginated<ReturnReq> | null; onPage: (p: number) => void; perPage: number; onPerPage: (n: number) => void; showShop: boolean }) {
+function ReturnsList({ data, onPage, perPage, onPerPage, showShop, onOpen }: { data: Paginated<ReturnReq> | null; onPage: (p: number) => void; perPage: number; onPerPage: (n: number) => void; showShop: boolean; onOpen: (id: number) => void }) {
   const cols = "grid grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,1.4fr)_minmax(0,1fr)] gap-4";
   return (
     <>
@@ -632,8 +641,9 @@ function ReturnsList({ data, onPage, perPage, onPerPage, showShop }: { data: Pag
                       {open && r.due_at && <p className={`mt-0.5 text-xs ${new Date(r.due_at).getTime() - Date.now() < 2 * 864e5 ? "font-semibold text-rose-600" : "text-slate-500"}`}>Tanggapi sebelum {fmtShort(r.due_at)}</p>}
                       {r.tracking_number && <p className="mt-0.5 font-mono text-[11px] text-slate-400">Resi retur {r.tracking_number}</p>}
                     </div>
-                    <div>
-                      <a href="https://seller.shopee.co.id/portal/sale/returnrefundcancel" target="_blank" rel="noopener noreferrer" className="text-[13px] font-medium text-sky-600 hover:underline">{open ? "Tanggapi di Seller Centre" : "Lihat di Seller Centre"}</a>
+                    <div className="space-y-1.5">
+                      <button onClick={() => onOpen(r.id)} className={`block text-[13px] font-semibold hover:underline ${open ? "text-[#ee4d2d]" : "text-sky-600"}`}>{open ? "Tanggapi" : "Rincian"}</button>
+                      <a href="https://seller.shopee.co.id/portal/sale/returnrefundcancel" target="_blank" rel="noopener noreferrer" className="block text-xs text-slate-500 hover:underline">Buka Seller Centre</a>
                     </div>
                   </div>
                 </div>
@@ -650,7 +660,10 @@ function ReturnsList({ data, onPage, perPage, onPerPage, showShop }: { data: Pag
 }
 
 /** "Periksa Rincian": buyer, address, items and money for one Shopee order. */
-function OrderDetail({ order: o, busy, onRejectCancel, onAcceptCancel, onPrint, onClose }: { order: Order; busy?: string; onRejectCancel?: () => void; onAcceptCancel?: () => void; onPrint?: () => void; onClose: () => void }) {
+/** Seller can cancel (stok habis) only before the parcel leaves. */
+const canSellerCancel = (o: Order) => !o.marketplace_shop?.is_demo && ["UNPAID", "READY_TO_SHIP", "PROCESSED"].includes(o.external_status ?? "") && !!o.items?.length;
+
+function OrderDetail({ order: o, busy, onRejectCancel, onAcceptCancel, onPrint, onClose, onCancelStock, onNoteSaved }: { order: Order; busy?: string; onRejectCancel?: () => void; onAcceptCancel?: () => void; onPrint?: () => void; onClose: () => void; onCancelStock?: () => void; onNoteSaved?: (note: string | null) => void }) {
   const [title, desc, tone] = statusText(o);
   const items = (o.items ?? []) as Item[];
   const rows: [string, string][] = [
@@ -674,8 +687,12 @@ function OrderDetail({ order: o, busy, onRejectCancel, onAcceptCancel, onPrint, 
         <dl className="space-y-1.5 rounded-lg bg-slate-50 p-3">
           {rows.map(([l, v]) => <div key={l} className="flex justify-between"><dt className="text-slate-500">{l}</dt><dd className="font-semibold text-navy">{v}</dd></div>)}
         </dl>
-        {(o.external_status === "IN_CANCEL" || canPrint(o)) && (
+        {!o.marketplace_shop?.is_demo && onNoteSaved && <SellerNote order={o} onSaved={onNoteSaved} />}
+        {(o.external_status === "IN_CANCEL" || canPrint(o) || onCancelStock) && (
           <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4">
+            {onCancelStock && (
+              <button onClick={onCancelStock} disabled={!!busy} className="mr-auto inline-flex h-9 items-center gap-1.5 rounded-lg border border-rose-200 px-4 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50"><PackageX size={14} />Batalkan (stok habis)</button>
+            )}
             {canPrint(o) && onPrint && (
               <button onClick={onPrint} disabled={!!busy} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 text-xs font-semibold text-navy hover:bg-slate-50 disabled:opacity-50">
                 {busy === "print" ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}Cetak Label
