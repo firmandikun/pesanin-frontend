@@ -160,8 +160,8 @@ export function SellerNote({ order: o, onSaved }: { order: Order; onSaved: (note
   return (
     <div>
       <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-slate-500"><StickyNote size={13} />Catatan penjual <span className="font-normal text-slate-400">(hanya terlihat oleh Anda, tersimpan di Shopee)</span></p>
-      <div className="flex gap-2">
-        <textarea className="input min-h-[60px] flex-1 py-2 text-sm" maxLength={500} placeholder="Mis. bungkus kado, kirim bareng pesanan lain, sudah konfirmasi via chat…" value={v} onChange={(e) => { setV(e.target.value); setSaved(false); }} />
+      <div className="flex flex-col items-end gap-2">
+        <textarea className="input min-h-[60px] w-full py-2 text-sm" maxLength={500} placeholder="Mis. bungkus kado, kirim bareng pesanan lain, sudah konfirmasi via chat…" value={v} onChange={(e) => { setV(e.target.value); setSaved(false); }} />
         <button onClick={save} disabled={busy || !dirty} className="inline-flex h-9 items-center gap-1.5 self-end rounded-lg border border-slate-200 px-3 text-xs font-semibold text-navy hover:bg-slate-50 disabled:opacity-50">{busy ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}{saved && !dirty ? "Tersimpan" : "Simpan"}</button>
       </div>
     </div>

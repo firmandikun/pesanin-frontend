@@ -7,6 +7,7 @@ import { TrackingModal } from "@/components/TrackingModal";
 import { ShipModal } from "@/components/marketplace/ShipModal";
 import { openShopeeAwb, openShopeeAwbMerged, type AwbResult } from "@/lib/awb";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ShopeeMark } from "@/components/ChannelBadge";
 import { Dialog, Pager, PageHead, Panel } from "@/components/kit";
@@ -163,6 +164,7 @@ export default function ShopeeOrders() {
   const [busy, setBusy] = useState("");
   const [shipTarget, setShipTarget] = useState<{ orders: number[]; bookings: number[] } | null>(null);
   const [track, setTrack] = useState<Order | null>(null);
+  const router = useRouter();
   const [detail, setDetail] = useState<Order | null>(null);
   const [cancelStock, setCancelStock] = useState<Order | null>(null);
   const [retOpen, setRetOpen] = useState<number | null>(null);
@@ -516,7 +518,10 @@ export default function ShopeeOrders() {
                 const selectable = needsShipping(o) || canPrint(o);
                 const items = ((o.items ?? []) as Item[]).length ? (o.items as Item[]) : [{ name: o.variant ?? "Produk", qty: o.quantity } as Item];
                 return (
-                  <div key={o.id} className={`overflow-hidden rounded-lg border ${selected.includes(o.id) ? "border-brand-300 ring-1 ring-brand-200" : "border-slate-200"}`}>
+                  <div key={o.id}
+                    // Click anywhere on the card (not on a button, link or checkbox) opens Rincian Pesanan, like Seller Centre.
+                    onClick={(e) => { if (!(e.target as HTMLElement).closest("button,a,input,label,select,textarea") && !window.getSelection()?.toString()) router.push(`/marketplace/orders/${o.id}`); }}
+                    className={`cursor-pointer overflow-hidden rounded-lg border transition hover:border-slate-300 hover:shadow-sm ${selected.includes(o.id) ? "border-brand-300 ring-1 ring-brand-200" : "border-slate-200"}`}>
                     <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5 text-[13px]">
                       {selectable && <input type="checkbox" className="h-4 w-4 accent-brand-600" checked={selected.includes(o.id)} onChange={(e) => toggle(o.id, e.target.checked)} />}
                       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-[11px] font-bold uppercase text-slate-600">{(buyer || "?").slice(0, 1)}</span>
@@ -555,8 +560,7 @@ export default function ShopeeOrders() {
                         {canPrint(o) && <ActionLink icon={Printer} busy={busy === "print"} disabled={!!busy} onClick={() => print([o])}>Cetak Label</ActionLink>}
                         {awaitingAwb(o) && <ActionLink icon={RefreshCcw} busy={busy === `awb${o.id}`} onClick={async () => { setBusy(`awb${o.id}`); await refreshAwb([o.id], [], 1); setBusy(""); }}>Cek resi</ActionLink>}
                         {canTrack(o) && <ActionLink icon={PackageSearch} onClick={() => setTrack(o)}>Lacak Paket</ActionLink>}
-                        <ActionLink icon={FileText} onClick={() => setDetail(o)}>Periksa Rincian</ActionLink>
-                        {canSellerCancel(o) && <ActionLink icon={PackageX} tone="rose" disabled={!!busy} onClick={() => setCancelStock(o)}>Batalkan (stok habis)</ActionLink>}
+                        <ActionLink icon={FileText} onClick={() => router.push(`/marketplace/orders/${o.id}`)}>Periksa Rincian</ActionLink>
                         {o.seller_note && <p className="flex items-start gap-1 text-[11px] text-amber-700" title={o.seller_note}><StickyNote size={11} className="mt-0.5 shrink-0" /><span className="line-clamp-2">{o.seller_note}</span></p>}
                       </div>
                     </div>
