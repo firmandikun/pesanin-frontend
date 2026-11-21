@@ -18,15 +18,22 @@ import {
 
 type Data = { sender: { name: string; phone: string | null; address: string | null }; orders: (Order & { product?: { name: string; sku?: string | null; weight?: number } | null })[] };
 
-function Barcode({ value }: { value: string }) {
+function Barcode({ value, compact = false }: { value: string; compact?: boolean }) {
   const ref = useRef<SVGSVGElement>(null);
-  useEffect(() => { if (ref.current) JsBarcode(ref.current, value, { format: "CODE128", height: 44, width: 1.6, fontSize: 12, margin: 0 }); }, [value]);
+  useEffect(() => {
+    if (ref.current) {
+      JsBarcode(ref.current, value, { format: "CODE128", height: compact ? 30 : 44, width: compact ? 1.4 : 1.6, fontSize: compact ? 10 : 12, margin: 0 });
+    }
+  }, [value, compact]);
   return <svg ref={ref} />;
 }
 
 /** Thermal label for website, landing page and manual orders with configurable paper & font size. */
 function Label({ o, sender, settings }: { o: Data["orders"][number]; sender: Data["sender"]; settings: PrintSettings }) {
   const cod = o.payment_method === "cod";
+  const compact = settings.paper_size === "78x100" || settings.paper_size === "100x100";
+  const itemCount = o.items?.length ?? 1;
+  const manyItems = itemCount >= 4;
   const dimClass = settings.paper_size === "78x100"
     ? "h-[100mm] w-[78mm]"
     : settings.paper_size === "100x100"
@@ -34,24 +41,26 @@ function Label({ o, sender, settings }: { o: Data["orders"][number]; sender: Dat
     : settings.paper_size === "a4"
     ? "w-[210mm] min-h-[148mm] max-w-full"
     : "h-[150mm] w-[100mm]";
-  const skuSize = `${settings.sku_font_size || 8}pt`;
+  const basePt = settings.sku_font_size || 8;
+  const adaptivePt = manyItems ? Math.min(basePt, compact ? 6.5 : 7.5) : compact ? Math.min(basePt, 8) : basePt;
+  const skuSize = `${adaptivePt}pt`;
 
   return (
-    <section className={`label-sheet mx-auto flex ${dimClass} flex-col border border-slate-900 bg-white text-[11px] leading-snug text-black shadow-sm print:shadow-none`}>
-      <header className="flex items-center justify-between border-b border-slate-900 px-3 py-2">
+    <section className={`label-sheet mx-auto flex ${dimClass} flex-col overflow-hidden border border-slate-900 bg-white ${compact ? "text-[9.5px] leading-tight" : "text-[11px] leading-snug"} text-black shadow-sm print:shadow-none`}>
+      <header className={`flex shrink-0 items-center justify-between border-b border-slate-900 ${compact ? "px-2 py-1" : "px-3 py-2"}`}>
         <Logo small />
-        <div className="text-right"><b className="block text-sm">{o.courier ?? "Kurir"} {o.courier_service ?? ""}</b>{cod && <span className="rounded bg-black px-1.5 py-0.5 text-[10px] font-bold text-white">COD</span>}</div>
+        <div className="text-right"><b className={`block ${compact ? "text-xs" : "text-sm"}`}>{o.courier ?? "Kurir"} {o.courier_service ?? ""}</b>{cod && <span className="rounded bg-black px-1.5 py-0.5 text-[10px] font-bold text-white">COD</span>}</div>
       </header>
-      <div className="flex justify-center border-b border-slate-900 px-3 py-2"><Barcode value={o.tracking_number || o.code} /></div>
-      <div className="grid grid-cols-2 border-b border-slate-900">
-        <div className="border-r border-slate-900 p-2"><p className="text-[9px] font-bold uppercase">Penerima</p><b className="block text-[12px]">{o.customer_name}</b><p>{o.phone}</p><p className="mt-0.5">{o.address}</p><p>{[o.district, o.city, o.province].filter(Boolean).join(", ")}</p></div>
-        <div className="p-2"><p className="text-[9px] font-bold uppercase">Pengirim</p><b className="block">{sender.name}</b><p>{sender.phone}</p><p className="mt-0.5">{sender.address}</p></div>
+      <div className={`flex shrink-0 justify-center border-b border-slate-900 ${compact ? "px-2 py-1" : "px-3 py-2"}`}><Barcode value={o.tracking_number || o.code} compact={compact} /></div>
+      <div className="grid shrink-0 grid-cols-2 border-b border-slate-900">
+        <div className={`border-r border-slate-900 ${compact ? "p-1.5" : "p-2"}`}><p className="text-[8.5px] font-bold uppercase">Penerima</p><b className={`block ${compact ? "text-[10.5px]" : "text-[12px]"}`}>{o.customer_name}</b><p>{o.phone}</p><p className="mt-0.5 line-clamp-2">{o.address}</p><p>{[o.district, o.city, o.province].filter(Boolean).join(", ")}</p></div>
+        <div className={compact ? "p-1.5" : "p-2"}><p className="text-[8.5px] font-bold uppercase">Pengirim</p><b className="block">{sender.name}</b><p>{sender.phone}</p><p className="mt-0.5 line-clamp-2">{sender.address}</p></div>
       </div>
-      <div className="flex-1 border-b border-slate-900 p-2">
-        <p className="text-[9px] font-bold uppercase">
+      <div className={`min-h-0 flex-1 overflow-hidden border-b border-slate-900 ${compact ? "p-1.5" : "p-2"}`}>
+        <p className="text-[8.5px] font-bold uppercase">
           {settings.product_text_mode === "name_only" ? "Isi paket (Nama Produk)" : settings.product_text_mode === "sku_only" ? "Isi paket (SKU)" : "Isi paket (SKU / Nama)"}
         </p>
-        <div className="mt-1 space-y-0.5" style={{ fontSize: skuSize }}>
+        <div className={`mt-0.5 ${manyItems && settings.paper_size !== "78x100" ? "grid grid-cols-2 gap-x-2 gap-y-0.5" : "space-y-0.5"}`} style={{ fontSize: skuSize, lineHeight: 1.2 }}>
           {o.items?.length
             ? o.items.map((i, k) => {
                 const text = settings.product_text_mode === "name_only"
@@ -59,7 +68,7 @@ function Label({ o, sender, settings }: { o: Data["orders"][number]; sender: Dat
                   : settings.product_text_mode === "sku_only"
                   ? (i.sku || "-")
                   : (i.sku || `${i.name}${i.variant ? ` / ${i.variant}` : ""}`);
-                return <p key={k} className="font-mono font-bold">{text} × {i.qty}</p>;
+                return <p key={k} className="truncate font-mono font-bold">{text} × {i.qty}</p>;
               })
             : (() => {
                 const text = settings.product_text_mode === "name_only"
@@ -70,12 +79,12 @@ function Label({ o, sender, settings }: { o: Data["orders"][number]; sender: Dat
                 return <p className="font-mono font-bold">{text} × {o.quantity}</p>;
               })()}
         </div>
-        {o.notes && <p className="mt-1 text-[10px] italic">Catatan: {o.notes}</p>}
+        {o.notes && <p className="mt-0.5 truncate text-[9px] italic">Catatan: {o.notes}</p>}
       </div>
-      <footer className="grid grid-cols-3 text-center">
-        <div className="border-r border-slate-900 p-1.5"><p className="text-[9px] uppercase">Berat</p><b>{((o.weight || 0) / 1000).toFixed(2)} kg</b></div>
-        <div className="border-r border-slate-900 p-1.5"><p className="text-[9px] uppercase">{cod ? "Tagih COD" : "Ongkir"}</p><b>{rupiah(cod ? o.total : o.shipping_cost)}</b></div>
-        <div className="p-1.5"><p className="text-[9px] uppercase">No. order</p><b className="font-mono text-[10px]">{o.code}</b></div>
+      <footer className="grid shrink-0 grid-cols-3 text-center">
+        <div className={`border-r border-slate-900 ${compact ? "p-1" : "p-1.5"}`}><p className="text-[8.5px] uppercase">Berat</p><b>{((o.weight || 0) / 1000).toFixed(2)} kg</b></div>
+        <div className={`border-r border-slate-900 ${compact ? "p-1" : "p-1.5"}`}><p className="text-[8.5px] uppercase">{cod ? "Tagih COD" : "Ongkir"}</p><b>{rupiah(cod ? o.total : o.shipping_cost)}</b></div>
+        <div className={compact ? "p-1" : "p-1.5"}><p className="text-[8.5px] uppercase">No. order</p><b className="font-mono text-[9.5px]">{o.code}</b></div>
       </footer>
     </section>
   );
@@ -120,8 +129,17 @@ function Labels() {
 
   if (!d) return <p className="p-10 text-center text-sm text-slate-500">{err || "Menyiapkan resi…"}</p>;
 
+  const pageSizeCss = settings.paper_size === "78x100"
+    ? "78mm 100mm"
+    : settings.paper_size === "100x100"
+    ? "100mm 100mm"
+    : settings.paper_size === "a4"
+    ? "A4 portrait"
+    : "100mm 150mm";
+
   return (
     <div className="min-h-screen bg-slate-100 print:bg-white">
+      <style>{`@page label { size: ${pageSizeCss}; margin: 0; }`}</style>
       <div className="no-print sticky top-0 z-10 flex flex-wrap items-center gap-3 bg-navy px-6 py-3 text-white">
         <b className="mr-auto">Cetak Resi · {d.orders.length} pesanan</b>
         <div className="flex items-center gap-2 text-xs">

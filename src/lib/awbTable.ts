@@ -206,7 +206,6 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
   const line = (yy: number) => page.drawLine({ start: { x: frameLeft, y: yy }, end: { x: frameRight, y: yy }, thickness: stroke, color: rule });
   const vLine = (vx: number, y1: number, y2: number) => page.drawLine({ start: { x: vx, y: y1 }, end: { x: vx, y: y2 }, thickness: stroke, color: rule });
 
-  const lh = size * 1.16;
   const widthFor = (k: number) => {
     if (k === 0) {
       return (divVar ?? divQty) - colX[0] - 5;
@@ -214,21 +213,42 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
     return divQty - colX[1] - 5;
   };
 
-  const rowsWithLines = body2.map((r) => {
-    const lines = r.cells.map((c, k) => wrap(c, fonts.bold, size, widthFor(k)));
-    const n = Math.max(1, ...lines.map((l) => l.length));
-    return { ...r, lines, n };
-  });
-
   // Top boundary: in Shopee label, the horizontal divider below the barcode is at hy + 6.0.
   // Setting top = hy + 6.0 ensures we NEVER overlap or erase the barcode or No. Pesanan above!
   const topY = hy + 6.0;
   const headerBottomY = hy - 3.5;
   const minSafeY = 20;
-
-  const totalItemHeight = rowsWithLines.reduce((acc, r) => acc + (size + 2.5 + (r.n - 1) * lh + 3.0), 0);
   const lowest = body.length ? Math.min(...body.map((i) => i.transform[5])) : hy - size * 3;
   const origBottom = stop ? stop.transform[5] + (stop.height || size) * 0.8 : lowest - size * 0.4;
+
+  // Auto-shrink font & row padding when there are many items so they don't overlap or get cut off.
+  let fitSize = size;
+  let padTop = 2.5;
+  let padBot = 3.0;
+  const computeLayout = (fs: number, pt: number, pb: number) => {
+    const lineH = fs * 1.14;
+    const mapped = body2.map((r) => {
+      const lines = r.cells.map((c, k) => wrap(c, fonts.bold, fs, widthFor(k)));
+      const n = Math.max(1, ...lines.map((l) => l.length));
+      return { ...r, lines, n };
+    });
+    const totalH = mapped.reduce((acc, r) => acc + (fs + pt + (r.n - 1) * lineH + pb), 0);
+    return { mapped, lineH, totalH };
+  };
+
+  let layout = computeLayout(fitSize, padTop, padBot);
+  const maxAvailH = headerBottomY - minSafeY - 6;
+  const origAvailH = Math.max(40, headerBottomY - origBottom);
+  while (fitSize > 5 && (layout.totalH > maxAvailH || (body2.length >= 4 && layout.totalH > origAvailH && fitSize > 5.5))) {
+    fitSize = Math.max(5, fitSize - 0.5);
+    padTop = fitSize <= 6.5 ? 1.5 : 2.0;
+    padBot = fitSize <= 6.5 ? 1.8 : 2.2;
+    layout = computeLayout(fitSize, padTop, padBot);
+  }
+
+  const lh = layout.lineH;
+  const rowsWithLines = layout.mapped;
+  const totalItemHeight = layout.totalH;
   const neededBottom = Math.max(minSafeY, headerBottomY - totalItemHeight - 6);
   const targetBottom = Math.min(origBottom, neededBottom);
 
@@ -257,17 +277,17 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
 
   // Draw each row
   rowsWithLines.forEach((r, i) => {
-    const first = y - size - 2.5;
+    const first = y - fitSize - padTop;
     if (first - (r.n - 1) * lh < minSafeY) return;
-    page.drawText(r.no, { x: frameLeft + 3, y: first, size: headerSize, font: fonts.regular, color: ink });
+    page.drawText(r.no, { x: frameLeft + 3, y: first, size: Math.min(headerSize, fitSize), font: fonts.regular, color: ink });
     const qtyText = sanitize(fonts.regular, r.qty);
-    page.drawText(qtyText, { x: qtyX, y: first, size: Math.max(size, 7), font: fonts.bold, color: ink });
+    page.drawText(qtyText, { x: qtyX, y: first, size: Math.max(fitSize, 6), font: fonts.bold, color: ink });
     if ((parseInt(r.qty, 10) || 1) > 1) {
-      const tw = safeWidth(fonts.bold, qtyText, size);
-      page.drawEllipse({ x: qtyX + tw / 2, y: first + size * 0.33, xScale: tw / 2 + 4, yScale: size * 0.72, borderColor: ink, borderWidth: 1.1 });
+      const tw = safeWidth(fonts.bold, qtyText, fitSize);
+      page.drawEllipse({ x: qtyX + tw / 2, y: first + fitSize * 0.33, xScale: tw / 2 + 4, yScale: fitSize * 0.72, borderColor: ink, borderWidth: 1.1 });
     }
-    r.lines.forEach((col, k) => col.forEach((ln, j) => page.drawText(ln, { x: colX[k], y: first - j * lh, size, font: fonts.bold, color: ink })));
-    y = first - (r.n - 1) * lh - 3.0;
+    r.lines.forEach((col, k) => col.forEach((ln, j) => page.drawText(ln, { x: colX[k], y: first - j * lh, size: fitSize, font: fonts.bold, color: ink })));
+    y = first - (r.n - 1) * lh - padBot;
     if (showBorders) {
       line(y);
     } else if (i < rowsWithLines.length - 1) {
