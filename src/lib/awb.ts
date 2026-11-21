@@ -120,11 +120,11 @@ export async function openShopeeAwbMerged({ orders = [], bookings = [], settings
               const origW = srcPage.getWidth();
               const origH = srcPage.getHeight();
               const bot = Math.min(cropBottoms[idx] ?? 0, origH * 0.35);
-              const embedded = await merged.embedPage(srcPage, { left: 6, right: origW - 6, bottom: bot, top: origH - 4 });
+              const embedded = await merged.embedPage(srcPage, { left: 0, right: origW, bottom: bot, top: origH });
               const page = merged.addPage([targetW, targetH]);
               const cw = embedded.width;
               const ch = embedded.height;
-              const scale = Math.min((targetW - 4) / cw, (targetH - 4) / ch);
+              const scale = Math.min((targetW - 6) / cw, (targetH - 6) / ch);
               const w = cw * scale;
               const h = ch * scale;
               page.drawPage(embedded, {
@@ -143,11 +143,11 @@ export async function openShopeeAwbMerged({ orders = [], bookings = [], settings
               const origW = srcPage.getWidth();
               const origH = srcPage.getHeight();
               const bot = Math.min(cropBottoms[idx] ?? 0, origH * 0.35);
-              const embedded = await merged.embedPage(srcPage, { left: 6, right: origW - 6, bottom: bot, top: origH - 4 });
+              const embedded = await merged.embedPage(srcPage, { left: 0, right: origW, bottom: bot, top: origH });
               const page = merged.addPage([targetW, targetH]);
               const cw = embedded.width;
               const ch = embedded.height;
-              const scale = Math.min((targetW - 4) / cw, (targetH - 4) / ch);
+              const scale = Math.min((targetW - 6) / cw, (targetH - 6) / ch);
               const w = cw * scale;
               const h = ch * scale;
               page.drawPage(embedded, {
