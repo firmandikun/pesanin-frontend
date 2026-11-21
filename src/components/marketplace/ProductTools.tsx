@@ -226,7 +226,7 @@ export function SkuDialog({ keys, onClose, onSaved }: { keys?: string[]; onClose
   useEffect(() => { const t = setTimeout(preview, 300); return () => clearTimeout(t); }, [preview]);
 
   const set = (id: number, sku: string) => setRows((r) => r && r.map((x) => (x.id === id ? { ...x, sku: sku.toUpperCase().replace(/\s+/g, "-") } : x)));
-  // Duplicate check: the same SKU on different products (same product in other shops sharing a SKU is intended).
+  // Same SKU on different listings is allowed (e.g. the same item listed twice): it only means they share one stock.
   const owner = new Map<string, string>();
   const dupes = new Set<string>();
   (rows ?? []).forEach((r) => { const who = `${r.name}|${r.model_name ?? ""}`.toLowerCase(); const prev = owner.get(r.sku); if (prev && prev !== who) dupes.add(r.sku); else owner.set(r.sku, who); });
@@ -267,8 +267,8 @@ export function SkuDialog({ keys, onClose, onSaved }: { keys?: string[]; onClose
                         {errors[r.id] && <span className="block text-xs text-rose-600">{errors[r.id]}</span>}</td>
                       <td className="px-3 py-2 text-xs text-slate-500">{r.shop_name}</td>
                       <td className="px-3 py-2 font-mono text-xs text-slate-400">{r.current || "-"}</td>
-                      <td className="px-3 py-2"><input className={`input h-8 w-48 font-mono text-xs ${dupes.has(r.sku) ? "border-rose-400 text-rose-600" : r.sku !== (r.current ?? "") ? "border-[#ee4d2d]" : ""}`} value={r.sku} maxLength={100} onChange={(e) => set(r.id, e.target.value)} />
-                        {dupes.has(r.sku) && <span className="block text-[11px] text-rose-600">dipakai produk lain</span>}</td>
+                      <td className="px-3 py-2"><input className={`input h-8 w-48 font-mono text-xs ${dupes.has(r.sku) ? "border-amber-400 bg-amber-50/50" : r.sku !== (r.current ?? "") ? "border-[#ee4d2d]" : ""}`} value={r.sku} maxLength={100} onChange={(e) => set(r.id, e.target.value)} />
+                        {dupes.has(r.sku) && <span className="block text-[11px] text-amber-700">sama dengan produk lain · stok digabung</span>}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -276,8 +276,9 @@ export function SkuDialog({ keys, onClose, onSaved }: { keys?: string[]; onClose
             )}
         </div>
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-slate-500">{changed.length} SKU akan disimpan ke Shopee (SKU induk & kode variasi). SKU tidak terlihat pembeli.</p>
-          <button onClick={save} disabled={busy || !changed.length || dupes.size > 0} className="flex h-10 items-center gap-2 rounded-lg bg-[#ee4d2d] px-5 text-sm font-semibold text-white disabled:opacity-50">{busy && <Loader2 size={15} className="animate-spin" />}Simpan ke Shopee</button>
+          <p className="text-xs text-slate-500">{changed.length} SKU akan disimpan ke Shopee (SKU induk & kode variasi). SKU tidak terlihat pembeli.
+            {dupes.size > 0 && <span className="block text-amber-700">{dupes.size} SKU dipakai lebih dari satu produk: di Stok Master produk-produk itu akan memakai satu stok yang sama. Ubah kalau sebenarnya barangnya berbeda.</span>}</p>
+          <button onClick={save} disabled={busy || !changed.length} className="flex h-10 items-center gap-2 rounded-lg bg-[#ee4d2d] px-5 text-sm font-semibold text-white disabled:opacity-50">{busy && <Loader2 size={15} className="animate-spin" />}Simpan ke Shopee</button>
         </div>
       </div>
     </Modal>
