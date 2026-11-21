@@ -90,10 +90,12 @@ export default function AiDiagnosisPage() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [diagnosis, setDiagnosis] = useState<Diagnosis | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
+    setLoadErr("");
     const qs = new URLSearchParams({ from: range.from, to: range.to });
     api<{ gemini_connected: boolean; snapshot: Snapshot; diagnosis: Diagnosis | null }>(`/reports/ai-diagnosis?${qs}`)
       .then((res) => {
@@ -101,7 +103,9 @@ export default function AiDiagnosisPage() {
         setSnapshot(res.snapshot);
         setDiagnosis(res.diagnosis);
       })
-      .catch(() => {})
+      .catch((e) => {
+        setLoadErr(e instanceof ApiError ? e.message : "Gagal memuat data diagnosa bisnis.");
+      })
       .finally(() => setLoading(false));
   }, [range.from, range.to]);
 
@@ -143,7 +147,13 @@ export default function AiDiagnosisPage() {
         </div>
       </PageHead>
 
-      {!loading && !connected && (
+      {loadErr && (
+        <Panel className="border-rose-200 bg-rose-50/70 p-4 text-sm text-rose-700">
+          <b>Gagal memuat data diagnosa:</b> {loadErr}
+        </Panel>
+      )}
+
+      {!loading && !loadErr && !connected && (
         <Panel className="flex flex-wrap items-center justify-between gap-4 border-amber-200 bg-amber-50/70 p-4">
           <div className="flex items-start gap-3">
             <AlertTriangle size={20} className="mt-0.5 shrink-0 text-amber-600" />
