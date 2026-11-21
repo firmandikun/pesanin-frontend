@@ -527,6 +527,7 @@ export default function ShopeeOrders() {
                       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-[11px] font-bold uppercase text-slate-600">{(buyer || "?").slice(0, 1)}</span>
                       <span className="font-medium text-slate-700">{buyer}</span>
                       {!shopId && <span className="flex items-center gap-1 text-xs text-slate-400"><ShopeeMark size={12} />{o.marketplace_shop?.shop_name}</span>}
+                      {o.external_status === "IN_CANCEL" && <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-600 ring-1 ring-rose-200" title="Buka rincian pesanan untuk Setuju / Tolak"><XCircle size={11} />Pembatalan Diajukan</span>}
                       <span className="ml-auto text-slate-500">No. Pesanan <b className="font-medium text-slate-700">{o.external_order_sn}</b></span>
                     </div>
                     <div className={`${COLS} px-4 py-4 text-[13px]`}>
@@ -549,7 +550,6 @@ export default function ShopeeOrders() {
                         {o.awb_printed_at && <span className="mt-1 inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700"><CheckCircle2 size={11} />Label sudah dicetak</span>}
                       </div>
                       <div className="space-y-2">
-                        {o.external_status === "IN_CANCEL" && <ActionLink icon={XCircle} tone="rose" onClick={() => router.push(`/marketplace/orders/${o.id}`)}>Tanggapi Pembatalan</ActionLink>}
                         {needsShipping(o) && <ActionLink icon={Truck} disabled={!!busy} onClick={() => setShipTarget({ orders: [o.id], bookings: [] })}>Atur Pengiriman</ActionLink>}
                         {o.external_status === "PENDING" && <p className="text-[13px] font-medium text-amber-600" title="Atur pengiriman bisa dilakukan setelah Shopee selesai meninjau pesanan ini. Jika atur otomatis aktif, Pesanin mengaturnya begitu Shopee melepasnya.">Tertunda</p>}
                         {canPrint(o) && <ActionLink icon={Printer} busy={busy === "print"} disabled={!!busy} onClick={() => print([o])}>Cetak Label</ActionLink>}
