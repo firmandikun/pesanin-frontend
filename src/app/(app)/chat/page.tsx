@@ -17,7 +17,7 @@ import { ThreadSidebar } from "@/components/inbox/ThreadSidebar";
 type Channel = "shopee" | "facebook" | "instagram" | "whatsapp";
 type Conv = { channel: Channel; source_id: number | string; source_name: string; id: string; to_id: number | string; name: string; avatar: string | null; unread: number; pinned: boolean; last_text: string; last_from_me: boolean; at: string | null;
   status?: "open" | "done"; assigned_to?: number | null; assignee?: string | null; labels?: string[]; customer_id?: number | null };
-type Msg = { id: string; from_me: boolean; type: string; text: string; image: string | null; video?: string | null; duration?: number | null; link?: string | null; at: string | null; read?: boolean | null; status?: string | null };
+type Msg = { id: string; from_me: boolean; type: string; text: string; image: string | null; video?: string | null; duration?: number | null; link?: string | null; at: string | null; read?: boolean | null; status?: string | null; system?: boolean };
 
 /**
  * ✓ terkirim · ✓✓ abu-abu sampai · ✓✓ biru dibaca. WhatsApp reports the real status; Shopee says it when it can,
@@ -27,7 +27,7 @@ function receipt(m: Msg, all: Msg[], i: number): "failed" | "sent" | "delivered"
   if (m.status === "failed") return "failed";
   if (m.status === "read" || m.read === true) return "read";
   if (m.read === null || m.read === undefined) {
-    if (all.slice(i + 1).some((x) => !x.from_me)) return "read";
+    if (all.slice(i + 1).some((x) => !x.from_me && !x.system)) return "read";
     if (m.status === "delivered") return "delivered";
     return m.status === "sent" || !m.status ? "sent" : "delivered";
   }
@@ -347,7 +347,10 @@ function Chat() {
               </div>
               <div className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-slate-50 px-4 py-4">
                 {!msgs ? <p className="flex items-center justify-center gap-2 py-10 text-sm text-slate-400"><Loader2 size={15} className="animate-spin" />Memuat pesan…</p>
-                  : msgs.map((m, i) => (
+                  : msgs.map((m, i) => m.system ? (
+                    // Shopee notice (AI assistant paused, etc.): a small centred note, like in Seller Centre.
+                    <div key={m.id} className="flex justify-center"><p className="max-w-[85%] rounded-lg bg-white/80 px-3 py-1.5 text-center text-xs text-slate-500 ring-1 ring-slate-200/70">{m.text}</p></div>
+                  ) : (
                     <div key={m.id} className={`flex ${m.from_me ? "justify-end" : "justify-start"}`}>
                       <div className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-sm ${m.from_me ? "rounded-br-md bg-brand-600 text-white" : "rounded-bl-md bg-white text-slate-700"}`}>
                         {m.video ? (
