@@ -291,27 +291,29 @@ function Products() {
   return (
     <div className="space-y-4">
       <PageHead title="Produk Saya" tutorial={false} crumbs={[["Marketplace"], ["Semua Produk"]]}>
-        {shops.length > 1 && (
-          <Select className="input h-10 w-52 bg-white" value={filters.shop_id} onChange={(e) => set("shop_id", e.target.value)}>
-            <option value="">Semua Toko ({shops.length})</option>
-            {shops.map((x) => <option key={x.id} value={x.id}>{x.shop_name}</option>)}
-          </Select>
-        )}
-        <button onClick={syncProducts} disabled={syncing || !shops.length} className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
-          {syncing ? <Loader2 size={15} className="animate-spin" /> : <RefreshCcw size={15} />}Sinkronkan Produk
-        </button>
-        <button onClick={syncStats} disabled={!!toolBusy || !shops.length} className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
-          {toolBusy === "stats" ? <Loader2 size={15} className="animate-spin" /> : <BarChart3 size={15} />}Perbarui Statistik
-        </button>
-        <button onClick={() => setBulk(true)} className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-          <Calculator size={15} />Input HPP Massal
-        </button>
-        <button onClick={() => setSkuKeys([])} disabled={!shops.length} className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
-          <Hash size={15} />Buat SKU
-        </button>
-        <Link href="/marketplace/publish" className="flex h-10 items-center gap-1.5 rounded-lg bg-[#ee4d2d] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#d73f22]">
-          <Plus size={16} />Tambah Produk Baru
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          {shops.length > 1 && (
+            <Select className="input h-9 w-44 bg-white text-xs" value={filters.shop_id} onChange={(e) => set("shop_id", e.target.value)}>
+              <option value="">Semua Toko ({shops.length})</option>
+              {shops.map((x) => <option key={x.id} value={x.id}>{x.shop_name}</option>)}
+            </Select>
+          )}
+          <button onClick={syncProducts} disabled={syncing || !shops.length} className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+            {syncing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCcw size={14} />}Sinkronkan Produk
+          </button>
+          <button onClick={syncStats} disabled={!!toolBusy || !shops.length} className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+            {toolBusy === "stats" ? <Loader2 size={14} className="animate-spin" /> : <BarChart3 size={14} />}Perbarui Statistik
+          </button>
+          <button onClick={() => setBulk(true)} className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+            <Calculator size={14} />Input HPP Massal
+          </button>
+          <button onClick={() => setSkuKeys([])} disabled={!shops.length} className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+            <Hash size={14} />Buat SKU
+          </button>
+          <Link href="/marketplace/publish" className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#ee4d2d] px-3.5 text-xs font-semibold text-white shadow-sm hover:bg-[#d73f22]">
+            <Plus size={15} />Tambah Produk Baru
+          </Link>
+        </div>
       </PageHead>
 
       {notice && (
@@ -413,16 +415,16 @@ function Products() {
         </div>
 
         {/* Search & Filter Controls */}
-        <div className="space-y-3 p-5">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <div className="relative min-w-[280px] flex-1">
-              <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+        <div className="space-y-3 p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative min-w-[180px] flex-1">
+              <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 value={draftSearch}
                 onChange={(e) => setDraftSearch(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && applySearch()}
-                placeholder="Cari Nama Produk, SKU Induk, Kode Variasi, ID Produk"
-                className="input h-10 w-full pl-9 pr-8 text-sm"
+                placeholder="Cari Nama Produk, SKU, ID…"
+                className="input h-9 w-full pl-8 pr-7 text-xs"
               />
               {draftSearch && (
                 <button
@@ -434,53 +436,34 @@ function Products() {
                 </button>
               )}
             </div>
-            <Select className="input h-10 w-52" value={filters.shop_id} onChange={(e) => set("shop_id", e.target.value)}>
+            <Select className="input h-9 w-40 text-xs" value={filters.shop_id} onChange={(e) => set("shop_id", e.target.value)}>
               <option value="">Semua Toko Shopee</option>
               {shops.map((x) => <option key={x.id} value={x.id}>{x.shop_name}</option>)}
             </Select>
-            <Select className="input h-10 w-48" value={filters.cost} onChange={(e) => set("cost", e.target.value)}>
+            <Select className="input h-9 w-36 text-xs" value={filters.cost} onChange={(e) => set("cost", e.target.value)}>
               <option value="">Status HPP: Semua</option>
               <option value="filled">HPP Sudah Diisi</option>
               <option value="empty">HPP Belum Diisi</option>
             </Select>
-            <Select className="input h-10 w-44" value={filters.stock} onChange={(e) => set("stock", e.target.value)}>
+            <Select className="input h-9 w-32 text-xs" value={filters.stock} onChange={(e) => set("stock", e.target.value)}>
               <option value="">Stok: Semua</option>
               <option value="in">Stok Tersedia</option>
               <option value="low">Stok Menipis (≤ 10)</option>
               <option value="out">Stok Habis (0)</option>
             </Select>
-            <button onClick={applySearch} className="h-10 rounded-lg border border-[#ee4d2d] bg-white px-5 text-sm font-semibold text-[#ee4d2d] hover:bg-orange-50">
+            <button onClick={applySearch} className="h-9 shrink-0 rounded-lg border border-[#ee4d2d] bg-white px-4 text-xs font-semibold text-[#ee4d2d] hover:bg-orange-50">
               Terapkan
             </button>
-            <button onClick={resetFilters} className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 hover:bg-slate-50">
+            <button onClick={resetFilters} className="h-9 shrink-0 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 hover:bg-slate-50">
               Atur ulang
             </button>
           </div>
 
-          {/* Product Count + Filter Pills Row */}
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            <span className="mr-2 text-sm font-bold text-slate-800">
+          {/* Product Count Bar */}
+          <div className="flex flex-wrap items-center gap-2 pt-0.5">
+            <span className="text-sm font-bold text-slate-800">
               {d ? `${d.listings.total.toLocaleString("id-ID")} Produk` : "Memuat…"}
             </span>
-            {[
-              { label: "Stok Menipis", active: filters.stock === "low", onClick: () => set("stock", filters.stock === "low" ? "" : "low") },
-              { label: "Stok Habis", active: filters.stock === "out", onClick: () => set("stock", filters.stock === "out" ? "" : "out") },
-              { label: "HPP Belum Diisi", active: filters.cost === "empty", onClick: () => set("cost", filters.cost === "empty" ? "" : "empty") },
-              { label: "HPP Lengkap", active: filters.cost === "filled", onClick: () => set("cost", filters.cost === "filled" ? "" : "filled") },
-            ].map((pill) => (
-              <button
-                key={pill.label}
-                type="button"
-                onClick={pill.onClick}
-                className={`h-7 rounded-full border px-3 text-xs transition ${
-                  pill.active
-                    ? "border-[#ee4d2d] bg-orange-50 font-semibold text-[#ee4d2d]"
-                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-                }`}
-              >
-                {pill.label}
-              </button>
-            ))}
             {s && (
               <span className="ml-auto text-xs text-slate-500">
                 Total Variasi: <b className="text-slate-700">{s.total.toLocaleString("id-ID")}</b> · Total Stok: <b className="text-slate-700">{s.stock.toLocaleString("id-ID")}</b>
