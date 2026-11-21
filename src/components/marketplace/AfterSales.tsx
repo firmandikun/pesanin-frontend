@@ -7,7 +7,7 @@ import { api, ApiError, rupiah, type Order } from "@/lib/api";
 
 type Ret = { id: number; return_sn: string; order_sn: string | null; status: string; reason: string | null; text_reason: string | null; refund_amount: number; buyer_username: string | null; tracking_number: string | null; due_at: string | null };
 type Detail = {
-  return: Ret; images: string[]; videos: string[]; needs_logistics: boolean;
+  return: Ret; error?: string | null; images: string[]; videos: string[]; needs_logistics: boolean;
   negotiation: { status: string | null; solution: string | null; offer_amount: number | null; offer_by: string | null; counter_limit: number | null; max_refund: number | null } | null;
   solutions: { solution: string; max_refund: number }[]; dispute_reasons: { id: number; text: string }[];
 };
@@ -49,6 +49,7 @@ export function ReturnDialog({ id, onClose, onDone }: { id: number; onClose: () 
         <p className="flex items-center gap-2 py-6 text-sm text-slate-500"><Loader2 size={15} className="animate-spin" />Mengambil rincian dari Shopee…</p>
       ) : (
         <div className="space-y-4 text-sm">
+          {d.error && <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-800">{d.error}</p>}
           <div className="grid gap-3 sm:grid-cols-3">
             <div><p className="text-xs text-slate-500">Pembeli</p><p className="font-medium text-navy">{r.buyer_username || "-"}</p></div>
             <div><p className="text-xs text-slate-500">No. Pesanan</p><p className="font-mono text-navy">{r.order_sn}</p></div>

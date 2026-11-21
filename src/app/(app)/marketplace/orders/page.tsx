@@ -82,7 +82,7 @@ const fmtShort = (s: string) => new Date(s).toLocaleString("id-ID", { day: "2-di
 type Booking = { id: number; marketplace_shop_id: number; booking_sn: string; order_sn: string | null; booking_status: string; shipping_carrier: string | null; tracking_number: string | null; booked_at: string | null; items: { name: string; variant: string | null; sku: string | null; item_sku?: string | null; model_sku?: string | null; qty: number; image?: string | null }[] | null; marketplace_shop?: { shop_name: string } };
 type Item = NonNullable<Order["items"]>[number] & { image?: string | null };
 type ListRes = { orders: Paginated<Order>; stats: { total_orders: number }; bookings?: { total: number; data: Booking[] }; couriers?: string[]; attention?: { returns: number; cancel_requests: number } };
-type ReturnReq = { id: number; return_sn: string; order_sn: string | null; status: string; reason: string | null; text_reason: string | null; refund_amount: number; buyer_username: string | null; tracking_number: string | null; due_at: string | null; requested_at: string | null; items: { name: string; variant: string | null; sku: string | null; qty: number; image?: string | null }[] | null; marketplace_shop?: { shop_name: string } };
+type ReturnReq = { id: number; order_id?: number | null; return_sn: string; order_sn: string | null; status: string; reason: string | null; text_reason: string | null; refund_amount: number; buyer_username: string | null; tracking_number: string | null; due_at: string | null; requested_at: string | null; items: { name: string; variant: string | null; sku: string | null; qty: number; image?: string | null }[] | null; marketplace_shop?: { shop_name: string } };
 
 /** Return request status in Seller Centre's words: [label, tone]. */
 const RETURN_STATUS: Record<string, [string, string]> = {
@@ -439,7 +439,7 @@ export default function ShopeeOrders() {
           </div>
         </div>
 
-        {showingReturns ? <ReturnsList data={returns} onPage={setPage} perPage={perPage} onPerPage={setPerPage} showShop={!shopId} onOpen={setRetOpen} /> : (<>
+        {showingReturns ? <ReturnsList data={returns} onPage={setPage} perPage={perPage} onPerPage={setPerPage} showShop={!shopId} onOpen={setRetOpen} onOrder={(oid) => router.push(`/marketplace/orders/${oid}`)} /> : (<>
         {/* Result count, sort, mass actions */}
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <h2 className="text-lg font-bold text-navy">{data ? `${total.toLocaleString("id-ID")} Pesanan` : "Memuat…"}</h2>
@@ -549,12 +549,7 @@ export default function ShopeeOrders() {
                         {o.awb_printed_at && <span className="mt-1 inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700"><CheckCircle2 size={11} />Label sudah dicetak</span>}
                       </div>
                       <div className="space-y-2">
-                        {o.external_status === "IN_CANCEL" && (
-                          <>
-                            <ActionLink icon={CheckCircle2} tone="emerald" busy={busy === `cancel${o.id}`} disabled={!!busy} onClick={() => handleCancel(o, "ACCEPT")}>Setujui Pembatalan</ActionLink>
-                            <ActionLink icon={XCircle} tone="rose" busy={busy === `cancel${o.id}`} disabled={!!busy} onClick={() => handleCancel(o, "REJECT")}>Tolak Pembatalan</ActionLink>
-                          </>
-                        )}
+                        {o.external_status === "IN_CANCEL" && <ActionLink icon={XCircle} tone="rose" onClick={() => router.push(`/marketplace/orders/${o.id}`)}>Tanggapi Pembatalan</ActionLink>}
                         {needsShipping(o) && <ActionLink icon={Truck} disabled={!!busy} onClick={() => setShipTarget({ orders: [o.id], bookings: [] })}>Atur Pengiriman</ActionLink>}
                         {o.external_status === "PENDING" && <p className="text-[13px] font-medium text-amber-600" title="Atur pengiriman bisa dilakukan setelah Shopee selesai meninjau pesanan ini. Jika atur otomatis aktif, Pesanin mengaturnya begitu Shopee melepasnya.">Tertunda</p>}
                         {canPrint(o) && <ActionLink icon={Printer} busy={busy === "print"} disabled={!!busy} onClick={() => print([o])}>Cetak Label</ActionLink>}
@@ -613,7 +608,7 @@ export default function ShopeeOrders() {
 }
 
 /** Pengembalian Barang/Dana: return / refund requests, laid out like Seller Centre's list. */
-function ReturnsList({ data, onPage, perPage, onPerPage, showShop, onOpen }: { data: Paginated<ReturnReq> | null; onPage: (p: number) => void; perPage: number; onPerPage: (n: number) => void; showShop: boolean; onOpen: (id: number) => void }) {
+function ReturnsList({ data, onPage, perPage, onPerPage, showShop, onOpen, onOrder }: { data: Paginated<ReturnReq> | null; onPage: (p: number) => void; perPage: number; onPerPage: (n: number) => void; showShop: boolean; onOpen: (id: number) => void; onOrder: (orderId: number) => void }) {
   const cols = "grid grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,1.4fr)_minmax(0,1fr)] gap-4";
   return (
     <>
@@ -628,7 +623,10 @@ function ReturnsList({ data, onPage, perPage, onPerPage, showShop, onOpen }: { d
               const [label, tone] = RETURN_STATUS[r.status] ?? [r.status, "text-slate-600"];
               const open = r.status === "REQUESTED" || r.status === "PROCESSING";
               return (
-                <div key={r.id} className={`overflow-hidden rounded-lg border ${open ? "border-rose-200" : "border-slate-200"}`}>
+                <div key={r.id}
+                  // Like Seller Centre: the request opens its order's Rincian Pesanan (with the return on top).
+                  onClick={(e) => { if (!(e.target as HTMLElement).closest("button,a")) { if (r.order_id) onOrder(r.order_id); else onOpen(r.id); } }}
+                  className={`cursor-pointer overflow-hidden rounded-lg border transition hover:shadow-sm ${open ? "border-rose-200 hover:border-rose-300" : "border-slate-200 hover:border-slate-300"}`}>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5 text-[13px]">
                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-[11px] font-bold uppercase text-slate-600">{(r.buyer_username || "?").slice(0, 1)}</span>
                     <span className="font-medium text-slate-700">{r.buyer_username || "-"}</span>
