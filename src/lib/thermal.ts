@@ -74,6 +74,45 @@ export function printerName(p: SerialPortLike | null): string {
  * It is closed when the tab goes away, or after an error so the next print starts clean.
  */
 let current: SerialPortLike | null = null;
+let sending = false;
+const TAB_ID = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : String(Math.random());
+const bc = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("pesanin_printer") : null;
+
+if (bc) {
+  bc.onmessage = async (ev) => {
+    const { type, tabId } = ev.data || {};
+    if (tabId === TAB_ID) return;
+    if (type === "claim" && current && !sending) {
+      const p = current;
+      current = null;
+      await p.close().catch(() => {});
+      bc.postMessage({ type: "released", tabId: TAB_ID });
+    }
+  };
+}
+
+/** Ask any other Pesanin tab holding the printer port to release it so this tab can print right away. */
+async function claimFromOtherTabs(): Promise<boolean> {
+  if (!bc) return false;
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (released: boolean) => {
+      if (settled) return;
+      settled = true;
+      bc.removeEventListener("message", onMsg);
+      resolve(released);
+    };
+    const onMsg = (ev: MessageEvent) => {
+      if (ev.data?.type === "released" && ev.data?.tabId !== TAB_ID) {
+        setTimeout(() => done(true), 300);
+      }
+    };
+    bc.addEventListener("message", onMsg);
+    bc.postMessage({ type: "claim", tabId: TAB_ID });
+    setTimeout(() => done(false), 1200);
+  });
+}
+
 if (typeof window !== "undefined") {
   window.addEventListener("pagehide", () => { current?.close().catch(() => {}); current = null; });
 }
@@ -81,6 +120,7 @@ if (typeof window !== "undefined") {
 async function openPort(port: SerialPortLike) {
   if (current === port && port.writable) return;
   if (current && current !== port) { await current.close().catch(() => {}); current = null; }
+  await claimFromOtherTabs();
   const tryOpen = () => withTimeout(port.open({ baudRate: 9600 }), 20000, "Printer tidak menjawab saat dihubungkan. Matikan-nyalakan printer lalu coba lagi.");
   try {
     await tryOpen();
@@ -89,13 +129,14 @@ async function openPort(port: SerialPortLike) {
     if (err.name === "InvalidStateError" && port.writable) { current = port; return; }
     if (!(err instanceof DOMException)) throw e;
     try { await port.close(); } catch { /* not open */ }
+    await claimFromOtherTabs();
     await new Promise((r) => setTimeout(r, 800));
     try {
       await tryOpen();
     } catch (e2) {
       const x = e2 as DOMException;
       throw new Error(x.name === "NetworkError"
-        ? "Printer sedang dipakai tab/aplikasi lain atau belum tersambung. Tutup tab Pesanin lain (atau muat ulang halaman ini), pastikan printer menyala & ter-pair di Bluetooth, lalu coba lagi."
+        ? "Printer sedang dipakai aplikasi lain di luar Pesanin atau Bluetooth belum tersambung. Pastikan printer menyala & ter-pair di Bluetooth, lalu coba lagi."
         : x.name ? `Printer tidak bisa dibuka (${x.name}: ${x.message}).` : (e2 as Error).message);
     }
   }
@@ -215,42 +256,47 @@ function statusError(st: number): string | null {
 
 async function send(port: SerialPortLike, jobs: Uint8Array[], onProgress?: (done: number, total: number) => void, checkStatus = true) {
   const run = async () => {
-    await openPort(port);
-    if (!port.writable) throw new Error("Printer terbuka tapi tidak bisa ditulisi. Matikan-nyalakan printer lalu coba lagi.");
-    const writer = port.writable.getWriter();
-    let failed = false;
-    let written = 0;
-    const total = jobs.reduce((n, j) => n + j.length, 0);
+    sending = true;
     try {
-      if (checkStatus) {
-        const st = await printerStatus(port, writer);
-        const bad = st === null ? null : statusError(st);
-        if (bad) throw new Error(bad);
-      }
-      for (let j = 0; j < jobs.length; j++) {
-        // Small chunks with a pause: Bluetooth printers drop bytes when flooded.
-        for (let i = 0; i < jobs[j].length; i += 512) {
-          const chunk = jobs[j].slice(i, i + 512);
-          await withTimeout(writer.write(chunk), 30000);
-          written += chunk.length;
-          await new Promise((r) => setTimeout(r, 20));
+      await openPort(port);
+      if (!port.writable) throw new Error("Printer terbuka tapi tidak bisa ditulisi. Matikan-nyalakan printer lalu coba lagi.");
+      const writer = port.writable.getWriter();
+      let failed = false;
+      let written = 0;
+      const total = jobs.reduce((n, j) => n + j.length, 0);
+      try {
+        if (checkStatus) {
+          const st = await printerStatus(port, writer);
+          const bad = st === null ? null : statusError(st);
+          if (bad) throw new Error(bad);
         }
-        onProgress?.(j + 1, jobs.length);
+        for (let j = 0; j < jobs.length; j++) {
+          // Small chunks with a pause: Bluetooth printers drop bytes when flooded.
+          for (let i = 0; i < jobs[j].length; i += 512) {
+            const chunk = jobs[j].slice(i, i + 512);
+            await withTimeout(writer.write(chunk), 30000);
+            written += chunk.length;
+            await new Promise((r) => setTimeout(r, 20));
+          }
+          onProgress?.(j + 1, jobs.length);
+        }
+        await withTimeout(writer.ready, 30000);
+      } catch (e) {
+        failed = true;
+        await writer.abort().catch(() => {});
+        if ((e as Error).message.startsWith("Printer tidak merespons")) {
+          const info = `(${written}/${total} byte · ${printerName(port)})`;
+          throw new Error(written === 0
+            ? `Printer tidak merespons saat mengirim data awal ${info}. Di Mac, coba ganti pilihan port (misalnya pilih Port serial / cu.XP-... atau sebaliknya), lalu pastikan printer menyala dan ter-pair di Bluetooth.`
+            : `Printer berhenti menerima data ${info}. Jika bukan karena kertas habis/lampu merah, kemungkinan port "${printerName(port)}" macet saat kirim — coba klik "Ganti printer" dan pilih port lainnya.`);
+        }
+        throw e;
+      } finally {
+        try { writer.releaseLock(); } catch { /* aborted */ }
+        if (failed) await resetPort(port);
       }
-      await withTimeout(writer.ready, 30000);
-    } catch (e) {
-      failed = true;
-      await writer.abort().catch(() => {});
-      if ((e as Error).message.startsWith("Printer tidak merespons")) {
-        const info = `(${written}/${total} byte · ${printerName(port)})`;
-        throw new Error(written === 0
-          ? `Printer tidak merespons saat mengirim data awal ${info}. Di Mac, coba ganti pilihan port (misalnya pilih Port serial / cu.XP-... atau sebaliknya), lalu pastikan printer menyala dan ter-pair di Bluetooth.`
-          : `Printer berhenti menerima data ${info}. Jika bukan karena kertas habis/lampu merah, kemungkinan port "${printerName(port)}" macet saat kirim — coba klik "Ganti printer" dan pilih port lainnya.`);
-      }
-      throw e;
     } finally {
-      try { writer.releaseLock(); } catch { /* aborted */ }
-      if (failed) await resetPort(port);
+      sending = false;
     }
   };
   const p = queue.then(run, run);
