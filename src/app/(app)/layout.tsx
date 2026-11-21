@@ -57,6 +57,7 @@ const NAV_FALLBACK: SidebarMenuItem[] = [
   { key: "marketplace", label: "Marketplace", icon: "Store", visible: true, children: [
     { label: "Daftar Toko", href: "/marketplace/shops" },
     { label: "Semua Produk", href: "/marketplace/products" },
+    { label: "Performa Produk", href: "/marketplace/product-performance" },
     { label: "Stok Master", href: "/marketplace/stock" },
     { label: "Pesanan & Pengiriman", href: "/marketplace/orders" },
     { label: "Scan Out", href: "/marketplace/scan-out" },
