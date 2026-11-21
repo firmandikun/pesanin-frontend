@@ -539,10 +539,11 @@ export default function ShopeeAds() {
                           <button
                             key={sf.key}
                             onClick={() => setStatusFilter(sf.key)}
-                            className={`rounded-md border px-2.5 py-1 font-medium transition ${active
+                            className={`rounded-md border px-2.5 py-1 font-medium transition ${
+                              active
                                 ? "border-[#ee4d2d] bg-orange-50/60 text-[#ee4d2d]"
                                 : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-                              }`}
+                            }`}
                           >
                             {sf.label}
                             {typeof count === "number" ? ` (${count})` : ""}
@@ -727,12 +728,13 @@ export default function ShopeeAds() {
                                   </div>
                                   <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                                     <span
-                                      className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${r.kind === "auto"
+                                      className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                                        r.kind === "auto"
                                           ? "bg-orange-50 text-[#ee4d2d]"
                                           : r.kind === "group"
                                             ? "bg-violet-50 text-violet-700"
                                             : "bg-slate-100 text-slate-600"
-                                        }`}
+                                      }`}
                                     >
                                       {r.subtitle}
                                     </span>
