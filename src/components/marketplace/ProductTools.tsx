@@ -205,7 +205,7 @@ export function TextDialog({ shopId, itemId, onClose, onSaved }: { shopId: numbe
 }
 
 
-type SkuRow = { id: number; shop_id: number; shop_name: string | null; item_id: number; model_id: number; name: string; model_name: string | null; image: string | null; current: string | null; sku: string };
+type SkuRow = { id: number; shop_id: number; shop_name: string | null; item_id: number; model_id: number; name: string; model_name: string | null; image: string | null; current: string | null; sku: string; stock: number };
 
 /**
  * Buat SKU: suggest SKUs (initials of the name + variation, or prefix + number), edit them, and save to Shopee.
@@ -218,6 +218,9 @@ export function SkuDialog({ keys, onClose, onSaved }: { keys?: string[]; onClose
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<number, string>>({});
   const [done, setDone] = useState("");
+  // Shared stock per SKU used by 2+ listings (one physical stock): on by default, starting at the lowest current stock.
+  const [share, setShare] = useState(true);
+  const [stocks, setStocks] = useState<Record<string, string>>({});
   const scope = keys?.length ? "selected" : "empty";
   const preview = useCallback(() => {
     setRows(null); setErrors({});
@@ -231,13 +234,17 @@ export function SkuDialog({ keys, onClose, onSaved }: { keys?: string[]; onClose
   const dupes = new Set<string>();
   (rows ?? []).forEach((r) => { const who = `${r.name}|${r.model_name ?? ""}`.toLowerCase(); const prev = owner.get(r.sku); if (prev && prev !== who) dupes.add(r.sku); else owner.set(r.sku, who); });
   const changed = (rows ?? []).filter((r) => r.sku && r.sku !== (r.current ?? ""));
+  const groups = Object.entries((rows ?? []).reduce<Record<string, SkuRow[]>>((a, r) => { if (r.sku) (a[r.sku] ??= []).push(r); return a; }, {}))
+    .filter(([, g]) => g.length > 1).map(([sku, g]) => ({ sku, rows: g, min: Math.min(...g.map((x) => x.stock)), max: Math.max(...g.map((x) => x.stock)) }));
+  const stockOf = (g: (typeof groups)[number]) => stocks[g.sku] ?? String(Math.max(0, g.min));
   const save = async () => {
     setBusy(true); setErrors({});
     try {
-      const r = await api<{ updated: number; failed: Record<number, string> }>("/marketplace/listings/sku/save", { method: "POST", json: { rows: changed.map((x) => ({ id: x.id, sku: x.sku })) } });
+      const r = await api<{ updated: number; failed: Record<number, string>; masters?: number; stock_note?: string }>("/marketplace/listings/sku/save", { method: "POST", json: { rows: changed.map((x) => ({ id: x.id, sku: x.sku })), stocks: share ? Object.fromEntries(groups.map((g) => [g.sku, Number(stockOf(g) || 0)])) : {} } });
       if (Object.keys(r.failed).length) setErrors(r.failed);
-      setDone(`${r.updated} SKU tersimpan di Shopee${Object.keys(r.failed).length ? `, ${Object.keys(r.failed).length} gagal (lihat merah)` : ""}.`);
-      if (!Object.keys(r.failed).length) onSaved(`${r.updated} SKU tersimpan di Shopee.`);
+      const stockMsg = r.stock_note ? ` ${r.stock_note}` : r.masters ? ` Stok ${r.masters} SKU disamakan di semua toko lewat Stok Master.` : "";
+      setDone(`${r.updated} SKU tersimpan di Shopee${Object.keys(r.failed).length ? `, ${Object.keys(r.failed).length} gagal (lihat merah)` : ""}.${stockMsg}`);
+      if (!Object.keys(r.failed).length) onSaved(`${r.updated} SKU tersimpan di Shopee.${stockMsg}`);
     } catch (e) { fail(e, "Gagal menyimpan SKU"); } finally { setBusy(false); }
   };
 
@@ -275,6 +282,27 @@ export function SkuDialog({ keys, onClose, onSaved }: { keys?: string[]; onClose
               </table>
             )}
         </div>
+        {groups.length > 0 && (
+          <div className="rounded-xl border border-slate-200 p-3">
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[#ee4d2d]" checked={share} onChange={(e) => setShare(e.target.checked)} />
+              <span><b className="text-slate-800">Samakan stok untuk SKU yang sama</b>
+                <span className="block text-xs text-slate-500">{groups.length} SKU dipakai lebih dari satu listing. Stoknya dijadikan satu lewat Stok Master dan dikirim ke semua toko, lalu berkurang otomatis setiap ada pesanan.</span></span>
+            </label>
+            {share && (
+              <div className="mt-2 max-h-48 divide-y divide-slate-100 overflow-auto rounded-lg bg-slate-50/60">
+                {groups.map((g) => (
+                  <div key={g.sku} className="flex items-center gap-3 px-3 py-2 text-sm">
+                    <span className="min-w-0 flex-1"><b className="font-mono text-xs text-slate-800">{g.sku}</b>
+                      <span className="block truncate text-xs text-slate-500">{g.rows.length} listing · {[...new Set(g.rows.map((x) => x.shop_name))].join(", ")} · stok sekarang {g.min === g.max ? g.min : `${g.min}–${g.max}`}</span></span>
+                    <label className="flex items-center gap-1.5 text-xs text-slate-500">Stok
+                      <input className="input h-8 w-20 text-right" inputMode="numeric" value={stockOf(g)} onChange={(e) => setStocks({ ...stocks, [g.sku]: e.target.value.replace(/\D/g, "") })} /></label>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs text-slate-500">{changed.length} SKU akan disimpan ke Shopee (SKU induk & kode variasi). SKU tidak terlihat pembeli.
             {dupes.size > 0 && <span className="block text-amber-700">{dupes.size} SKU dipakai lebih dari satu produk: di Stok Master produk-produk itu akan memakai satu stok yang sama. Ubah kalau sebenarnya barangnya berbeda.</span>}</p>
