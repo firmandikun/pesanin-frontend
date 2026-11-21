@@ -1,6 +1,8 @@
 "use client";
 import {
   AlertTriangle,
+  ChevronDown,
+  ChevronRight,
   Eye,
   Heart,
   Loader2,
@@ -12,7 +14,7 @@ import {
   Star,
   TrendingUp,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { showAlert } from "@/components/Dialogs";
 import { DateRange } from "@/components/DateRange";
 import { PageHead, Pager, Panel } from "@/components/kit";
@@ -20,6 +22,20 @@ import { Select } from "@/components/Select";
 import { api, ApiError, rupiah } from "@/lib/api";
 
 type Shop = { id: number; shop_name: string; is_demo: boolean; status: string };
+
+type PerfVariant = {
+  id: number;
+  model_id: number;
+  name: string;
+  sku: string | null;
+  price: number;
+  stock: number;
+  shopee_stock: number;
+  has_master_stock: boolean;
+  period_units: number;
+  period_orders: number;
+  period_revenue: number;
+};
 
 type PerfItem = {
   key: string;
@@ -32,6 +48,8 @@ type PerfItem = {
   price_min: number;
   price_max: number;
   stock: number;
+  shopee_stock?: number;
+  has_master_stock?: boolean;
   status: string;
   views: number;
   likes: number;
@@ -56,6 +74,7 @@ type PerfItem = {
   ad_impressions: number;
   ad_orders: number;
   ad_roas: number;
+  variants?: PerfVariant[];
 };
 
 type PerfData = {
@@ -95,6 +114,7 @@ export default function ShopeeProductPerformancePage() {
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(20);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [data, setData] = useState<PerfData | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -257,7 +277,7 @@ export default function ShopeeProductPerformancePage() {
               {(
                 [
                   ["all", "Semua Produk"],
-                  ["advertised", "Diiklankan"],
+                  ["advertised", "Diiklankan (Aktif)"],
                   ["organic", "Non-Iklan"],
                 ] as const
               ).map(([k, lbl]) => (
@@ -329,103 +349,167 @@ export default function ShopeeProductPerformancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {pagedItems.map((item) => (
-                  <tr key={item.key} className="hover:bg-slate-50/70">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        {item.image ? (
-                          <img src={item.image} alt="" className="h-10 w-10 shrink-0 rounded-lg border border-slate-200 object-cover" />
-                        ) : (
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
-                            <Package size={16} />
-                          </span>
-                        )}
-                        <div className="min-w-0 max-w-xs">
-                          <p className="truncate font-semibold text-slate-800" title={item.name}>
-                            {item.name}
-                          </p>
-                          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400">
-                            <span>{item.shop_name}</span>
-                            {item.sku && <span className="font-mono text-slate-500">· {item.sku}</span>}
-                            <span>· {rupiah(item.price_min)}{item.price_max > item.price_min ? `–${rupiah(item.price_max)}` : ""}</span>
-                            {item.is_advertised && (
-                              <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-                                item.ad_active ? "bg-orange-50 text-[#ee4d2d]" : "bg-slate-100 text-slate-600"
-                              }`}>
-                                <Megaphone size={10} />
-                                {item.ad_auto ? "Iklan Otomatis" : item.ad_active ? "Diiklankan" : "Iklan Nonaktif"}
+                {pagedItems.map((item) => {
+                  const variants = item.variants ?? [];
+                  const isOpen = !!expanded[item.key];
+                  return (
+                    <Fragment key={item.key}>
+                      <tr
+                        onClick={() => variants.length > 0 && setExpanded((cur) => ({ ...cur, [item.key]: !cur[item.key] }))}
+                        className={`hover:bg-slate-50/70 ${variants.length > 0 ? "cursor-pointer" : ""}`}
+                      >
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <span className="flex h-5 w-5 shrink-0 items-center justify-center text-slate-400">
+                              {variants.length > 0 ? (isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />) : null}
+                            </span>
+                            {item.image ? (
+                              <img src={item.image} alt="" className="h-10 w-10 shrink-0 rounded-lg border border-slate-200 object-cover" />
+                            ) : (
+                              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
+                                <Package size={16} />
                               </span>
                             )}
-                            {item.needs_attention && (
-                              <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
-                                Perlu optimasi
-                              </span>
-                            )}
+                            <div className="min-w-0 max-w-xs">
+                              <p className="truncate font-semibold text-slate-800" title={item.name}>
+                                {item.name}
+                              </p>
+                              <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400">
+                                <span>{item.shop_name}</span>
+                                {item.sku && <span className="font-mono text-slate-500">· {item.sku}</span>}
+                                <span>· {rupiah(item.price_min)}{item.price_max > item.price_min ? `–${rupiah(item.price_max)}` : ""}</span>
+                                {variants.length > 1 && (
+                                  <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                                    {variants.length} variasi
+                                  </span>
+                                )}
+                                {item.is_advertised && (
+                                  <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                                    item.ad_active ? "bg-orange-50 text-[#ee4d2d]" : "bg-slate-100 text-slate-600"
+                                  }`}>
+                                    <Megaphone size={10} />
+                                    {item.ad_auto ? "Iklan Otomatis" : item.ad_active ? "Diiklankan" : "Iklan Nonaktif"}
+                                  </span>
+                                )}
+                                {item.needs_attention && (
+                                  <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                                    Perlu optimasi
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      <span className="font-semibold text-slate-800">{num(item.views)}</span>
-                      {item.views_7d !== null && item.views_7d > 0 && (
-                        <span className="block text-[10px] font-medium text-sky-600">+{num(item.views_7d)} (7h)</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-3 text-right text-slate-700">{num(item.likes)}</td>
-                    <td className="px-3 py-3 text-right">
-                      <span className="inline-flex items-center gap-1 font-semibold text-slate-900">
-                        <ShoppingBag size={12} className="text-emerald-600" />
-                        {num(item.period_units)}
-                      </span>
-                      <span className="block text-[10px] text-slate-400">{num(item.period_orders)} pesanan</span>
-                    </td>
-                    <td className="px-3 py-3 text-right font-semibold text-slate-900">{rupiah(item.period_revenue)}</td>
-                    <td className="px-3 py-3 text-right">
-                      {item.ad_expense > 0 ? (
-                        <>
-                          <span className="font-semibold text-slate-900">{rupiah(item.ad_expense)}</span>
-                          <span className="block text-[10px] text-slate-400">{num(item.ad_clicks)} klik</span>
-                        </>
-                      ) : (
-                        <span className="text-slate-400">{item.ad_auto ? "Otomatis" : "-"}</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      {item.ad_expense > 0 || item.ad_gmv > 0 ? (
-                        <>
-                          <span className="font-semibold text-[#ee4d2d]">{rupiah(item.ad_gmv)}</span>
-                          <span className="block text-[10px] font-medium text-indigo-600">
-                            ROAS {item.ad_roas.toFixed(2)} · {num(item.ad_orders)} ord
+                        </td>
+                        <td className="px-3 py-3 text-right">
+                          <span className="font-semibold text-slate-800">{num(item.views)}</span>
+                          {item.views_7d !== null && item.views_7d > 0 && (
+                            <span className="block text-[10px] font-medium text-sky-600">+{num(item.views_7d)} (7h)</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-3 text-right text-slate-700">{num(item.likes)}</td>
+                        <td className="px-3 py-3 text-right">
+                          <span className="inline-flex items-center gap-1 font-semibold text-slate-900">
+                            <ShoppingBag size={12} className="text-emerald-600" />
+                            {num(item.period_units)}
                           </span>
-                        </>
-                      ) : (
-                        <span className="text-slate-400">-</span>
+                          <span className="block text-[10px] text-slate-400">{num(item.period_orders)} pesanan</span>
+                        </td>
+                        <td className="px-3 py-3 text-right font-semibold text-slate-900">{rupiah(item.period_revenue)}</td>
+                        <td className="px-3 py-3 text-right">
+                          {item.ad_expense > 0 ? (
+                            <>
+                              <span className="font-semibold text-slate-900">{rupiah(item.ad_expense)}</span>
+                              <span className="block text-[10px] text-slate-400">{num(item.ad_clicks)} klik</span>
+                            </>
+                          ) : (
+                            <span className="text-slate-400">{item.ad_auto ? "Otomatis" : "-"}</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-3 text-right">
+                          {item.ad_expense > 0 || item.ad_gmv > 0 ? (
+                            <>
+                              <span className="font-semibold text-[#ee4d2d]">{rupiah(item.ad_gmv)}</span>
+                              <span className="block text-[10px] font-medium text-indigo-600">
+                                ROAS {item.ad_roas.toFixed(2)} · {num(item.ad_orders)} ord
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-slate-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-3 text-right">
+                          <span className="font-medium text-slate-700">{num(item.sales)}</span>
+                          {item.sales_7d !== null && item.sales_7d > 0 && (
+                            <span className="block text-[10px] font-medium text-emerald-600">+{num(item.sales_7d)} (7h)</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-3 text-right">
+                          {item.rating !== null ? (
+                            <span className="inline-flex items-center gap-1 font-semibold text-slate-800">
+                              <Star size={12} className="fill-amber-400 text-amber-400" />
+                              {item.rating.toFixed(1)}
+                              <span className="font-normal text-slate-400">({num(item.comments)})</span>
+                            </span>
+                          ) : (
+                            <span className="text-slate-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <span className={`font-semibold ${item.stock === 0 ? "text-rose-600" : item.stock <= 5 ? "text-amber-600" : "text-slate-700"}`}>
+                            {num(item.stock)}
+                          </span>
+                          {item.has_master_stock && (
+                            <span className="block text-[10px] text-slate-400">
+                              Master{typeof item.shopee_stock === "number" && item.shopee_stock !== item.stock ? ` · Shopee ${num(item.shopee_stock)}` : ""}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                      {isOpen && variants.length > 0 && (
+                        <tr className="bg-slate-50/70">
+                          <td colSpan={10} className="px-8 py-3">
+                            <div className="overflow-hidden rounded-lg border border-slate-200/80 bg-white">
+                              <table className="w-full text-left text-xs tabular-nums">
+                                <thead className="border-b border-slate-100 bg-slate-50 text-[11px] font-semibold text-slate-500">
+                                  <tr>
+                                    <th className="px-3 py-2">Variasi</th>
+                                    <th className="px-3 py-2">SKU</th>
+                                    <th className="px-3 py-2 text-right">Harga</th>
+                                    <th className="px-3 py-2 text-right">Terjual Periode</th>
+                                    <th className="px-3 py-2 text-right">Omzet Periode</th>
+                                    <th className="px-3 py-2 text-right">Stok</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                  {variants.map((v) => (
+                                    <tr key={v.id} className="hover:bg-slate-50/60">
+                                      <td className="px-3 py-2 font-medium text-slate-800">{v.name}</td>
+                                      <td className="px-3 py-2 font-mono text-[11px] text-slate-500">{v.sku || "-"}</td>
+                                      <td className="px-3 py-2 text-right text-slate-700">{rupiah(v.price)}</td>
+                                      <td className="px-3 py-2 text-right">
+                                        <span className="font-semibold text-slate-900">{num(v.period_units)} unit</span>
+                                        <span className="ml-1.5 text-[10px] text-slate-400">({num(v.period_orders)} pesanan)</span>
+                                      </td>
+                                      <td className="px-3 py-2 text-right font-semibold text-slate-900">{rupiah(v.period_revenue)}</td>
+                                      <td className="px-3 py-2 text-right">
+                                        <span className={`font-semibold ${v.stock === 0 ? "text-rose-600" : v.stock <= 5 ? "text-amber-600" : "text-slate-700"}`}>
+                                          {num(v.stock)}
+                                        </span>
+                                        {v.has_master_stock && v.shopee_stock !== v.stock && (
+                                          <span className="ml-1 text-[10px] text-slate-400">(Shopee {num(v.shopee_stock)})</span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </td>
+                        </tr>
                       )}
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      <span className="font-medium text-slate-700">{num(item.sales)}</span>
-                      {item.sales_7d !== null && item.sales_7d > 0 && (
-                        <span className="block text-[10px] font-medium text-emerald-600">+{num(item.sales_7d)} (7h)</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      {item.rating !== null ? (
-                        <span className="inline-flex items-center gap-1 font-semibold text-slate-800">
-                          <Star size={12} className="fill-amber-400 text-amber-400" />
-                          {item.rating.toFixed(1)}
-                          <span className="font-normal text-slate-400">({num(item.comments)})</span>
-                        </span>
-                      ) : (
-                        <span className="text-slate-400">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className={`font-semibold ${item.stock === 0 ? "text-rose-600" : item.stock <= 5 ? "text-amber-600" : "text-slate-700"}`}>
-                        {num(item.stock)}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
