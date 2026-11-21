@@ -17,7 +17,28 @@ import { ThreadSidebar } from "@/components/inbox/ThreadSidebar";
 type Channel = "shopee" | "facebook" | "instagram" | "whatsapp";
 type Conv = { channel: Channel; source_id: number | string; source_name: string; id: string; to_id: number | string; name: string; avatar: string | null; unread: number; pinned: boolean; last_text: string; last_from_me: boolean; at: string | null;
   status?: "open" | "done"; assigned_to?: number | null; assignee?: string | null; labels?: string[]; customer_id?: number | null };
-type Msg = { id: string; from_me: boolean; type: string; text: string; image: string | null; video?: string | null; duration?: number | null; link?: string | null; at: string | null; read?: boolean | null; status?: string | null; system?: boolean };
+type Msg = { id: string; from_me: boolean; type: string; text: string; image: string | null; images?: string[]; video?: string | null; duration?: number | null; link?: string | null; at: string | null; read?: boolean | null; status?: string | null; system?: boolean;
+  order?: { sn: string; id: number | null; status: string | null; total: number | null; name: string | null; image: string | null; count: number | null } | null };
+
+const ORDER_STATUS: Record<string, string> = {
+  UNPAID: "Belum Bayar", READY_TO_SHIP: "Perlu Dikirim", PROCESSED: "Diproses", SHIPPED: "Dikirim", TO_CONFIRM_RECEIVE: "Dikirim",
+  COMPLETED: "Selesai", CANCELLED: "Batal", IN_CANCEL: "Pembatalan Diajukan", TO_RETURN: "Pengembalian", RETRY_SHIP: "Kirim Ulang",
+};
+
+/** The order the buyer is asking about (Shopee's order card), opening its Rincian Pesanan when Pesanin has it. */
+function OrderCard({ o }: { o: NonNullable<Msg["order"]> }) {
+  const body = (
+    <div className="mb-1.5 flex gap-2.5 rounded-lg bg-slate-50 p-2 text-left text-slate-700 ring-1 ring-slate-200">
+      {o.image ? <img src={o.image} alt="" className="h-11 w-11 rounded object-cover" /> : <span className="flex h-11 w-11 items-center justify-center rounded bg-slate-200 text-[10px] text-slate-500">Pesanan</span>}
+      <div className="min-w-0 text-xs">
+        {o.status && <p className="font-semibold text-[#ee4d2d]">{ORDER_STATUS[o.status] ?? o.status}</p>}
+        <p className="truncate">{o.name ?? `Pesanan ${o.sn}`}</p>
+        <p className="text-slate-500">{o.count ? `${o.count} produk · ` : ""}{o.total != null ? `Rp${o.total.toLocaleString("id-ID")}` : `No. ${o.sn}`}</p>
+      </div>
+    </div>
+  );
+  return o.id ? <Link href={`/marketplace/orders/${o.id}`} className="block hover:opacity-90">{body}</Link> : body;
+}
 
 /**
  * ✓ terkirim · ✓✓ abu-abu sampai · ✓✓ biru dibaca. WhatsApp reports the real status; Shopee says it when it can,
@@ -353,15 +374,22 @@ function Chat() {
                   ) : (
                     <div key={m.id} className={`flex ${m.from_me ? "justify-end" : "justify-start"}`}>
                       <div className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-sm ${m.from_me ? "rounded-br-md bg-brand-600 text-white" : "rounded-bl-md bg-white text-slate-700"}`}>
+                        {m.order && <OrderCard o={m.order} />}
                         {m.video ? (
                           <div className="space-y-1">
                             <video src={m.video} poster={m.image ?? undefined} controls preload="metadata" playsInline className="max-h-72 w-64 rounded-lg bg-black" />
                             <a href={m.video} target="_blank" rel="noreferrer" className={`block text-[11px] underline ${m.from_me ? "text-white/80" : "text-slate-500"}`}>Buka video{m.duration ? ` (${Math.floor(m.duration / 60)}:${String(m.duration % 60).padStart(2, "0")})` : ""}</a>
                           </div>
                         ) : m.image ? (
-                          <a href={m.image} target="_blank" rel="noreferrer"><img src={m.image} alt="" className="max-h-56 rounded-lg" /></a>
+                          // Photo(s), plus the text when the buyer wrote one with it (Shopee "image + text").
+                          <div className="space-y-1.5">
+                            {(m.images?.length ?? 0) > 1 ? (
+                              <div className="grid grid-cols-2 gap-1">{m.images!.map((u) => <a key={u} href={u} target="_blank" rel="noreferrer"><img src={u} alt="" className="h-28 w-28 rounded-lg object-cover" /></a>)}</div>
+                            ) : <a href={m.image} target="_blank" rel="noreferrer"><img src={m.image} alt="" className="max-h-56 rounded-lg" /></a>}
+                            {m.text && !/^\[(Gambar|Stiker|Pesan)\]$/.test(m.text) && <p className="whitespace-pre-wrap break-words">{m.text}</p>}
+                          </div>
                         ) : m.type === "video" ? <p className="italic opacity-80">[Video] Buka di aplikasi Shopee untuk melihat</p>
-                          : <p className="whitespace-pre-wrap break-words">{m.text}</p>}
+                          : !(m.order && m.text === "[Pesanan]") && <p className="whitespace-pre-wrap break-words">{m.text}</p>}
                         {m.link && <a href={m.link} target="_blank" rel="noreferrer" className={`mt-1 block truncate text-xs underline ${m.from_me ? "text-white/90" : "text-brand-600"}`}>{m.link.replace(/^https?:\/\/(www\.)?/, "")}</a>}
                         <p className={`mt-0.5 flex items-center justify-end gap-1 text-[10px] ${m.from_me ? "text-white/70" : "text-slate-400"}`}>{when(m.at)}
                           {m.from_me && (() => {
