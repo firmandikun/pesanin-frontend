@@ -1,5 +1,5 @@
 "use client";
-import { CheckCircle2, Copy, CreditCard, ExternalLink, Loader2, MapPinned, MessageCircle, ShoppingBag, TrendingUp, Truck, Unplug } from "lucide-react";
+import { Bot, CheckCircle2, Copy, CreditCard, ExternalLink, Loader2, MapPinned, MessageCircle, ShoppingBag, TrendingUp, Truck, Unplug } from "lucide-react";
 import { useEffect, useState } from "react";
 import { PageHead, Panel } from "@/components/kit";
 import { api, ApiError } from "@/lib/api";
@@ -9,7 +9,7 @@ import Link from "next/link";
 import { ShopeeMark } from "@/components/ChannelBadge";
 
 type State = { connected: boolean; is_production?: boolean; verified_at?: string; last_error?: string | null; settings?: { cod_type?: string; delivery?: { enabled?: boolean; sandbox?: boolean; vehicle?: string } } | null; keys?: Record<string, string | null>; webhook_url?: string | null; verify_token?: string | null; details?: { display_phone?: string; verified_name?: string; quality?: string } | null; from_env?: boolean };
-type All = { rajaongkir: State; midtrans: State; shopee_affiliate: State; serpapi: State; whatsapp_cloud: State };
+type All = { rajaongkir: State; midtrans: State; shopee_affiliate: State; serpapi: State; whatsapp_cloud: State; gemini?: State };
 
 /** Pengaturan → Integrasi: the seller connects their own RajaOngkir (ongkir, regions, tracking) and Midtrans (online payment) accounts. */
 export default function Integrations() {
@@ -65,6 +65,11 @@ export default function Integrations() {
           <div className="pt-3"><h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">Chat</h2><p className="text-xs text-slate-500">Pesan pelanggan masuk ke menu Chat. Facebook & Instagram dihubungkan langsung dari menu Chat.</p></div>
           <WhatsAppCard state={data.whatsapp_cloud} onChange={load} />
           </>}
+          <div className="pt-3"><h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">AI &amp; Diagnosa Bisnis</h2><p className="text-xs text-slate-500">Hubungkan API Key Google Gemini untuk menganalisis produk rugi, produk terlaris, dan kebocoran dana bisnis secara otomatis.</p></div>
+          <KeyCard provider="gemini" icon={Bot} title="Google Gemini AI" state={data.gemini ?? { connected: false }} onChange={load} link="https://aistudio.google.com/apikey"
+            desc="Dipakai oleh fitur Diagnosa Bisnis AI untuk membaca data penjualan, HPP, iklan, dan stok master Anda."
+            help="aistudio.google.com/apikey → Create API Key → tempel di sini. Key disimpan terenkripsi."
+            fields={[["api_key", "Gemini API Key"]]} />
         </>
       )}
     </div>

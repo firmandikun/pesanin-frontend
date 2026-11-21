@@ -76,6 +76,7 @@ const NAV_FALLBACK: SidebarMenuItem[] = [
     { label: "Iklan Meta", href: "/reports/meta-ads" },
     { label: "Riset Produk", href: "/reports/research" },
     { label: "Riset Pasar", href: "/reports/market" },
+    { label: "Diagnosa Bisnis AI", href: "/reports/ai-diagnosis" },
   ] },
   { key: "operations", label: "Operasional Media Sosial", icon: "Wallet", visible: true, children: [
     { label: "Inventori Medsos", href: "/others/inventory" },

@@ -35,7 +35,10 @@ export default function StockMasterPage() {
   }, [search, filter, page]);
   useEffect(() => { const t = setTimeout(load, 200); return () => clearTimeout(t); }, [load]);
 
-  const replace = (m: Master) => setD((cur) => cur && { ...cur, masters: { ...cur.masters, data: cur.masters.data.map((x) => (x.id === m.id ? m : x)) } });
+  const replace = (m: Master) => {
+    setD((cur) => cur && { ...cur, masters: { ...cur.masters, data: cur.masters.data.map((x) => (x.id === m.id ? { ...m, hpp: m.hpp ?? x.hpp, sell_price: m.sell_price ?? x.sell_price } : x)) } });
+    load();
+  };
   const run = async (key: string, fn: () => Promise<void>) => {
     setBusy(key);
     try { await fn(); } catch (e) { showAlert(err(e, "Gagal"), "Gagal"); } finally { setBusy(""); }
