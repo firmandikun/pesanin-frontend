@@ -9,7 +9,7 @@ import { api, ApiError, Paginated, rupiah } from "@/lib/api";
 
 type Linked = { id: number; marketplace_shop_id: number; item_id: number; model_id: number; name: string; model_name: string | null; sku: string | null; stock: number; stock_push_error: string | null; image: string | null; status: string;
   shop: { id: number; shop_name: string; is_demo: boolean; status: string } | null };
-type Master = { id: number; sku: string; name: string | null; image: string | null; stock: number; push_pending: boolean; pushed_at: string | null; listings: Linked[] };
+type Master = { id: number; sku: string; name: string | null; image: string | null; stock: number; hpp?: number; sell_price?: number; push_pending: boolean; pushed_at: string | null; listings: Linked[] };
 type Stats = { stock_value: number; stock_units: number; sell_value: number; no_hpp: number; masters: number; linked: number; unlinked_with_sku: number; without_sku: number; candidates: number; empty: number; errors: number };
 type Movement = { id: number; kind: "sale" | "restore" | "adjust"; qty: number; stock_after: number; note: string | null; created_at: string };
 type ListingRow = { id: number; name: string; model_name: string | null; sku: string | null; stock: number; image: string | null; stock_master_id: number | null; shop: { shop_name: string } };
@@ -120,10 +120,10 @@ export default function StockMasterPage() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[920px] text-sm">
             <thead className="bg-slate-50/60 text-left text-xs uppercase tracking-wide text-slate-500">
-              <tr>{["Produk / SKU", "Stok master", "Listing di toko", "Terakhir dikirim", ""].map((h) => <th key={h} className="px-3 py-3 font-semibold">{h}</th>)}</tr>
+              <tr>{["Produk / SKU", "Stok master", "HPP / Modal", "Listing di toko", "Terakhir dikirim", ""].map((h) => <th key={h} className="px-3 py-3 font-semibold">{h}</th>)}</tr>
             </thead>
             <tbody>
-              {!d && <tr><td colSpan={5} className="py-14 text-center text-slate-400"><Loader2 size={18} className="mx-auto animate-spin" /></td></tr>}
+              {!d && <tr><td colSpan={6} className="py-14 text-center text-slate-400"><Loader2 size={18} className="mx-auto animate-spin" /></td></tr>}
               {masters.map((m) => (
                 <tr key={m.id} className="border-t border-slate-100 align-top hover:bg-slate-50/50">
                   <td className="px-3 py-3">
@@ -133,6 +133,16 @@ export default function StockMasterPage() {
                     </div>
                   </td>
                   <td className="px-3 py-3"><StockEdit m={m} onSaved={replace} /></td>
+                  <td className="whitespace-nowrap px-3 py-3">
+                    {m.hpp && m.hpp > 0 ? (
+                      <div>
+                        <p className="font-semibold text-slate-800">{rupiah(m.hpp)}<span className="text-[11px] font-normal text-slate-400"> /pcs</span></p>
+                        <p className="text-[11px] text-slate-500">Modal: {rupiah(Math.max(0, m.stock) * m.hpp)}</p>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-400">Belum diisi</span>
+                    )}
+                  </td>
                   <td className="px-3 py-3">
                     <div className="flex max-w-[380px] flex-wrap gap-1.5">
                       {m.listings.map((l) => (
