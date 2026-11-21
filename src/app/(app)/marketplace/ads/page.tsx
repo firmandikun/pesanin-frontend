@@ -228,7 +228,7 @@ export default function ShopeeAds() {
     setMsg("");
     try {
       for (const s of shops.filter((x) => !x.is_demo && (!shop || String(x.id) === shop))) {
-        await api(`/marketplace/shops/${s.id}/sync`, { method: "POST", json: { what: "ads", with_products: true } });
+        await api(`/marketplace/shops/${s.id}/sync`, { method: "POST", json: { what: "ads" } });
       }
       if (sid === syncId.current) {
         setMsg("Data iklan (Individual, Grup & Otomatis) berhasil diperbarui dari Shopee Ads API.");
