@@ -1,5 +1,5 @@
 "use client";
-import { ArrowLeft, CheckCheck, CheckCircle2, Eye, ImagePlus, Info, Loader2, MessageCircle, PanelRight, Pin, RefreshCcw, RotateCcw, Search, Send, Unplug, UserRound, Zap } from "lucide-react";
+import { AlertCircle, ArrowLeft, Check, CheckCheck, CheckCircle2, Eye, ImagePlus, Info, Loader2, MessageCircle, PanelRight, Pin, RefreshCcw, RotateCcw, Search, Send, Unplug, UserRound, Zap } from "lucide-react";
 import Link from "next/link";
 import { askConfirm } from "@/components/Dialogs";
 import { useSearchParams } from "next/navigation";
@@ -17,7 +17,22 @@ import { ThreadSidebar } from "@/components/inbox/ThreadSidebar";
 type Channel = "shopee" | "facebook" | "instagram" | "whatsapp";
 type Conv = { channel: Channel; source_id: number | string; source_name: string; id: string; to_id: number | string; name: string; avatar: string | null; unread: number; pinned: boolean; last_text: string; last_from_me: boolean; at: string | null;
   status?: "open" | "done"; assigned_to?: number | null; assignee?: string | null; labels?: string[]; customer_id?: number | null };
-type Msg = { id: string; from_me: boolean; type: string; text: string; image: string | null; video?: string | null; duration?: number | null; link?: string | null; at: string | null };
+type Msg = { id: string; from_me: boolean; type: string; text: string; image: string | null; video?: string | null; duration?: number | null; link?: string | null; at: string | null; read?: boolean | null; status?: string | null };
+
+/**
+ * ✓ terkirim · ✓✓ abu-abu sampai · ✓✓ biru dibaca. WhatsApp reports the real status; Shopee says it when it can,
+ * otherwise a message counts as read once the buyer replied after it.
+ */
+function receipt(m: Msg, all: Msg[], i: number): "failed" | "sent" | "delivered" | "read" {
+  if (m.status === "failed") return "failed";
+  if (m.status === "read" || m.read === true) return "read";
+  if (m.read === null || m.read === undefined) {
+    if (all.slice(i + 1).some((x) => !x.from_me)) return "read";
+    if (m.status === "delivered") return "delivered";
+    return m.status === "sent" || !m.status ? "sent" : "delivered";
+  }
+  return m.status === "delivered" ? "delivered" : "sent";
+}
 type ChannelInfo = { id: Channel; label: string; available: boolean; sources: { id: number | string; name: string }[] };
 type ListRes = { available: boolean; reason: string | null; conversations: Conv[]; unread: number; channels: ChannelInfo[]; meta?: { connected: boolean; configured: boolean; errors: string[] }; whatsapp?: { connected: boolean }; team?: TeamLite[]; labels?: ChatLabel[] };
 // Inbox views (like a helpdesk): active chats, unread, unassigned, per CS, done.
@@ -332,7 +347,7 @@ function Chat() {
               </div>
               <div className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-slate-50 px-4 py-4">
                 {!msgs ? <p className="flex items-center justify-center gap-2 py-10 text-sm text-slate-400"><Loader2 size={15} className="animate-spin" />Memuat pesan…</p>
-                  : msgs.map((m) => (
+                  : msgs.map((m, i) => (
                     <div key={m.id} className={`flex ${m.from_me ? "justify-end" : "justify-start"}`}>
                       <div className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-sm ${m.from_me ? "rounded-br-md bg-brand-600 text-white" : "rounded-bl-md bg-white text-slate-700"}`}>
                         {m.video ? (
@@ -345,7 +360,14 @@ function Chat() {
                         ) : m.type === "video" ? <p className="italic opacity-80">[Video] Buka di aplikasi Shopee untuk melihat</p>
                           : <p className="whitespace-pre-wrap break-words">{m.text}</p>}
                         {m.link && <a href={m.link} target="_blank" rel="noreferrer" className={`mt-1 block truncate text-xs underline ${m.from_me ? "text-white/90" : "text-brand-600"}`}>{m.link.replace(/^https?:\/\/(www\.)?/, "")}</a>}
-                        <p className={`mt-0.5 text-right text-[10px] ${m.from_me ? "text-white/70" : "text-slate-400"}`}>{when(m.at)}</p>
+                        <p className={`mt-0.5 flex items-center justify-end gap-1 text-[10px] ${m.from_me ? "text-white/70" : "text-slate-400"}`}>{when(m.at)}
+                          {m.from_me && (() => {
+                            const st = receipt(m, msgs, i);
+                            return st === "failed" ? <span title="Gagal terkirim"><AlertCircle size={12} className="text-rose-200" /></span>
+                              : st === "read" ? <span title="Sudah dibaca"><CheckCheck size={14} strokeWidth={2.5} className="text-sky-300" /></span>
+                              : st === "delivered" ? <span title="Terkirim, belum dibaca"><CheckCheck size={13} /></span>
+                              : <span title="Terkirim"><Check size={12} /></span>;
+                          })()}</p>
                       </div>
                     </div>
                   ))}
