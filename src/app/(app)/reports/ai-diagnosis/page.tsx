@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Flame,
   Loader2,
+  Megaphone,
   Settings,
   ShieldAlert,
   TrendingDown,
@@ -58,6 +59,19 @@ type Diagnosis = {
   health_label: string;
   executive_summary: string;
   custom_answer?: string | null;
+  shops_audit?: {
+    shop_name: string;
+    status: string;
+    summary: string;
+    action: string;
+  }[];
+  ads_audit?: {
+    shop_name: string;
+    campaign_name: string;
+    verdict: string;
+    metrics: string;
+    action: string;
+  }[];
   financial_leaks: {
     title: string;
     severity: "high" | "medium" | "low";
@@ -289,6 +303,69 @@ export default function AiDiagnosisPage() {
               </div>
             )}
           </Panel>
+
+          {/* Per-Shop Audit */}
+          {diagnosis.shops_audit && diagnosis.shops_audit.length > 0 && (
+            <Panel className="p-5">
+              <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
+                <Bot size={16} className="text-brand-600" />
+                Audit &amp; Tindakan Per Toko
+              </h3>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                {diagnosis.shops_audit.map((sh, i) => (
+                  <div key={i} className="rounded-xl border border-slate-200/80 bg-slate-50/40 p-3.5 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <b className="text-sm text-slate-900">{sh.shop_name}</b>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        sh.status.toLowerCase().includes("sehat")
+                          ? "bg-emerald-50 text-emerald-700"
+                          : sh.status.toLowerCase().includes("kritis")
+                          ? "bg-rose-50 text-rose-700"
+                          : "bg-amber-50 text-amber-700"
+                      }`}>
+                        {sh.status}
+                      </span>
+                    </div>
+                    <p className="mt-1.5 text-slate-600">{sh.summary}</p>
+                    <p className="mt-1.5 font-semibold text-brand-700">Tindakan: {sh.action}</p>
+                  </div>
+                ))}
+              </div>
+            </Panel>
+          )}
+
+          {/* Ads Audit */}
+          {diagnosis.ads_audit && diagnosis.ads_audit.length > 0 && (
+            <Panel className="p-5">
+              <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
+                <Megaphone size={16} className="text-[#ee4d2d]" />
+                Audit Iklan &amp; Rekomendasi Kampanye
+              </h3>
+              <div className="mt-3 space-y-2.5">
+                {diagnosis.ads_audit.map((ad, i) => (
+                  <div key={i} className="rounded-xl border border-slate-200/80 p-3.5 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <span className="mr-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">{ad.shop_name}</span>
+                        <b className="text-sm text-slate-900">{ad.campaign_name}</b>
+                      </div>
+                      <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                        ad.verdict.toLowerCase().includes("matikan") || ad.verdict.toLowerCase().includes("jeda") || ad.verdict.toLowerCase().includes("rugi")
+                          ? "bg-rose-50 text-rose-700"
+                          : ad.verdict.toLowerCase().includes("scale") || ad.verdict.toLowerCase().includes("sehat")
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-amber-50 text-amber-700"
+                      }`}>
+                        {ad.verdict}
+                      </span>
+                    </div>
+                    <p className="mt-1.5 text-slate-500">{ad.metrics}</p>
+                    <p className="mt-1 font-semibold text-slate-800">Tindakan: {ad.action}</p>
+                  </div>
+                ))}
+              </div>
+            </Panel>
+          )}
 
           {/* Financial Leaks */}
           <Panel className="p-5">
