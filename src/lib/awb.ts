@@ -34,12 +34,13 @@ export type AwbResult = { skipped: string[]; errors: string[]; printed?: number 
  * Remove product names from Shopee's AWB: the item table is redrawn as "# | SKU | Variasi | Qty"
  * (see awbTable.ts). If a page's layout isn't recognised, the name column is covered instead.
  */
-async function hideProductNames(bytes: Uint8Array, group: AwbOrder[] = [], printSettings?: PrintSettings): Promise<PDFDocument> {
+async function hideProductNames(bytes: Uint8Array, group: AwbOrder[] = [], printSettings?: PrintSettings): Promise<{ doc: PDFDocument; cropBottoms: number[] }> {
   const pdfjs = await import("pdfjs-dist");
   pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
   const doc = await pdfjs.getDocument({ data: bytes.slice() }).promise;
   const out = await PDFDocument.load(bytes);
   const fonts = { regular: await out.embedFont(StandardFonts.Helvetica), bold: await out.embedFont(StandardFonts.HelveticaBold) };
+  const cropBottoms: number[] = [];
   const skuRows = (o: AwbOrder): SkuRow[] => (o.items ?? []).map((it) => ({
     parent: (it.item_sku ?? it.sku ?? "") || "-", variant: (it.model_sku ?? "") || "-",
     name: it.name ?? undefined, varName: it.variant ?? undefined,
@@ -50,6 +51,9 @@ async function hideProductNames(bytes: Uint8Array, group: AwbOrder[] = [], print
 
   for (let i = 0; i < doc.numPages; i++) {
     const items = (await (await doc.getPage(i + 1)).getTextContent()).items.filter((it): it is TextItem & typeof it => "str" in it) as unknown as TextItem[];
+    const ys = items.filter((it) => it.str.trim()).map((it) => it.transform[5]);
+    const minY = ys.length ? Math.min(...ys) : 0;
+    cropBottoms.push(Math.max(0, minY - 12));
     const text = items.map((it) => it.str).join("").replace(/\s+/g, "").toUpperCase();
     const match = keyed.find(([sn]) => text.includes(sn))?.[1] ?? (group.length === doc.numPages ? group[i] : undefined);
     if (redrawItemTable(out.getPage(i), items, fonts, match ? skuRows(match) : undefined, printSettings)) continue;
@@ -69,7 +73,7 @@ async function hideProductNames(bytes: Uint8Array, group: AwbOrder[] = [], print
       page.drawRectangle({ x: x - 0.5, y: y - h * 0.3, width: Math.min(it.width, x1 - x) + 1, height: h * 1.4, color: rgb(1, 1, 1) });
     }
   }
-  return out;
+  return { doc: out, cropBottoms };
 }
 
 /**
@@ -106,18 +110,23 @@ export async function openShopeeAwbMerged({ orders = [], bookings = [], settings
         try {
           const { bytes, skipped } = await fetchAwb(group.map((o) => o.id), kind);
           result.skipped.push(...skipped);
-          const src = await hideProductNames(bytes, group, printSettings);
+          const { doc: src, cropBottoms } = await hideProductNames(bytes, group, printSettings);
           if (printSettings.paper_size === "78x100") {
             const targetW = 221.10; // 78 mm
             const targetH = 283.46; // 100 mm
-            for (const srcPage of src.getPages()) {
-              const embedded = await merged.embedPage(srcPage);
-              const page = merged.addPage([targetW, targetH]);
+            const srcPages = src.getPages();
+            for (let idx = 0; idx < srcPages.length; idx++) {
+              const srcPage = srcPages[idx];
               const origW = srcPage.getWidth();
               const origH = srcPage.getHeight();
-              const scale = Math.min(targetW / origW, targetH / origH);
-              const w = origW * scale;
-              const h = origH * scale;
+              const bot = Math.min(cropBottoms[idx] ?? 0, origH * 0.35);
+              const embedded = await merged.embedPage(srcPage, { left: 6, right: origW - 6, bottom: bot, top: origH - 4 });
+              const page = merged.addPage([targetW, targetH]);
+              const cw = embedded.width;
+              const ch = embedded.height;
+              const scale = Math.min((targetW - 4) / cw, (targetH - 4) / ch);
+              const w = cw * scale;
+              const h = ch * scale;
               page.drawPage(embedded, {
                 x: (targetW - w) / 2,
                 y: (targetH - h) / 2,
@@ -128,14 +137,19 @@ export async function openShopeeAwbMerged({ orders = [], bookings = [], settings
           } else if (printSettings.paper_size === "100x100") {
             const targetW = 283.46;
             const targetH = 283.46;
-            for (const srcPage of src.getPages()) {
-              const embedded = await merged.embedPage(srcPage);
-              const page = merged.addPage([targetW, targetH]);
+            const srcPages = src.getPages();
+            for (let idx = 0; idx < srcPages.length; idx++) {
+              const srcPage = srcPages[idx];
               const origW = srcPage.getWidth();
               const origH = srcPage.getHeight();
-              const scale = Math.min(targetW / origW, targetH / origH);
-              const w = origW * scale;
-              const h = origH * scale;
+              const bot = Math.min(cropBottoms[idx] ?? 0, origH * 0.35);
+              const embedded = await merged.embedPage(srcPage, { left: 6, right: origW - 6, bottom: bot, top: origH - 4 });
+              const page = merged.addPage([targetW, targetH]);
+              const cw = embedded.width;
+              const ch = embedded.height;
+              const scale = Math.min((targetW - 4) / cw, (targetH - 4) / ch);
+              const w = cw * scale;
+              const h = ch * scale;
               page.drawPage(embedded, {
                 x: (targetW - w) / 2,
                 y: (targetH - h) / 2,

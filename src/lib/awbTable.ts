@@ -249,14 +249,21 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
   const lh = layout.lineH;
   const rowsWithLines = layout.mapped;
   const totalItemHeight = layout.totalH;
-  const neededBottom = Math.max(minSafeY, headerBottomY - totalItemHeight - 6);
-  const targetBottom = Math.min(origBottom, neededBottom);
+  const estimatedBottomY = headerBottomY - totalItemHeight;
+  const shouldRedrawStop = !!stop && estimatedBottomY < stop.transform[5] + (stop.height || 8) + 6 && estimatedBottomY > minSafeY + 14;
+  const neededBottom = Math.max(minSafeY, estimatedBottomY - 6);
+  let targetBottom = Math.min(origBottom, neededBottom);
+  if (shouldRedrawStop && stop) {
+    targetBottom = Math.max(minSafeY - 8, Math.min(targetBottom, stop.transform[5] - 4, estimatedBottomY - 14));
+  }
 
-  // Clear inside the frame only, from topY down to targetBottom
+  // Clear slightly beyond frameLeft/frameRight so old "#" / row numbers / borders never leave slivers
+  const clearLeft = Math.max(4, Math.min(frameLeft - 1, detectedLeft - 3));
+  const clearRight = Math.min(pw - 4, Math.max(frameRight + 1, pw - clearLeft));
   page.drawRectangle({
-    x: frameLeft + 0.5,
+    x: clearLeft,
     y: targetBottom,
-    width: frameRight - frameLeft - 1,
+    width: clearRight - clearLeft,
     height: topY - targetBottom,
     color: rgb(1, 1, 1),
   });
@@ -311,7 +318,7 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
   }
 
   // If table expanded over stop (e.g. "Pesan: (...)"), redraw it cleanly below the new table
-  if (stop && bottomY < stop.transform[5] + 5 && bottomY > minSafeY + 14) {
+  if (shouldRedrawStop && stop && bottomY > minSafeY + 14) {
     page.drawText(sanitize(fonts.regular, stop.str), {
       x: frameLeft + 3,
       y: bottomY - 10,
