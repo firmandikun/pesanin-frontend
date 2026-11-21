@@ -9,7 +9,7 @@ type Ret = { id: number; return_sn: string; order_sn: string | null; status: str
 type Detail = {
   return: Ret; error?: string | null; images: string[]; videos: string[]; needs_logistics: boolean;
   negotiation: { status: string | null; solution: string | null; offer_amount: number | null; offer_by: string | null; counter_limit: number | null; max_refund: number | null } | null;
-  solutions: { solution: string; max_refund: number }[]; dispute_reasons: { id: number; text: string }[];
+  solutions: { solution: string; max_refund: number }[]; dispute_reasons: { id: number; text: string }[]; dispute_error?: string | null;
 };
 
 const SOLUTION: Record<string, string> = { RETURN_REFUND: "Kembalikan barang & dana", REFUND: "Kembalikan dana saja (tanpa retur barang)", return_refund: "Kembalikan barang & dana", refund: "Kembalikan dana saja (tanpa retur barang)" };
@@ -93,10 +93,17 @@ export function ReturnDialog({ id, onClose, onDone }: { id: number; onClose: () 
               {mode === "dispute" && (
                 <div className="space-y-2 rounded-xl border border-rose-200 p-3">
                   <p className="text-xs text-slate-500">Shopee akan meninjau bukti dari kedua pihak. Lampirkan foto/video bukti lewat Seller Centre bila diminta.</p>
-                  <select className="input h-9 w-full" value={disp.reason_id} onChange={(e) => setDisp({ ...disp, reason_id: e.target.value })}>
-                    <option value="">Pilih alasan sengketa…</option>
-                    {d.dispute_reasons.map((x) => <option key={x.id} value={x.id}>{x.text}</option>)}
-                  </select>
+                  {!d.dispute_reasons.length ? (
+                    <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-800">
+                      Shopee belum memberikan pilihan alasan sengketa untuk pengajuan ini{d.dispute_error ? ` (${d.dispute_error})` : ""}. Biasanya sengketa baru bisa diajukan pada tahap tertentu, misalnya setelah barang retur diterima. Ajukan lewat{" "}
+                      <a href="https://seller.shopee.co.id/portal/sale/returnrefundcancel" target="_blank" rel="noopener noreferrer" className="font-semibold underline">Seller Centre</a>.
+                    </p>
+                  ) : (
+                    <select className="input h-9 w-full" value={disp.reason_id} onChange={(e) => setDisp({ ...disp, reason_id: e.target.value })}>
+                      <option value="">Pilih alasan sengketa…</option>
+                      {d.dispute_reasons.map((x) => <option key={x.id} value={x.id}>{x.text}</option>)}
+                    </select>
+                  )}
                   <textarea className="input min-h-[90px] w-full py-2" placeholder="Jelaskan kenapa pengajuan ini tidak sesuai (min. 10 karakter)" value={disp.text} onChange={(e) => setDisp({ ...disp, text: e.target.value })} />
                   <input className="input h-9 w-full" type="email" placeholder="Email untuk dihubungi Shopee" value={disp.email} onChange={(e) => setDisp({ ...disp, email: e.target.value })} />
                   <div className="flex justify-end"><button onClick={() => act("dispute", { reason_id: Number(disp.reason_id), text: disp.text, email: disp.email })} disabled={!!busy || !disp.reason_id || disp.text.length < 10 || !disp.email}
