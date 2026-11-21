@@ -4,6 +4,7 @@ import {
   Eye,
   Heart,
   Loader2,
+  Megaphone,
   Package,
   RefreshCcw,
   Search,
@@ -14,7 +15,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { showAlert } from "@/components/Dialogs";
 import { DateRange } from "@/components/DateRange";
-import { PageHead, Panel } from "@/components/kit";
+import { PageHead, Pager, Panel } from "@/components/kit";
 import { Select } from "@/components/Select";
 import { api, ApiError, rupiah } from "@/lib/api";
 
@@ -45,6 +46,16 @@ type PerfItem = {
   period_revenue: number;
   conversion_rate: number;
   needs_attention: boolean;
+  is_advertised: boolean;
+  ad_active: boolean;
+  ad_auto: boolean;
+  ad_campaigns: number;
+  ad_expense: number;
+  ad_gmv: number;
+  ad_clicks: number;
+  ad_impressions: number;
+  ad_orders: number;
+  ad_roas: number;
 };
 
 type PerfData = {
@@ -60,6 +71,10 @@ type PerfData = {
     period_revenue: number;
     avg_rating: number | null;
     low_conversion_count: number;
+    advertised_count: number;
+    total_ad_expense: number;
+    total_ad_gmv: number;
+    total_ad_roas: number;
     last_synced_date: string | null;
   };
   items: PerfItem[];
@@ -76,7 +91,10 @@ export default function ShopeeProductPerformancePage() {
   const [range, setRange] = useState({ from: wibDate(-29), to: wibDate(0) });
   const [shopId, setShopId] = useState("");
   const [sort, setSort] = useState("revenue");
+  const [adFilter, setAdFilter] = useState<"all" | "advertised" | "organic">("all");
   const [q, setQ] = useState("");
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(20);
   const [data, setData] = useState<PerfData | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -88,6 +106,7 @@ export default function ShopeeProductPerformancePage() {
       from: range.from,
       to: range.to,
       sort,
+      ad_filter: adFilter,
       ...(shopId ? { shop_id: shopId } : {}),
       ...(q.trim() ? { q: q.trim() } : {}),
     });
@@ -95,7 +114,11 @@ export default function ShopeeProductPerformancePage() {
       .then(setData)
       .catch(() => setData(null))
       .finally(() => setLoading(false));
-  }, [range.from, range.to, shopId, sort, q]);
+  }, [range.from, range.to, shopId, sort, adFilter, q]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [range.from, range.to, shopId, sort, adFilter, q]);
 
   useEffect(() => {
     const t = setTimeout(load, 200);
@@ -120,6 +143,11 @@ export default function ShopeeProductPerformancePage() {
 
   const s = data?.summary;
   const shops = data?.shops ?? [];
+  const allItems = data?.items ?? [];
+  const totalItems = allItems.length;
+  const lastPage = Math.max(1, Math.ceil(totalItems / perPage));
+  const safePage = Math.min(page, lastPage);
+  const pagedItems = allItems.slice((safePage - 1) * perPage, safePage * perPage);
 
   return (
     <div className="space-y-4">
@@ -154,7 +182,7 @@ export default function ShopeeProductPerformancePage() {
       )}
 
       {/* Summary KPI Cards */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Panel className="p-4">
           <div className="flex items-center justify-between text-xs font-medium text-slate-500">
             <span>Dilihat (30 Hari Shopee)</span>
@@ -164,21 +192,7 @@ export default function ShopeeProductPerformancePage() {
           </div>
           <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900">{num(s?.total_views ?? 0)}</p>
           <p className="mt-1 text-[11px] text-slate-400">
-            Dari API <code className="font-mono">get_item_extra_info</code>
-            {s?.last_synced_date ? ` · per ${s.last_synced_date}` : ""}
-          </p>
-        </Panel>
-
-        <Panel className="p-4">
-          <div className="flex items-center justify-between text-xs font-medium text-slate-500">
-            <span>Favorit / Disukai</span>
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
-              <Heart size={15} />
-            </span>
-          </div>
-          <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900">{num(s?.total_likes ?? 0)}</p>
-          <p className="mt-1 text-[11px] text-slate-400">
-            Rata-rata rating: {s?.avg_rating ? `${s.avg_rating} ★` : "-"}
+            Favorit: {num(s?.total_likes ?? 0)} · Rating: {s?.avg_rating ? `${s.avg_rating} ★` : "-"}
           </p>
         </Panel>
 
@@ -197,6 +211,32 @@ export default function ShopeeProductPerformancePage() {
 
         <Panel className="p-4">
           <div className="flex items-center justify-between text-xs font-medium text-slate-500">
+            <span>Produk Diiklankan</span>
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-50 text-[#ee4d2d]">
+              <Megaphone size={15} />
+            </span>
+          </div>
+          <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900">{num(s?.advertised_count ?? 0)}</p>
+          <p className="mt-1 text-[11px] text-slate-400">
+            Dari {num(s?.total_products ?? 0)} produk tampil
+          </p>
+        </Panel>
+
+        <Panel className="p-4">
+          <div className="flex items-center justify-between text-xs font-medium text-slate-500">
+            <span>Biaya &amp; ROAS Iklan</span>
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+              <Heart size={15} />
+            </span>
+          </div>
+          <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900">{rupiah(s?.total_ad_expense ?? 0)}</p>
+          <p className="mt-1 text-[11px] text-indigo-600">
+            Omzet Iklan: <b>{rupiah(s?.total_ad_gmv ?? 0)}</b> · ROAS <b>{(s?.total_ad_roas ?? 0).toFixed(2)}</b>
+          </p>
+        </Panel>
+
+        <Panel className="p-4">
+          <div className="flex items-center justify-between text-xs font-medium text-slate-500">
             <span>Banyak Dilihat, Belum Laku</span>
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
               <AlertTriangle size={15} />
@@ -204,7 +244,7 @@ export default function ShopeeProductPerformancePage() {
           </div>
           <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900">{num(s?.low_conversion_count ?? 0)}</p>
           <p className="mt-1 text-[11px] text-slate-400">
-            Produk dengan ≥ 100 views namun 0 terjual di periode ini
+            ≥ 100 views namun 0 terjual di periode ini
           </p>
         </Panel>
       </div>
@@ -213,7 +253,26 @@ export default function ShopeeProductPerformancePage() {
       <Panel className="overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-4">
           <div className="flex flex-wrap items-center gap-2.5">
-            <div className="relative w-64">
+            <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs">
+              {(
+                [
+                  ["all", "Semua Produk"],
+                  ["advertised", "Diiklankan"],
+                  ["organic", "Non-Iklan"],
+                ] as const
+              ).map(([k, lbl]) => (
+                <button
+                  key={k}
+                  onClick={() => setAdFilter(k)}
+                  className={`rounded-md px-3 py-1.5 font-medium transition ${
+                    adFilter === k ? "bg-white text-slate-900 shadow-2xs" : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  {lbl}
+                </button>
+              ))}
+            </div>
+            <div className="relative w-60">
               <Search size={14} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-slate-400" />
               <input
                 className="input h-9 w-full pl-8 text-xs"
@@ -225,6 +284,8 @@ export default function ShopeeProductPerformancePage() {
             <Select className="input h-9 w-56 text-xs" value={sort} onChange={(e) => setSort(e.target.value)}>
               <option value="revenue">Urutkan: Omzet Periode Tertinggi</option>
               <option value="units">Urutkan: Terjual Periode Terbanyak</option>
+              <option value="ad_expense">Urutkan: Biaya Iklan Tertinggi</option>
+              <option value="ad_roas">Urutkan: ROAS Iklan Tertinggi</option>
               <option value="views">Urutkan: Paling Banyak Dilihat</option>
               <option value="likes">Urutkan: Favorit Terbanyak</option>
               <option value="sales">Urutkan: Total Terjual (Kumulatif)</option>
@@ -252,7 +313,7 @@ export default function ShopeeProductPerformancePage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[960px] border-collapse text-left text-xs tabular-nums">
+            <table className="w-full min-w-[1140px] border-collapse text-left text-xs tabular-nums">
               <thead className="border-b border-slate-200 bg-slate-50/90 text-[11px] font-semibold text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Produk</th>
@@ -260,13 +321,15 @@ export default function ShopeeProductPerformancePage() {
                   <th className="px-3 py-3 text-right">Favorit</th>
                   <th className="px-3 py-3 text-right">Terjual Periode</th>
                   <th className="px-3 py-3 text-right">Omzet Periode</th>
+                  <th className="px-3 py-3 text-right">Biaya Iklan</th>
+                  <th className="px-3 py-3 text-right">Omzet &amp; ROAS Iklan</th>
                   <th className="px-3 py-3 text-right">Total Terjual</th>
                   <th className="px-3 py-3 text-right">Rating</th>
                   <th className="px-4 py-3 text-right">Stok</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {data.items.map((item) => (
+                {pagedItems.map((item) => (
                   <tr key={item.key} className="hover:bg-slate-50/70">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
@@ -281,10 +344,18 @@ export default function ShopeeProductPerformancePage() {
                           <p className="truncate font-semibold text-slate-800" title={item.name}>
                             {item.name}
                           </p>
-                          <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+                          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400">
                             <span>{item.shop_name}</span>
                             {item.sku && <span className="font-mono text-slate-500">· {item.sku}</span>}
                             <span>· {rupiah(item.price_min)}{item.price_max > item.price_min ? `–${rupiah(item.price_max)}` : ""}</span>
+                            {item.is_advertised && (
+                              <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                                item.ad_active ? "bg-orange-50 text-[#ee4d2d]" : "bg-slate-100 text-slate-600"
+                              }`}>
+                                <Megaphone size={10} />
+                                {item.ad_auto ? "Iklan Otomatis" : item.ad_active ? "Diiklankan" : "Iklan Nonaktif"}
+                              </span>
+                            )}
                             {item.needs_attention && (
                               <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
                                 Perlu optimasi
@@ -309,6 +380,28 @@ export default function ShopeeProductPerformancePage() {
                       <span className="block text-[10px] text-slate-400">{num(item.period_orders)} pesanan</span>
                     </td>
                     <td className="px-3 py-3 text-right font-semibold text-slate-900">{rupiah(item.period_revenue)}</td>
+                    <td className="px-3 py-3 text-right">
+                      {item.ad_expense > 0 ? (
+                        <>
+                          <span className="font-semibold text-slate-900">{rupiah(item.ad_expense)}</span>
+                          <span className="block text-[10px] text-slate-400">{num(item.ad_clicks)} klik</span>
+                        </>
+                      ) : (
+                        <span className="text-slate-400">{item.ad_auto ? "Otomatis" : "-"}</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      {item.ad_expense > 0 || item.ad_gmv > 0 ? (
+                        <>
+                          <span className="font-semibold text-[#ee4d2d]">{rupiah(item.ad_gmv)}</span>
+                          <span className="block text-[10px] font-medium text-indigo-600">
+                            ROAS {item.ad_roas.toFixed(2)} · {num(item.ad_orders)} ord
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-slate-400">-</span>
+                      )}
+                    </td>
                     <td className="px-3 py-3 text-right">
                       <span className="font-medium text-slate-700">{num(item.sales)}</span>
                       {item.sales_7d !== null && item.sales_7d > 0 && (
@@ -335,6 +428,21 @@ export default function ShopeeProductPerformancePage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        {data && totalItems > 0 && (
+          <div className="border-t border-slate-100 px-5 py-3">
+            <Pager
+              page={safePage}
+              last={lastPage}
+              onPage={setPage}
+              total={totalItems}
+              perPage={perPage}
+              onPerPage={(n) => {
+                setPerPage(n);
+                setPage(1);
+              }}
+            />
           </div>
         )}
       </Panel>
