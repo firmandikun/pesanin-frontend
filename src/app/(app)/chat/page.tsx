@@ -1,5 +1,5 @@
 "use client";
-import { ArrowLeft, CheckCheck, CheckCircle2, Eye, Info, Loader2, MessageCircle, PanelRight, Pin, RefreshCcw, RotateCcw, Search, Send, Unplug, UserRound, Zap } from "lucide-react";
+import { ArrowLeft, CheckCheck, CheckCircle2, Eye, ImagePlus, Info, Loader2, MessageCircle, PanelRight, Pin, RefreshCcw, RotateCcw, Search, Send, Unplug, UserRound, Zap } from "lucide-react";
 import Link from "next/link";
 import { askConfirm } from "@/components/Dialogs";
 import { useSearchParams } from "next/navigation";
@@ -17,7 +17,7 @@ import { ThreadSidebar } from "@/components/inbox/ThreadSidebar";
 type Channel = "shopee" | "facebook" | "instagram" | "whatsapp";
 type Conv = { channel: Channel; source_id: number | string; source_name: string; id: string; to_id: number | string; name: string; avatar: string | null; unread: number; pinned: boolean; last_text: string; last_from_me: boolean; at: string | null;
   status?: "open" | "done"; assigned_to?: number | null; assignee?: string | null; labels?: string[]; customer_id?: number | null };
-type Msg = { id: string; from_me: boolean; type: string; text: string; image: string | null; link?: string | null; at: string | null };
+type Msg = { id: string; from_me: boolean; type: string; text: string; image: string | null; video?: string | null; duration?: number | null; link?: string | null; at: string | null };
 type ChannelInfo = { id: Channel; label: string; available: boolean; sources: { id: number | string; name: string }[] };
 type ListRes = { available: boolean; reason: string | null; conversations: Conv[]; unread: number; channels: ChannelInfo[]; meta?: { connected: boolean; configured: boolean; errors: string[] }; whatsapp?: { connected: boolean }; team?: TeamLite[]; labels?: ChatLabel[] };
 // Inbox views (like a helpdesk): active chats, unread, unassigned, per CS, done.
@@ -179,6 +179,19 @@ function Chat() {
       setMsgs((m) => [...(m ?? []), r.message]); setDraft("");
     } catch (e) { setErr(e instanceof ApiError ? e.message : "Gagal mengirim"); } finally { setBusy(false); }
   };
+  // Photo to a Shopee buyer: uploaded to Shopee chat, then sent as an image message.
+  const fileRef = useRef<HTMLInputElement>(null);
+  const sendImage = async (file?: File) => {
+    if (!file || !active || active.channel !== "shopee" || preview) return;
+    if (file.size > 10 * 1024 * 1024) { setErr("Gambar maksimal 10 MB."); return; }
+    setBusy(true); setErr("");
+    try {
+      const fd = new FormData();
+      fd.append("to_id", String(active.to_id)); fd.append("file", file);
+      const r = await api<{ message: Msg }>(`/chat/shopee/${active.source_id}/image`, { method: "POST", body: fd });
+      setMsgs((m) => [...(m ?? []), r.message]);
+    } catch (e) { setErr(e instanceof ApiError ? e.message : "Gagal mengirim gambar"); } finally { setBusy(false); if (fileRef.current) fileRef.current.value = ""; }
+  };
   const pickChannel = (ch: "" | Channel) => { setChannel(ch); setSource(""); };
   const viewCount = (v: View) => all.filter((c) => inView(c, v)).length;
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(
@@ -322,7 +335,15 @@ function Chat() {
                   : msgs.map((m) => (
                     <div key={m.id} className={`flex ${m.from_me ? "justify-end" : "justify-start"}`}>
                       <div className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-sm ${m.from_me ? "rounded-br-md bg-brand-600 text-white" : "rounded-bl-md bg-white text-slate-700"}`}>
-                        {m.image ? <img src={m.image} alt="" className="max-h-56 rounded-lg" /> : <p className="whitespace-pre-wrap break-words">{m.text}</p>}
+                        {m.video ? (
+                          <div className="space-y-1">
+                            <video src={m.video} poster={m.image ?? undefined} controls preload="metadata" playsInline className="max-h-72 w-64 rounded-lg bg-black" />
+                            <a href={m.video} target="_blank" rel="noreferrer" className={`block text-[11px] underline ${m.from_me ? "text-white/80" : "text-slate-500"}`}>Buka video{m.duration ? ` (${Math.floor(m.duration / 60)}:${String(m.duration % 60).padStart(2, "0")})` : ""}</a>
+                          </div>
+                        ) : m.image ? (
+                          <a href={m.image} target="_blank" rel="noreferrer"><img src={m.image} alt="" className="max-h-56 rounded-lg" /></a>
+                        ) : m.type === "video" ? <p className="italic opacity-80">[Video] Buka di aplikasi Shopee untuk melihat</p>
+                          : <p className="whitespace-pre-wrap break-words">{m.text}</p>}
                         {m.link && <a href={m.link} target="_blank" rel="noreferrer" className={`mt-1 block truncate text-xs underline ${m.from_me ? "text-white/90" : "text-brand-600"}`}>{m.link.replace(/^https?:\/\/(www\.)?/, "")}</a>}
                         <p className={`mt-0.5 text-right text-[10px] ${m.from_me ? "text-white/70" : "text-slate-400"}`}>{when(m.at)}</p>
                       </div>
@@ -342,6 +363,13 @@ function Chat() {
                       </button>
                     )) : <p className="px-2.5 py-2 text-xs text-slate-500">{replies.length ? "Tidak ada balasan cepat yang cocok." : "Belum ada balasan cepat."} <Link href="/chat/quick-replies" className="font-semibold text-brand-600">Kelola balasan cepat</Link></p>}
                   </div>
+                )}
+                {active.channel === "shopee" && !preview && (
+                  <>
+                    <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/gif,image/webp" className="hidden" onChange={(e) => sendImage(e.target.files?.[0])} />
+                    <button type="button" onClick={() => fileRef.current?.click()} disabled={busy} title="Kirim gambar (video belum didukung Shopee API, kirim lewat aplikasi Shopee)"
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-brand-600 disabled:opacity-40"><ImagePlus size={17} /></button>
+                  </>
                 )}
                 <textarea rows={1} disabled={windowClosed} className="input max-h-32 min-h-10 flex-1 resize-none py-2 text-sm disabled:bg-slate-50" placeholder={windowClosed ? "Balasan ditutup (lewat 24 jam)" : `Balas lewat ${CHANNEL[active.channel].label}… (ketik / untuk balasan cepat)`} value={draft} onChange={(e) => { setDraft(e.target.value); setPick(0); }}
                   onKeyDown={(e) => {
