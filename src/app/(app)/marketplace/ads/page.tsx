@@ -8,7 +8,7 @@ import { Select } from "@/components/Select";
 import { api, ApiError, rupiah } from "@/lib/api";
 
 type Metrics = { expense: number; gmv: number; clicks: number; orders: number; impressions: number; items_sold?: number };
-type Item = { item_id: number; name: string; image: string | null; product_id: number | null };
+type Item = { item_id: number; name: string; image: string | null; product_id: number | null; sku?: string | null; skus?: string[] };
 type Campaign = Metrics & {
   id: number;
   marketplace_shop_id?: number;
@@ -228,7 +228,7 @@ export default function ShopeeAds() {
     setMsg("");
     try {
       for (const s of shops.filter((x) => !x.is_demo && (!shop || String(x.id) === shop))) {
-        await api(`/marketplace/shops/${s.id}/sync`, { method: "POST", json: { what: "ads" } });
+        await api(`/marketplace/shops/${s.id}/sync`, { method: "POST", json: { what: "ads", with_products: true } });
       }
       if (sid === syncId.current) {
         setMsg("Data iklan (Individual, Grup & Otomatis) berhasil diperbarui dari Shopee Ads API.");
@@ -749,6 +749,9 @@ export default function ShopeeAds() {
                                   </div>
                                   <p className="mt-0.5 text-[11px] text-slate-400">
                                     {r.budget && r.budget > 0 ? `${rupiah(r.budget)}/hari` : "Tidak Terbatas"}
+                                    {r.kind === "manual" && r.childrenItems[0]?.sku ? (
+                                      <span className="ml-1.5 font-mono text-slate-500">· {r.childrenItems[0].sku}</span>
+                                    ) : null}
                                   </p>
                                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                                     <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${st.badge}`}>
@@ -906,7 +909,8 @@ export default function ShopeeAds() {
                                       <div className="min-w-0 flex-1">
                                         <p className="truncate text-xs font-medium text-slate-800">{it.name}</p>
                                         <p className="text-[10px] text-slate-400">
-                                          ID: {it.item_id} · Biaya/Konversi: <b className="text-[#ee4d2d]">{fmtRpDec(pCpa)}</b>
+                                          {it.sku ? <span className="font-mono text-slate-500">{it.sku} · </span> : `ID: ${it.item_id} · `}
+                                          Biaya/Konversi: <b className="text-[#ee4d2d]">{fmtRpDec(pCpa)}</b>
                                         </p>
                                       </div>
                                     </div>
