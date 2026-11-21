@@ -1,5 +1,5 @@
 "use client";
-import { ArrowLeft, ClipboardList, Hash, Loader2, MapPin, MessageSquare, PackageX, Receipt, RotateCcw, Truck, User, Wallet } from "lucide-react";
+import { ArrowLeft, ClipboardList, Hash, Loader2, MapPin, Megaphone, PackageX, Receipt, RotateCcw, Truck, User, Wallet } from "lucide-react";
 import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
 import { ShopeeMark } from "@/components/ChannelBadge";
@@ -11,6 +11,7 @@ import { api, ApiError, rupiah, type Order } from "@/lib/api";
 type Detail = {
   order: Order & { fee_breakdown?: { key: string; label: string; amount: number }[] | null; escrow_final?: boolean; completed_at?: string | null; custom_fields?: Record<string, string> | null };
   history: { title: string; desc: string | null; at: string }[];
+  ads: { date: string; per_conversion: number; net_after_ads: number | null; lines: { item_id: number; name: string; campaign: string; expense: number; conversions: number; per_conversion: number | null }[] } | null;
   return: { id: number; return_sn: string; status: string; refund_amount: number } | null;
 };
 type Track = { events: { time: string | null; text: string; location: string | null }[]; status: string | null };
@@ -75,7 +76,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             <div>
               <Title icon={Hash}>No. Pesanan</Title>
               <p className="pl-[30px] font-mono text-sm text-slate-700">{o.external_order_sn}</p>
-              <p className="pl-[30px] text-xs text-slate-400"><ShopeeMark size={11} /> {o.marketplace_shop?.shop_name} · dibuat {when(o.created_at)}</p>
+              <p className="flex items-center gap-1 pl-[30px] text-xs text-slate-400"><ShopeeMark size={11} />{o.marketplace_shop?.shop_name} · dibuat {when(o.created_at)}</p>
             </div>
             <div>
               <Title icon={MapPin}>Alamat Pengiriman</Title>
@@ -111,7 +112,6 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           <Card className="flex flex-wrap items-center gap-3">
             <span className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-400"><User size={20} /></span>
             <span className="flex-1 font-medium text-slate-700">{buyer || o.customer_name}</span>
-            <Link href="/chat" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#ee4d2d] px-4 text-sm font-semibold text-[#ee4d2d] hover:bg-orange-50"><MessageSquare size={15} />Chat Sekarang</Link>
           </Card>
 
           <Card>
@@ -140,6 +140,25 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 <div className="grid grid-cols-[1fr_150px] items-center gap-4 border-t border-slate-100 pt-3"><dt className="text-right font-medium text-slate-700">Total Penghasilan{o.escrow_final ? "" : " (estimasi)"}</dt>
                   <dd className="text-right text-2xl font-semibold text-[#ee4d2d]">{o.escrow_amount !== null ? rupiah(o.escrow_amount) : "-"}</dd></div>
               </dl>
+              {d.ads && (
+                <div className="border-t border-dashed border-slate-200 bg-orange-50/40 px-4 py-4 text-sm">
+                  <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-600"><Megaphone size={13} className="text-[#ee4d2d]" />Produk ini diiklankan · Biaya per Konversi iklan {d.ads.date.slice(8)}/{d.ads.date.slice(5, 7)}/{d.ads.date.slice(0, 4)}</p>
+                  <dl className="space-y-2">
+                    {d.ads.lines.map((l) => (
+                      <div key={l.item_id} className="grid grid-cols-[1fr_150px] gap-4">
+                        <dt className="text-right text-slate-600">Biaya iklan per konversi{d.ads!.lines.length > 1 ? ` · ${l.name}` : ""}
+                          <span className="block text-[11px] text-slate-400">{l.campaign} · biaya iklan {rupiah(l.expense)} ÷ {l.conversions} konversi</span></dt>
+                        <dd className="text-right text-slate-700">{l.per_conversion === null ? <span className="text-xs text-amber-600">belum ada konversi</span> : `-${rupiah(l.per_conversion)}`}</dd>
+                      </div>
+                    ))}
+                    {d.ads.net_after_ads !== null && (
+                      <div className="grid grid-cols-[1fr_150px] items-center gap-4 border-t border-orange-100 pt-2"><dt className="text-right font-medium text-slate-700">Penghasilan setelah iklan</dt>
+                        <dd className={`text-right text-lg font-semibold ${d.ads.net_after_ads < 0 ? "text-rose-600" : "text-emerald-600"}`}>{d.ads.net_after_ads < 0 ? `-${rupiah(-d.ads.net_after_ads)}` : rupiah(d.ads.net_after_ads)}</dd></div>
+                    )}
+                  </dl>
+                  <p className="mt-2 text-[11px] text-slate-400">Sama dengan Biaya per Konversi di halaman Iklan Shopee dan yang dipotong di laporan laba.</p>
+                </div>
+              )}
             </div>
           </Card>
 
