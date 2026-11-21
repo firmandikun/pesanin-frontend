@@ -430,100 +430,86 @@ export default function ShopeeAds() {
               </span>
             </div>
 
-            {/* 8 KPI Cards */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
-              <div className="relative rounded-lg border border-sky-500/80 bg-white p-3 shadow-2xs">
-                <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-tr-md rounded-bl-md bg-sky-500 text-white">
+            {/* 8 KPI Cards (2 baris x 4 kolom agar lega & angka tidak terpotong) */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="relative flex flex-col justify-between rounded-xl border border-sky-200 bg-sky-50/20 p-3.5">
+                <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-tr-xl rounded-bl-md bg-sky-500 text-white">
                   <Check size={10} strokeWidth={3} />
                 </span>
-                <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
                   <span className="h-2 w-2 rounded-full bg-sky-500" />
-                  <span className="truncate">Iklan Dilihat</span>
+                  <span>Iklan Dilihat</span>
                 </div>
-                <p className="mt-2 text-lg font-bold text-slate-900" title={totalImpressions.toLocaleString("id-ID")}>
+                <p className="mt-2 text-xl font-bold tabular-nums text-slate-900" title={totalImpressions.toLocaleString("id-ID")}>
                   {fmtCompact(totalImpressions)}
                 </p>
-                <p className="mt-0.5 text-[11px] text-slate-400">
+                <p className="mt-1 text-[11px] text-slate-400">
                   {totalImpressions.toLocaleString("id-ID")} tayangan
                 </p>
               </div>
 
-              <div className="rounded-lg border border-slate-200 bg-white p-3">
-                <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                  <span className="truncate">Jumlah Klik</span>
-                </div>
-                <p className="mt-2 text-lg font-bold text-slate-900">{totalClicks.toLocaleString("id-ID")}</p>
-                <p className="mt-0.5 text-[11px] text-slate-400">
+              <div className="flex flex-col justify-between rounded-xl border border-slate-200/80 bg-white p-3.5">
+                <div className="text-xs font-medium text-slate-500">Jumlah Klik</div>
+                <p className="mt-2 text-xl font-bold tabular-nums text-slate-900">{totalClicks.toLocaleString("id-ID")}</p>
+                <p className="mt-1 text-[11px] text-slate-400">
                   CPC {rupiah(calcCpc({ expense: totalExpense, clicks: totalClicks }))}
                 </p>
               </div>
 
-              <div className="rounded-lg border border-slate-200 bg-white p-3">
-                <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                  <span className="truncate">Persentase Klik</span>
-                </div>
-                <p className="mt-2 text-lg font-bold text-slate-900">{fmtDec(totalCtr)}%</p>
-                <p className="mt-0.5 text-[11px] text-emerald-600">
+              <div className="flex flex-col justify-between rounded-xl border border-slate-200/80 bg-white p-3.5">
+                <div className="text-xs font-medium text-slate-500">Persentase Klik (CTR)</div>
+                <p className="mt-2 text-xl font-bold tabular-nums text-slate-900">{fmtDec(totalCtr)}%</p>
+                <p className={`mt-1 text-[11px] font-medium ${totalCtr >= 2 ? "text-emerald-600" : "text-slate-400"}`}>
                   {totalCtr >= 2 ? "CTR Optimal" : "CTR Standar"}
                 </p>
               </div>
 
-              <div className="rounded-lg border border-slate-200 bg-white p-3">
-                <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                  <span className="truncate">Pesanan</span>
-                </div>
-                <p className="mt-2 text-lg font-bold text-slate-900">{totalOrders.toLocaleString("id-ID")}</p>
-                <p className="mt-0.5 text-[11px] text-slate-400">
+              <div className="flex flex-col justify-between rounded-xl border border-slate-200/80 bg-white p-3.5">
+                <div className="text-xs font-medium text-slate-500">Pesanan</div>
+                <p className="mt-2 text-xl font-bold tabular-nums text-slate-900">{totalOrders.toLocaleString("id-ID")}</p>
+                <p className="mt-1 text-[11px] text-slate-400">
                   CR {fmtDec(calcCr({ orders: totalOrders, clicks: totalClicks }))}%
                 </p>
               </div>
 
-              <div className="rounded-lg border border-slate-200 bg-white p-3">
-                <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                  <span className="truncate">Produk Terjual</span>
-                </div>
-                <p className="mt-2 text-lg font-bold text-slate-900">{totalItemsSold.toLocaleString("id-ID")}</p>
-                <p className="mt-0.5 text-[11px] text-slate-400">Dari konversi iklan</p>
+              <div className="flex flex-col justify-between rounded-xl border border-slate-200/80 bg-white p-3.5">
+                <div className="text-xs font-medium text-slate-500">Produk Terjual</div>
+                <p className="mt-2 text-xl font-bold tabular-nums text-slate-900">{totalItemsSold.toLocaleString("id-ID")}</p>
+                <p className="mt-1 text-[11px] text-slate-400">Dari konversi iklan</p>
               </div>
 
-              <div className="rounded-lg border border-slate-200 bg-white p-3">
-                <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                  <span className="truncate">Penjualan</span>
-                </div>
-                <p className="mt-2 truncate text-lg font-bold text-slate-900" title={rupiah(totalGmv)}>
+              <div className="flex flex-col justify-between rounded-xl border border-slate-200/80 bg-white p-3.5">
+                <div className="text-xs font-medium text-slate-500">Penjualan (GMV)</div>
+                <p className="mt-2 text-xl font-bold tabular-nums text-slate-900" title={rupiah(totalGmv)}>
                   {rupiah(totalGmv)}
                 </p>
-                <p className="mt-0.5 text-[11px] text-slate-400">
+                <p className="mt-1 text-[11px] text-slate-400">
                   ACOS {fmtDec(calcAcos({ expense: totalExpense, gmv: totalGmv }))}%
                 </p>
               </div>
 
-              <div className="rounded-lg border border-slate-200 bg-white p-3">
-                <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                  <span className="truncate">Biaya Iklan</span>
-                </div>
-                <p className="mt-2 truncate text-lg font-bold text-slate-900" title={rupiah(totalExpense)}>
+              <div className="flex flex-col justify-between rounded-xl border border-slate-200/80 bg-white p-3.5">
+                <div className="text-xs font-medium text-slate-500">Biaya Iklan</div>
+                <p className="mt-2 text-xl font-bold tabular-nums text-slate-900" title={rupiah(totalExpense)}>
                   {rupiah(totalExpense)}
                 </p>
-                <div className="mt-1.5 rounded border border-indigo-200 bg-indigo-50/70 px-1.5 py-0.5 text-[10px] leading-tight text-indigo-700">
-                  Termasuk PPN 11%{" "}
-                  <b className="block font-bold text-indigo-800">{rupiah(totalExpensePpn)}</b>
-                </div>
+                <p className="mt-1 text-[11px] text-indigo-600">
+                  +PPN 11%: <b className="font-semibold">{rupiah(totalExpensePpn)}</b>
+                </p>
               </div>
 
-              <div className="relative rounded-lg border border-[#ee4d2d]/80 bg-white p-3 shadow-2xs">
-                <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-tr-md rounded-bl-md bg-[#ee4d2d] text-white">
+              <div className="relative flex flex-col justify-between rounded-xl border border-[#ee4d2d]/40 bg-orange-50/20 p-3.5">
+                <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-tr-xl rounded-bl-md bg-[#ee4d2d] text-white">
                   <Check size={10} strokeWidth={3} />
                 </span>
-                <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
                   <span className="h-2 w-2 rounded-full bg-[#ee4d2d]" />
-                  <span className="truncate">Efektivitas Iklan (ROAS)</span>
+                  <span>Efektivitas (ROAS)</span>
                 </div>
-                <p className="mt-2 text-lg font-bold text-slate-900">{fmtDec(totalRoas)}</p>
-                <div className="mt-1.5 rounded border border-indigo-200 bg-indigo-50/70 px-1.5 py-0.5 text-[10px] leading-tight text-indigo-700">
-                  ACTUAL ROAS:{" "}
-                  <b className="font-bold text-indigo-800">{fmtDec(totalActualRoas)}</b>
-                </div>
+                <p className="mt-2 text-xl font-bold tabular-nums text-slate-900">{fmtDec(totalRoas)}</p>
+                <p className="mt-1 text-[11px] text-indigo-600">
+                  Actual ROAS: <b className="font-semibold">{fmtDec(totalActualRoas)}</b>
+                </p>
               </div>
             </div>
 
@@ -533,13 +519,11 @@ export default function ShopeeAds() {
           {/* Section 2: Daftar Iklan Produk (Matching Shopee Seller Centre Tabs) */}
           <div className="rounded-xl border border-slate-200/80 bg-white shadow-xs">
             <div className="border-b border-slate-100 px-5 pt-4 pb-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-base font-bold text-slate-800">Daftar Iklan Produk</h2>
-                  <span className="rounded-full bg-orange-50 px-2.5 py-0.5 text-xs font-semibold text-[#ee4d2d]">
-                    Biaya per Konversi otomatis mengurangi Laba Bersih di Transaksi Pesanan
-                  </span>
-                </div>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="text-base font-bold text-slate-800">Daftar Iklan Produk</h2>
+                <span className="text-xs text-slate-500">
+                  Biaya per konversi otomatis mengurangi laba bersih di Transaksi Pesanan
+                </span>
               </div>
 
               {mainTab === "list" && (
@@ -555,11 +539,10 @@ export default function ShopeeAds() {
                           <button
                             key={sf.key}
                             onClick={() => setStatusFilter(sf.key)}
-                            className={`rounded-md border px-2.5 py-1 font-medium transition ${
-                              active
+                            className={`rounded-md border px-2.5 py-1 font-medium transition ${active
                                 ? "border-[#ee4d2d] bg-orange-50/60 text-[#ee4d2d]"
                                 : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-                            }`}
+                              }`}
                           >
                             {sf.label}
                             {typeof count === "number" ? ` (${count})` : ""}
@@ -621,10 +604,10 @@ export default function ShopeeAds() {
             ) : (
               /* Tab 1: Iklan Individual, Grup Iklan & Iklan Otomatis Table */
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[1580px] border-collapse text-left text-xs">
+                <table className="w-full min-w-[1260px] border-collapse text-left text-xs tabular-nums">
                   <thead className="border-b border-slate-200 bg-slate-50/90 text-[11px] font-semibold text-slate-500">
                     <tr>
-                      <th className="sticky left-0 z-10 w-[350px] min-w-[350px] bg-slate-50 px-4 py-3 shadow-[1px_0_0_0_#e2e8f0]">
+                      <th className="sticky left-0 z-10 w-[300px] min-w-[300px] bg-slate-50 px-4 py-3 shadow-[1px_0_0_0_#e2e8f0]">
                         Info Iklan
                       </th>
                       <th className="px-3 py-3 whitespace-nowrap">Modal</th>
@@ -744,13 +727,12 @@ export default function ShopeeAds() {
                                   </div>
                                   <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                                     <span
-                                      className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-                                        r.kind === "auto"
+                                      className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${r.kind === "auto"
                                           ? "bg-orange-50 text-[#ee4d2d]"
                                           : r.kind === "group"
                                             ? "bg-violet-50 text-violet-700"
                                             : "bg-slate-100 text-slate-600"
-                                      }`}
+                                        }`}
                                     >
                                       {r.subtitle}
                                     </span>
@@ -821,51 +803,40 @@ export default function ShopeeAds() {
                             </td>
 
                             {/* Biaya Iklan */}
-                            <td className="px-3 py-3.5 text-right whitespace-nowrap">
+                            <td className="px-3 py-3 text-right whitespace-nowrap">
                               <p className="font-semibold text-slate-900">{rupiah(r.expense)}</p>
-                              <div className="mt-2 inline-block rounded border border-indigo-200 bg-indigo-50/60 px-2 py-1 text-center text-[10px] leading-tight text-indigo-700">
-                                Termasuk PPN 11%
-                                <div className="font-bold text-indigo-800">{rupiah(pPpn)}</div>
-                              </div>
+                              <p className="mt-0.5 text-[10px] text-indigo-600">+PPN {rupiah(pPpn)}</p>
                             </td>
 
                             {/* Penjualan */}
-                            <td className="px-3 py-3.5 text-right font-medium whitespace-nowrap text-slate-800">
+                            <td className="px-3 py-3 text-right font-medium whitespace-nowrap text-slate-800">
                               {rupiah(r.gmv)}
                             </td>
 
                             {/* ROAS */}
-                            <td className="px-3 py-3.5 text-right font-semibold whitespace-nowrap text-slate-800">
+                            <td className="px-3 py-3 text-right font-semibold whitespace-nowrap text-slate-800">
                               {fmtDec(pRoas)}
                             </td>
 
                             {/* Iklan Dilihat + CPM */}
-                            <td className="px-3 py-3.5 text-right whitespace-nowrap">
+                            <td className="px-3 py-3 text-right whitespace-nowrap">
                               <p className="font-medium text-slate-800" title={r.impressions.toLocaleString("id-ID")}>
                                 {fmtCompact(r.impressions)}
                               </p>
-                              <div className="mt-2 inline-flex items-center gap-1 rounded border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700">
-                                <span className="rounded bg-sky-600 px-1 text-[9px] text-white">CPM</span>
-                                {rupiah(pCpm)}
-                              </div>
+                              <p className="mt-0.5 text-[10px] text-slate-400">CPM {rupiah(pCpm)}</p>
                             </td>
 
                             {/* Jumlah Klik + CPC */}
-                            <td className="px-3 py-3.5 text-right whitespace-nowrap">
+                            <td className="px-3 py-3 text-right whitespace-nowrap">
                               <p className="font-medium text-slate-800">{r.clicks.toLocaleString("id-ID")}</p>
-                              <div className="mt-2 inline-flex items-center gap-1 rounded border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700">
-                                <span className="rounded bg-indigo-600 px-1 text-[9px] text-white">CPC</span>
-                                {rupiah(pCpc)}
-                              </div>
+                              <p className="mt-0.5 text-[10px] text-slate-400">CPC {rupiah(pCpc)}</p>
                             </td>
 
                             {/* Persentase Klik (CTR) */}
-                            <td className="px-3 py-3.5 text-right whitespace-nowrap">
+                            <td className="px-3 py-3 text-right whitespace-nowrap">
                               <p className="font-medium text-slate-800">{fmtDec(pCtr)}%</p>
                               {pCtr >= 2 && (
-                                <div className="mt-2 inline-block rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
-                                  🔥 CTR Tinggi (Optimal)
-                                </div>
+                                <p className="mt-0.5 text-[10px] font-medium text-emerald-600">CTR Optimal</p>
                               )}
                             </td>
 
