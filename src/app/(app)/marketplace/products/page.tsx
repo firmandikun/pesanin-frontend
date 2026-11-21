@@ -2,9 +2,9 @@
 import Link from "next/link";
 import {
   AlertTriangle, Calculator, Check, CheckCircle2, ChevronDown, ChevronUp,
-  Archive, BarChart3, Eye, ExternalLink, Loader2, Package, Pencil, Plus, RefreshCcw, Rocket, Search, Tag, X,
+  Archive, BarChart3, Eye, Hash, ExternalLink, Loader2, Package, Pencil, Plus, RefreshCcw, Rocket, Search, Tag, X,
 } from "lucide-react";
-import { addToBoost, BoostPanel, PriceDialog, StatLine, TextDialog, type ItemStat } from "@/components/marketplace/ProductTools";
+import { addToBoost, BoostPanel, PriceDialog, SkuDialog, StatLine, TextDialog, type ItemStat } from "@/components/marketplace/ProductTools";
 import { BulkCostDialog } from "@/components/marketplace/BulkCostDialog";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
@@ -181,6 +181,10 @@ function Products() {
   const [boostKey, setBoostKey] = useState(0);
   const [boosted, setBoosted] = useState<Set<string>>(new Set());
   const [toolBusy, setToolBusy] = useState("");
+  // Buat SKU: [] = every variation without SKU, otherwise the chosen products ("shop:item").
+  const [skuKeys, setSkuKeys] = useState<string[] | null>(null);
+  const skuParams = useSearchParams();
+  useEffect(() => { if (skuParams.get("buat_sku")) setSkuKeys([]); }, [skuParams]);
 
   const load = useCallback(() => {
     const qs = new URLSearchParams({
@@ -302,6 +306,9 @@ function Products() {
         <button onClick={() => setBulk(true)} className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">
           <Calculator size={15} />Input HPP Massal
         </button>
+        <button onClick={() => setSkuKeys([])} disabled={!shops.length} className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+          <Hash size={15} />Buat SKU
+        </button>
         <Link href="/marketplace/publish" className="flex h-10 items-center gap-1.5 rounded-lg bg-[#ee4d2d] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#d73f22]">
           <Plus size={16} />Tambah Produk Baru
         </Link>
@@ -313,6 +320,7 @@ function Products() {
         </p>
       )}
       <BoostPanel reloadKey={boostKey} onChanged={setBoosted} />
+      {skuKeys && <SkuDialog keys={skuKeys.length ? skuKeys : undefined} onClose={() => setSkuKeys(null)} onSaved={(m) => { setSkuKeys(null); setSelected([]); setNotice(`${m} Produk dengan SKU sama kini bisa disatukan di Stok Master.`); load(); }} />}
       {priceKeys && d && (
         <PriceDialog rows={d.listings.data.filter((l) => priceKeys.includes(`${l.marketplace_shop_id}:${l.item_id}`))} onClose={() => setPriceKeys(null)}
           onSaved={(p, msg) => { Object.entries(p).forEach(([id, price]) => patch(Number(id), { price })); if (msg) { setNotice(msg); setPriceKeys(null); setSelected([]); } }} />
@@ -324,6 +332,7 @@ function Products() {
       {realSelected.length > 0 && (
         <div className="sticky top-2 z-20 flex flex-wrap items-center gap-2 rounded-xl bg-navy px-4 py-2.5 text-sm text-white shadow-lg">
           <b className="mr-2">{realSelected.length} produk dipilih</b>
+          <button onClick={() => setSkuKeys(realSelected)} className="flex h-8 items-center gap-1.5 rounded-lg bg-white/10 px-3 font-semibold hover:bg-white/20"><Hash size={14} />Buat SKU</button>
           <button onClick={() => setPriceKeys(realSelected)} className="flex h-8 items-center gap-1.5 rounded-lg bg-white/10 px-3 font-semibold hover:bg-white/20"><Tag size={14} />Ubah Harga</button>
           <button onClick={() => boostKeys(realSelected)} disabled={!!toolBusy} className="flex h-8 items-center gap-1.5 rounded-lg bg-white/10 px-3 font-semibold hover:bg-white/20 disabled:opacity-50">{toolBusy === "boost" ? <Loader2 size={14} className="animate-spin" /> : <Rocket size={14} />}Naikkan Otomatis</button>
           <button onClick={() => setListed(true, realSelected)} disabled={!!toolBusy} className="flex h-8 items-center gap-1.5 rounded-lg bg-white/10 px-3 font-semibold hover:bg-white/20 disabled:opacity-50">{toolBusy === "unlist" ? <Loader2 size={14} className="animate-spin" /> : <Archive size={14} />}Arsipkan</button>
@@ -618,6 +627,7 @@ function Products() {
                             <MoreMenu items={[
                               ["Judul & Deskripsi", () => setTextItem({ shop: first.marketplace_shop_id, item: first.item_id })],
                               ["Ubah Harga", () => setPriceKeys([key])],
+                              ["Ubah SKU", () => setSkuKeys([key])],
                               ["Salin Produk", `/marketplace/publish?copy_shop=${first.marketplace_shop_id}&copy_item=${first.item_id}`],
                               [boosted.has(key) ? "Sudah di Naikkan Otomatis" : "Naikkan Produk", boosted.has(key) ? null : () => boostKeys([key])],
                               [first.status === "UNLIST" ? "Tampilkan" : "Arsipkan", () => setListed(first.status !== "UNLIST", [key])],

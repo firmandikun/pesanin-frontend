@@ -204,3 +204,82 @@ export function TextDialog({ shopId, itemId, onClose, onSaved }: { shopId: numbe
   );
 }
 
+
+type SkuRow = { id: number; shop_id: number; shop_name: string | null; item_id: number; model_id: number; name: string; model_name: string | null; image: string | null; current: string | null; sku: string };
+
+/**
+ * Buat SKU: suggest SKUs (initials of the name + variation, or prefix + number), edit them, and save to Shopee.
+ * Same product + variation in several shops gets the same SKU so Stok Master can merge them.
+ */
+export function SkuDialog({ keys, onClose, onSaved }: { keys?: string[]; onClose: () => void; onSaved: (msg: string) => void }) {
+  const [mode, setMode] = useState<"abbr" | "number">("abbr");
+  const [prefix, setPrefix] = useState("");
+  const [rows, setRows] = useState<SkuRow[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [errors, setErrors] = useState<Record<number, string>>({});
+  const [done, setDone] = useState("");
+  const scope = keys?.length ? "selected" : "empty";
+  const preview = useCallback(() => {
+    setRows(null); setErrors({});
+    api<{ rows: SkuRow[] }>("/marketplace/listings/sku/preview", { method: "POST", json: { mode, prefix, scope, keys } }).then((r) => setRows(r.rows)).catch((e) => { fail(e, "Gagal membuat usulan SKU"); setRows([]); });
+  }, [mode, prefix, scope, keys]);
+  useEffect(() => { const t = setTimeout(preview, 300); return () => clearTimeout(t); }, [preview]);
+
+  const set = (id: number, sku: string) => setRows((r) => r && r.map((x) => (x.id === id ? { ...x, sku: sku.toUpperCase().replace(/\s+/g, "-") } : x)));
+  // Duplicate check: the same SKU on different products (same product in other shops sharing a SKU is intended).
+  const owner = new Map<string, string>();
+  const dupes = new Set<string>();
+  (rows ?? []).forEach((r) => { const who = `${r.name}|${r.model_name ?? ""}`.toLowerCase(); const prev = owner.get(r.sku); if (prev && prev !== who) dupes.add(r.sku); else owner.set(r.sku, who); });
+  const changed = (rows ?? []).filter((r) => r.sku && r.sku !== (r.current ?? ""));
+  const save = async () => {
+    setBusy(true); setErrors({});
+    try {
+      const r = await api<{ updated: number; failed: Record<number, string> }>("/marketplace/listings/sku/save", { method: "POST", json: { rows: changed.map((x) => ({ id: x.id, sku: x.sku })) } });
+      if (Object.keys(r.failed).length) setErrors(r.failed);
+      setDone(`${r.updated} SKU tersimpan di Shopee${Object.keys(r.failed).length ? `, ${Object.keys(r.failed).length} gagal (lihat merah)` : ""}.`);
+      if (!Object.keys(r.failed).length) onSaved(`${r.updated} SKU tersimpan di Shopee.`);
+    } catch (e) { fail(e, "Gagal menyimpan SKU"); } finally { setBusy(false); }
+  };
+
+  return (
+    <Modal open onClose={onClose} title={scope === "selected" ? "Ubah SKU Produk Terpilih" : "Buat SKU Otomatis"} wide>
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-end gap-2 rounded-xl bg-slate-50 p-3 text-xs">
+          <label><span className="mb-1 block font-medium text-slate-600">Format SKU</span>
+            <select className="input h-9 w-64" value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
+              <option value="abbr">Singkatan nama + variasi (CTKA-HIT-OLD)</option>
+              <option value="number">Awalan + nomor urut (PSN-0001)</option>
+            </select></label>
+          <label><span className="mb-1 block font-medium text-slate-600">Awalan {mode === "abbr" ? "(opsional)" : ""}</span>
+            <input className="input h-9 w-36 uppercase" maxLength={12} placeholder={mode === "abbr" ? "mis. MST" : "SKU"} value={prefix} onChange={(e) => setPrefix(e.target.value.replace(/[^A-Za-z0-9-]/g, ""))} /></label>
+          <p className="ml-auto max-w-xs text-[11px] text-slate-500">{scope === "selected" ? `${keys?.length} produk terpilih.` : "Semua variasi yang SKU-nya masih kosong (maks. 500)."} Produk & variasi yang sama di beberapa toko mendapat SKU yang sama.</p>
+        </div>
+        {done && <p className={`rounded-lg p-2.5 text-sm ${Object.keys(errors).length ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-700"}`}>{done}</p>}
+        <div className="max-h-[50vh] overflow-auto rounded-xl border border-slate-200">
+          {rows === null ? <p className="flex items-center gap-2 p-4 text-sm text-slate-400"><Loader2 size={14} className="animate-spin" />Menyusun usulan SKU…</p>
+            : !rows.length ? <p className="p-6 text-center text-sm text-slate-500">{scope === "empty" ? "Semua produk sudah punya SKU." : "Tidak ada produk."}</p> : (
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-slate-50 text-left text-xs text-slate-500"><tr><th className="px-3 py-2">Produk / Variasi</th><th className="px-3 py-2">Toko</th><th className="px-3 py-2">SKU sekarang</th><th className="px-3 py-2">SKU baru</th></tr></thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={r.id} className="border-t border-slate-100">
+                      <td className="max-w-[300px] px-3 py-2"><span className="block truncate text-slate-800" title={r.name}>{r.name}</span>{r.model_name && <span className="block truncate text-xs text-slate-500">{r.model_name}</span>}
+                        {errors[r.id] && <span className="block text-xs text-rose-600">{errors[r.id]}</span>}</td>
+                      <td className="px-3 py-2 text-xs text-slate-500">{r.shop_name}</td>
+                      <td className="px-3 py-2 font-mono text-xs text-slate-400">{r.current || "-"}</td>
+                      <td className="px-3 py-2"><input className={`input h-8 w-48 font-mono text-xs ${dupes.has(r.sku) ? "border-rose-400 text-rose-600" : r.sku !== (r.current ?? "") ? "border-[#ee4d2d]" : ""}`} value={r.sku} maxLength={100} onChange={(e) => set(r.id, e.target.value)} />
+                        {dupes.has(r.sku) && <span className="block text-[11px] text-rose-600">dipakai produk lain</span>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-slate-500">{changed.length} SKU akan disimpan ke Shopee (SKU induk & kode variasi). SKU tidak terlihat pembeli.</p>
+          <button onClick={save} disabled={busy || !changed.length || dupes.size > 0} className="flex h-10 items-center gap-2 rounded-lg bg-[#ee4d2d] px-5 text-sm font-semibold text-white disabled:opacity-50">{busy && <Loader2 size={15} className="animate-spin" />}Simpan ke Shopee</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}

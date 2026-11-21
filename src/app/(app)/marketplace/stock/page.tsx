@@ -105,7 +105,8 @@ export default function StockMasterPage() {
       )}
       {s && s.without_sku > 0 && (
         <p className="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
-          <AlertTriangle size={16} className="mt-0.5 shrink-0" /><span>{s.without_sku.toLocaleString("id-ID")} listing belum punya SKU, jadi tidak bisa disatukan otomatis. Isi SKU yang sama untuk produk yang sama di Seller Centre, sinkronkan produk, lalu klik &quot;Buat dari SKU yang sama&quot;. Atau hubungkan manual lewat ikon <b>Hubungkan</b> di baris stok master.</span>
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" /><span>{s.without_sku.toLocaleString("id-ID")} listing belum punya SKU, jadi tidak bisa disatukan otomatis. Isi SKU yang sama untuk produk yang sama di Seller Centre, sinkronkan produk, lalu klik &quot;Buat dari SKU yang sama&quot;. Atau hubungkan manual lewat ikon <b>Hubungkan</b> di baris stok master.{" "}
+            <a href="/marketplace/products?buat_sku=1" className="font-semibold underline">Buat SKU otomatis sekarang</a></span>
         </p>
       )}
 
