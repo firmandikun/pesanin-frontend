@@ -149,7 +149,7 @@ function tspl(bits: Uint8Array, wDots: number, hDots: number, [wmm, hmm]: [numbe
   const wb = Math.ceil(wDots / 8);
   const black = (x: number, y: number) => !(bits[y * wb + (x >> 3)] & (0x80 >> (x & 7)));
   const parts: Uint8Array[] = [ascii(
-    `SIZE ${wmm} mm,${hmm} mm\r\nGAP ${prefs.gap} mm,0 mm\r\nDENSITY ${prefs.density}\r\nSPEED 4\r\nDIRECTION 1,0\r\nREFERENCE 0,0\r\nCLS\r\n`,
+    `SIZE ${wmm} mm,${hmm} mm\r\nGAP ${prefs.gap} mm,0 mm\r\nOFFSET 0 mm\r\nDENSITY ${prefs.density}\r\nSPEED 4\r\nDIRECTION 1,0\r\nREFERENCE 0,0\r\nCLS\r\n`,
   )];
   const STRIP = 16;
   for (let y0 = 0; y0 < hDots; y0 += STRIP) {
@@ -351,4 +351,13 @@ export async function printTest(paper: PaperSize): Promise<void> {
   ctx.fillText("Kalau tercetak terbalik hitam-putih,", 40, 230); ctx.fillText("aktifkan \"Balik warna\".", 40, 270);
   for (let i = 0; i < 40; i++) ctx.fillRect(40 + i * 18, 320, i % 3 ? 6 : 10, 160);
   await send(port, [tspl(bitmap(ctx, w, h, prefs.invert), w, h, mm, prefs)], undefined, false);
+}
+
+/** Auto-calibrate label gap sensor on TSPL printers (feeds 2-3 labels to learn paper length & gap). */
+export async function calibratePaper(paper: PaperSize): Promise<void> {
+  const mm = LABEL_MM[paper] ?? [100, 150];
+  const port = await savedPrinter();
+  if (!port) throw new Error("Printer belum dihubungkan.");
+  const prefs = getDirectPrefs();
+  await send(port, [ascii(`SIZE ${mm[0]} mm,${mm[1]} mm\r\nGAP ${prefs.gap} mm,0 mm\r\nGAPDETECT\r\n`)], undefined, false);
 }

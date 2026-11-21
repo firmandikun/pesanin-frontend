@@ -3,7 +3,7 @@ import { AlertTriangle, Bluetooth, CheckCircle2, Loader2, Printer } from "lucide
 import { useEffect, useState } from "react";
 import { Panel, Toggle } from "@/components/kit";
 import { getCachedPrintSettings } from "@/lib/printSettings";
-import { directSupported, forgetAllPrinters, getDirectPrefs, grantedPorts, LABEL_MM, pickPrinter, printerName, printTest, setDirectPrefs, type DirectPrintPrefs } from "@/lib/thermal";
+import { calibratePaper, directSupported, forgetAllPrinters, getDirectPrefs, grantedPorts, LABEL_MM, pickPrinter, printerName, printTest, setDirectPrefs, type DirectPrintPrefs } from "@/lib/thermal";
 
 /**
  * Printer Bluetooth (cetak langsung): pick the paired label printer once, then "Cetak Label" sends the resi straight to it
@@ -15,10 +15,20 @@ export function DirectPrinterCard() {
   const [prefs, setPrefs] = useState<DirectPrintPrefs>(getDirectPrefs());
   const [busy, setBusy] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const paper = getCachedPrintSettings().paper_size;
+  const [paper, setPaper] = useState(() => getCachedPrintSettings().paper_size);
 
   const refresh = () => grantedPorts().then((ps) => setPorts(ps.map(printerName))).catch(() => setPorts([]));
-  useEffect(() => { setSupported(directSupported()); refresh(); }, []);
+  useEffect(() => {
+    setSupported(directSupported());
+    refresh();
+    const syncPaper = () => setPaper(getCachedPrintSettings().paper_size);
+    window.addEventListener("pesanin:print-settings", syncPaper);
+    window.addEventListener("storage", syncPaper);
+    return () => {
+      window.removeEventListener("pesanin:print-settings", syncPaper);
+      window.removeEventListener("storage", syncPaper);
+    };
+  }, []);
   const current = ports.length ? Math.min(prefs.port >= 0 ? prefs.port : ports.length - 1, ports.length - 1) : -1;
   const name = current >= 0 ? ports[current] : null;
   const update = (p: Partial<DirectPrintPrefs>) => { setDirectPrefs(p); setPrefs(getDirectPrefs()); };
@@ -65,8 +75,10 @@ export function DirectPrinterCard() {
               return `Printer dipilih: ${printerName(p)}. Coba Cetak tes.`;
             })} disabled={!!busy}
               className="flex h-9 items-center gap-1.5 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white disabled:opacity-50">{busy === "pick" && <Loader2 size={14} className="animate-spin" />}{name ? "Ganti printer" : "Hubungkan printer"}</button>
-            <button onClick={() => run("test", async () => { await printTest(paper); return "Label tes dikirim ke printer."; })} disabled={!!busy || !name}
+            <button onClick={() => run("test", async () => { await printTest(getCachedPrintSettings().paper_size); return "Label tes dikirim ke printer."; })} disabled={!!busy || !name}
               className="flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-700 disabled:opacity-50">{busy === "test" && <Loader2 size={14} className="animate-spin" />}Cetak tes</button>
+            <button onClick={() => run("cal", async () => { await calibratePaper(getCachedPrintSettings().paper_size); return "Perintah kalibrasi gap dikirim ke printer."; })} disabled={!!busy || !name}
+              className="flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-700 disabled:opacity-50">{busy === "cal" && <Loader2 size={14} className="animate-spin" />}Kalibrasi kertas</button>
             {ports.length > 0 && (
               <button onClick={() => run("reset", async () => { await forgetAllPrinters(); await refresh(); setPrefs(getDirectPrefs()); return "Daftar port dibersihkan. Silakan hubungkan ulang ke cu.XP-420B."; })} disabled={!!busy}
                 className="flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-xs font-medium text-slate-500 hover:text-rose-600 disabled:opacity-50">Reset port</button>

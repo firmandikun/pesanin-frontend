@@ -40,5 +40,6 @@ export function setCachedPrintSettings(settings: Partial<PrintSettings>) {
     const current = getCachedPrintSettings();
     const updated = { ...current, ...settings };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new Event("pesanin:print-settings"));
   } catch {}
 }
