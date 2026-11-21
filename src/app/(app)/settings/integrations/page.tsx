@@ -4,12 +4,19 @@ import { useEffect, useState } from "react";
 import { PageHead, Panel } from "@/components/kit";
 import { api, ApiError } from "@/lib/api";
 import { askConfirm } from "@/components/Dialogs";
+import { useAuth } from "@/lib/auth";
+import Link from "next/link";
+import { ShopeeMark } from "@/components/ChannelBadge";
 
 type State = { connected: boolean; is_production?: boolean; verified_at?: string; last_error?: string | null; settings?: { cod_type?: string; delivery?: { enabled?: boolean; sandbox?: boolean; vehicle?: string } } | null; keys?: Record<string, string | null>; webhook_url?: string | null; verify_token?: string | null; details?: { display_phone?: string; verified_name?: string; quality?: string } | null; from_env?: boolean };
 type All = { rajaongkir: State; midtrans: State; shopee_affiliate: State; serpapi: State; whatsapp_cloud: State };
 
 /** Pengaturan → Integrasi: the seller connects their own RajaOngkir (ongkir, regions, tracking) and Midtrans (online payment) accounts. */
 export default function Integrations() {
+  // Only the integrations of the store's track (both with the add-on).
+  const { user } = useAuth();
+  const showMp = !!user?.plan_addon || user?.plan_track !== "social";
+  const showSocial = !!user?.plan_addon || user?.plan_track !== "marketplace";
   const [data, setData] = useState<All | null>(null);
   const load = () => api<All>("/integrations").then(setData);
   useEffect(() => { load(); }, []);
@@ -19,9 +26,20 @@ export default function Integrations() {
   return (
     <div className="max-w-4xl space-y-5">
       <PageHead title="Integrasi" tutorial={false} crumbs={[["Settings"], ["Integrasi"]]} />
-      <p className="-mt-2 text-sm text-slate-500">Hubungkan WhatsApp Business dan akun riset milikmu. Ongkir, pesan kurir, dan pembayaran online sudah disediakan Pesanin, tidak perlu diatur.</p>
+      <p className="-mt-2 text-sm text-slate-500">{showSocial ? "Hubungkan WhatsApp Business milikmu. Ongkir, pesan kurir, dan pembayaran online sudah disediakan Pesanin, tidak perlu diatur." : "Toko Shopee terhubung lewat login resmi Shopee. Hubungkan akun riset milikmu kalau ingin riset tanpa batas."}</p>
       {!data ? <p className="flex items-center gap-2 text-sm text-slate-500"><Loader2 size={16} className="animate-spin" />Memuat…</p> : (
         <>
+          {showMp && (
+            <>
+              <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">Marketplace</h2>
+              <Panel className="flex flex-wrap items-center gap-3 p-5 text-sm">
+                <ShopeeMark size={22} />
+                <div className="flex-1"><b className="text-slate-800">Toko Shopee (Shopee Open Platform)</b><p className="text-slate-500">Pesanan, produk, stok, chat, iklan & saldo tersinkron otomatis tiap 30 detik.</p></div>
+                <Link href="/marketplace/shops" className="h-9 rounded-lg bg-brand-600 px-4 py-2 text-xs font-semibold text-white">Kelola toko</Link>
+              </Panel>
+            </>
+          )}
+          {showSocial && <>
           <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">Pengiriman & pembayaran</h2>
           <Panel className="space-y-2 p-5 text-sm">
             <p className="flex items-center gap-2"><MapPinned size={16} className="text-slate-500" /><b className="text-slate-800">Ongkir &amp; kurir (RajaOngkir / Komerce)</b>
@@ -31,6 +49,8 @@ export default function Integrations() {
               <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${data.midtrans.connected ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{data.midtrans.connected ? "Aktif" : "Belum aktif"}</span></p>
             <p className="text-slate-500">QRIS, Virtual Account, dan e-wallet lewat akun Midtrans Pesanin. Dana pembeli tercatat di <a href="/settings/balance" className="font-semibold text-brand-700">Saldo</a>.</p>
           </Panel>
+          </>}
+          {showMp && <>
           <div className="pt-3"><h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">Riset Pasar (opsional)</h2><p className="text-xs text-slate-500">Riset Pasar sudah bisa dipakai tanpa daftar apa pun (kuota harian sesuai paket). Hubungkan akun sendiri kalau ingin tanpa batas.</p></div>
           <KeyCard provider="shopee_affiliate" icon={ShoppingBag} title="Shopee Affiliate" state={data.shopee_affiliate} onChange={load} link="https://affiliate.shopee.co.id"
             desc="Data produk Shopee untuk Riset Pasar: produk terlaris per kata kunci, harga, terjual, rating, toko."
@@ -40,8 +60,11 @@ export default function Integrations() {
             desc="Minat pencarian Google per kata kunci, kata kunci yang sedang naik, dan minat per provinsi."
             help="serpapi.com → Dashboard → API Key. Paket gratis punya kuota pencarian per bulan; hasil disimpan 12 jam agar hemat."
             fields={[["api_key", "API key"]]} />
+          </>}
+          {showSocial && <>
           <div className="pt-3"><h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">Chat</h2><p className="text-xs text-slate-500">Pesan pelanggan masuk ke menu Chat. Facebook & Instagram dihubungkan langsung dari menu Chat.</p></div>
           <WhatsAppCard state={data.whatsapp_cloud} onChange={load} />
+          </>}
         </>
       )}
     </div>

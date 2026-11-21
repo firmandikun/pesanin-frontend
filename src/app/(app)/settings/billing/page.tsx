@@ -1,9 +1,10 @@
 "use client";
-import { AlertTriangle, ArrowUpRight, Check, Clock, Crown, Eye, Minus, Receipt, Star } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, Building2, Check, Clock, Crown, Eye, Megaphone, Minus, Receipt, Star, Store } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckoutDialog, InvoiceDialog, PayDialog } from "@/components/billing/Dialogs";
-import { Billing, FEATURE_LABEL, fmtDay, Invoice, INVOICE_STATUS, LIMIT_LABEL, METHOD, PlanInfo } from "@/components/billing/types";
+import { Billing, FEATURE_LABEL, fmtDay, Invoice, INVOICE_STATUS, LIMIT_LABEL, METHOD, otherTrack, PlanInfo, Track, TRACK_SHORT, yearlyOf } from "@/components/billing/types";
+import { WaLink } from "@/components/marketing/Contact";
 import { EmptyState, PageHead, Panel, Toggle } from "@/components/kit";
 import { api, rupiah } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -30,6 +31,8 @@ export default function BillingPage() {
   const [d, setD] = useState<Billing | null>(null);
   const [period, setPeriod] = useState<"monthly" | "yearly">("monthly");
   const [buy, setBuy] = useState<PlanInfo | null>(null);
+  const [viewTrack, setViewTrack] = useState<Track | null>(null);
+  const [addon, setAddon] = useState(false);
   const [pay, setPay] = useState<Invoice | null>(null);
   const [view, setView] = useState<Invoice | null>(null);
   const { user, setUser } = useAuth();
@@ -38,6 +41,8 @@ export default function BillingPage() {
   const load = useCallback(() => api<Billing>("/billing").then((b) => {
     setD(b);
     if (b.billing === "monthly" || b.billing === "yearly") setPeriod(b.billing);
+    setViewTrack((v) => v ?? b.track);
+    setAddon((a) => a || b.addon);
     // Keep the header plan badge and the trial/lock state in sync after a payment.
     if (user && (user.active_plan !== b.plan || user.subscription?.status !== b.subscription.status)) setUser({ ...user, active_plan: b.plan as NonNullable<typeof user.active_plan>, subscription: b.subscription });
   }), [user, setUser]);
@@ -53,11 +58,23 @@ export default function BillingPage() {
   if (!d) return <div className="py-24 text-center text-sm text-slate-400">Memuat paket…</div>;
 
   const current = d.plans.find((p) => p.id === d.plan)!;
+  const vt: Track = viewTrack ?? d.track;
+  const limits = d.effective.limits;
+  const priceOf = (p: PlanInfo) => p.monthly + (addon ? p.addon_monthly ?? 0 : 0);
+  // With the add-on a plan gets the higher quota of both tracks and the features of both.
+  const withAddon = (p: PlanInfo): PlanInfo => {
+    const o = addon && p.monthly ? d.catalog[otherTrack(vt)].find((x) => x.id === p.id) : undefined;
+    if (!o) return p;
+    const limits = Object.fromEntries(Object.entries(p.limits).map(([k, v]) => { const w = (o.limits as Record<string, number | null | undefined>)[k]; return [k, v === null || w === null ? null : Math.max(v ?? 0, w ?? 0)]; })) as PlanInfo["limits"];
+    return { ...p, limits, features: [...new Set([...p.features, ...o.features])] };
+  };
+  const paidMonthly = d.effective.monthly + (d.addon && d.plan !== "enterprise" ? current.addon_monthly ?? 0 : 0);
+  const switchFree = async (t: Track) => { await api("/billing/track", { method: "PUT", json: { track: t } }); load(); };
   const unpaid = d.invoices.find((i) => i.status === "unpaid");
   const daysLeft = d.expires_at ? Math.max(0, Math.ceil((new Date(d.expires_at).getTime() - Date.now()) / 864e5)) : null;
   const total = d.billing === "yearly" ? 365 : d.billing === "trial" ? d.trial_days : 30;
   const toggleRenew = async (v: boolean) => { setD({ ...d, auto_renew: v }); await api("/billing/auto-renew", { method: "PUT", json: { auto_renew: v } }); };
-  const near = LIMIT_LABEL.filter(([k]) => { const l = current.limits[k]; return l !== null && l > 0 && d.usage[k] / l >= 0.8; });
+  const near = LIMIT_LABEL.filter(([k]) => { const l = limits[k]; return l != null && l > 0 && (d.usage[k] ?? 0) / l >= 0.8; });
 
   return (
     <div className="space-y-5">
@@ -85,8 +102,9 @@ export default function BillingPage() {
               <span className="flex items-center gap-2 text-sm text-navy-200"><Crown size={16} className="text-brand-400" />Paket aktif</span>
               {d.billing && <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold">{d.billing === "trial" ? `Trial ${d.trial_days} hari` : d.billing === "yearly" ? "Tahunan" : "Bulanan"}</span>}
             </div>
-            <h2 className="mt-2 text-[34px] font-extrabold tracking-tight">{current.name}</h2>
-            <p className="text-navy-200">{d.billing === "trial" ? "Gratis selama masa trial, semua fitur Bisnis terbuka" : current.monthly ? `${rupiah(d.billing === "yearly" ? current.yearly : current.monthly)} / ${d.billing === "yearly" ? "tahun" : "bulan"}` : "Gratis selamanya"}</p>
+            <h2 className="mt-2 text-[34px] font-extrabold tracking-tight">{d.effective.name}</h2>
+            <p className="text-sm font-semibold text-brand-300">{d.tracks[d.track]}</p>
+            <p className="text-navy-200">{d.billing === "trial" ? "Gratis selama masa trial, semua fitur Bisnis terbuka" : paidMonthly ? `${rupiah(d.billing === "yearly" ? yearlyOf(paidMonthly, d.yearly_discount) : paidMonthly)} / ${d.billing === "yearly" ? "tahun" : "bulan"}` : "Gratis selamanya"}</p>
 
             {d.expires_at && daysLeft !== null ? (
               <div className="mt-6">
@@ -101,7 +119,7 @@ export default function BillingPage() {
               <p className="mt-6 rounded-xl bg-white/[.06] p-4 text-sm text-navy-100">Upgrade untuk custom domain, follow up otomatis, tanpa watermark, dan kuota pesanan lebih besar.</p>
             )}
             <div className="mt-6 flex flex-wrap gap-2">
-              {current.monthly > 0 && <button onClick={() => setBuy(current)} className="h-10 rounded-lg bg-white px-5 text-sm font-bold text-navy hover:bg-navy-50">{d.billing === "trial" ? `Langganan ${current.name}` : "Perpanjang"}</button>}
+              {current.monthly > 0 && current.self_serve && <button onClick={() => { setViewTrack(d.track); setAddon(d.addon); setBuy(current); }} className="h-10 rounded-lg bg-white px-5 text-sm font-bold text-navy hover:bg-navy-50">{d.billing === "trial" ? `Langganan ${current.name}` : "Perpanjang"}</button>}
               <a href="#paket" className="flex h-10 items-center gap-1.5 rounded-lg bg-brand-500 px-5 text-sm font-bold text-white hover:bg-brand-400">{current.rank < 3 ? "Upgrade paket" : "Lihat paket"}<ArrowUpRight size={16} /></a>
             </div>
           </div>
@@ -113,7 +131,7 @@ export default function BillingPage() {
             <span className="text-xs text-slate-500">Reset tiap tanggal 1</span>
           </div>
           <div className="mt-5 space-y-4">
-            {LIMIT_LABEL.map(([k, l]) => <Meter key={k} label={l} used={d.usage[k]} limit={current.limits[k]} />)}
+            {LIMIT_LABEL.filter(([k]) => limits[k] !== 0 || (d.usage[k] ?? 0) > 0).map(([k, l]) => <Meter key={k} label={l} used={d.usage[k] ?? 0} limit={limits[k] ?? null} />)}
           </div>
           {near.length > 0 && (
             <p className="mt-5 flex gap-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-700"><AlertTriangle size={15} className="shrink-0" />{near.map(([, l]) => l).join(", ")} hampir mencapai batas paket. Pesanan pembeli tetap diterima walau kuota habis.</p>
@@ -125,18 +143,34 @@ export default function BillingPage() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-xl font-bold text-navy">Pilih paket</h2>
           <div className="flex items-center gap-1 rounded-full bg-white p-1">
+            {(["marketplace", "social"] as const).map((t) => {
+              const Icon = t === "marketplace" ? Store : Megaphone;
+              return <button key={t} onClick={() => setViewTrack(t)} className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold transition ${vt === t ? "bg-brand-500 text-white" : "text-slate-600 hover:text-navy"}`}><Icon size={14} />{TRACK_SHORT[t]}{d.track === t && <span className="text-[10px] opacity-80">(jalurmu)</span>}</button>;
+            })}
+          </div>
+          <div className="flex items-center gap-1 rounded-full bg-white p-1">
             {(["monthly", "yearly"] as const).map((p) => (
               <button key={p} onClick={() => setPeriod(p)} className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${period === p ? "bg-navy text-white" : "text-slate-600 hover:text-navy"}`}>
-                {p === "yearly" ? "Tahunan · hemat 2 bulan" : "Bulanan"}
+                {p === "yearly" ? `Tahunan · hemat ${d.yearly_discount}%` : "Bulanan"}
               </button>
             ))}
           </div>
         </div>
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl bg-white p-3 text-sm">
+          <label className="flex flex-1 items-start gap-2">
+            <input type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-500" checked={addon} onChange={(e) => setAddon(e.target.checked)} />
+            <span><b className="text-navy">Tambah jalur {TRACK_SHORT[otherTrack(vt)]} (add-on, hemat {d.addon_discount}%)</b>
+              <span className="block text-xs text-slate-500">Jualan di Shopee sekaligus Meta Ads / WhatsApp? Buka modul & kuota kedua jalur dalam satu paket.</span></span>
+          </label>
+          {vt !== d.track && ["free", "trial"].includes(d.subscription.status) && (
+            <button onClick={() => switchFree(vt)} className="h-9 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-navy hover:border-brand-500">Pakai jalur {TRACK_SHORT[vt]} sekarang</button>
+          )}
+        </div>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {d.plans.map((p) => {
-            const isCurrent = p.id === d.plan;
-            const price = period === "yearly" ? p.yearly / 12 : p.monthly;
-            const lines = [limitText(p.limits.orders, "pesanan/bln"), limitText(p.limits.products, "produk"), limitText(p.limits.landing_pages, "landing page"), limitText(p.limits.domains, "custom domain"), limitText(p.limits.team, "anggota tim"), limitText(p.limits.research, "riset pasar/hari")].filter(Boolean) as string[];
+          {d.catalog[vt].filter((x) => x.id !== "enterprise").map(withAddon).map((p) => {
+            const isCurrent = p.id === d.plan && vt === d.track && (d.addon === addon || !p.monthly);
+            const price = period === "yearly" ? yearlyOf(priceOf(p), d.yearly_discount) / 12 : priceOf(p);
+            const lines = [limitText(p.limits.orders, "pesanan/bln"), limitText(p.limits.shops ?? 0, "toko marketplace"), limitText(p.limits.products, "produk"), limitText(p.limits.landing_pages, "landing page"), limitText(p.limits.domains, "custom domain"), limitText(p.limits.team, "anggota tim"), limitText(p.limits.research, "riset pasar/hari")].filter(Boolean) as string[];
             const cta = isCurrent ? (p.monthly ? "Perpanjang" : "Paket saat ini") : p.rank > current.rank ? `Upgrade ke ${p.name}` : p.monthly ? `Pindah ke ${p.name}` : "Paket dasar";
             return (
               <div key={p.id} className={`surface surface-hover relative flex flex-col p-5 ${isCurrent ? "ring-2 ring-brand-500" : ""}`}>
@@ -144,7 +178,7 @@ export default function BillingPage() {
                 {p.id === "bisnis" && !isCurrent && <span className="absolute -top-2.5 left-5 flex items-center gap-1 rounded-full bg-navy px-2.5 py-0.5 text-[11px] font-bold text-white"><Star size={11} />Populer</span>}
                 <h3 className="font-bold text-navy">{p.name}</h3>
                 <p className="mt-2"><span className="text-2xl font-extrabold text-navy">{rupiah(Math.round(price))}</span><span className="text-sm text-slate-500">/bln</span></p>
-                <p className="h-4 text-xs text-slate-500">{p.monthly && period === "yearly" ? `${rupiah(p.yearly)} per tahun` : ""}</p>
+                <p className="h-4 text-xs text-slate-500">{p.monthly && period === "yearly" ? `${rupiah(yearlyOf(priceOf(p), d.yearly_discount))} per tahun` : addon && p.monthly ? `termasuk add-on ${rupiah(p.addon_monthly ?? 0)}` : ""}</p>
                 <ul className="mt-4 flex-1 space-y-2 text-sm">
                   {lines.map((l) => <li key={l} className="flex gap-2 text-slate-600"><Check size={16} className="mt-0.5 shrink-0 text-emerald-500" />{l}</li>)}
                   {Object.entries(FEATURE_LABEL).map(([k, l]) => (
@@ -161,7 +195,15 @@ export default function BillingPage() {
             );
           })}
         </div>
-        <p className="mt-3 text-xs text-slate-500">Harga belum termasuk PPN {d.tax_percent}%.</p>
+        <div className="mt-4 flex flex-wrap items-center gap-4 rounded-2xl bg-navy p-5 text-white">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10"><Building2 size={22} /></span>
+          <div className="flex-1">
+            <b className="text-lg">Enterprise {d.plan === "enterprise" && <span className="ml-2 rounded-full bg-brand-500 px-2 py-0.5 text-[11px]">Paket kamu</span>}</b>
+            <p className="text-sm text-white/75">50.000 – 100.000+ pesanan/bln · toko, tim & domain tanpa batas · kedua jalur · Agentic penuh · SLA & grup support VIP. Mulai Rp1,5 jt – Rp3,5 jt+/bulan, kontrak tahunan.</p>
+          </div>
+          <WaLink text="Halo tim Pesanin, saya mau jadwalkan demo & audit sistem untuk paket Enterprise" target="_blank" rel="noopener noreferrer" className="flex h-10 items-center rounded-lg bg-white px-5 text-sm font-bold text-navy hover:bg-white/90">Jadwalkan Demo</WaLink>
+        </div>
+        <p className="mt-3 text-xs text-slate-500">Harga belum termasuk PPN {d.tax_percent}%. Pelanggan lama tetap membayar harga lama sampai masa aktifnya habis; harga baru berlaku di tagihan berikutnya.</p>
       </section>
 
       <Panel>
@@ -180,7 +222,7 @@ export default function BillingPage() {
                     <tr key={inv.id} className="border-t border-slate-100 transition hover:bg-slate-50/60">
                       <td className="px-5 py-3 font-mono text-xs text-navy">{inv.number}</td>
                       <td className="px-5 py-3 text-slate-600">{new Date(inv.created_at).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}</td>
-                      <td className="px-5 py-3 font-medium text-navy">{d.plans.find((p) => p.id === inv.plan)?.name} <span className="text-xs font-normal text-slate-500">{inv.billing === "yearly" ? "Tahunan" : "Bulanan"}</span></td>
+                      <td className="px-5 py-3 font-medium text-navy">{d.plans.find((p) => p.id === inv.plan)?.name}{inv.track && <span className="text-xs font-normal text-slate-500"> · {TRACK_SHORT[inv.track]}{inv.addon ? " + add-on" : ""}</span>} <span className="text-xs font-normal text-slate-500">{inv.billing === "yearly" ? "Tahunan" : "Bulanan"}</span></td>
                       <td className="px-5 py-3 text-slate-600">{new Date(inv.period_start).toLocaleDateString("id-ID", { day: "numeric", month: "short" })} – {new Date(inv.period_end).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "2-digit" })}</td>
                       <td className="px-5 py-3 text-slate-600">{METHOD[inv.method]?.label ?? inv.method}</td>
                       <td className="px-5 py-3 font-semibold text-navy">{rupiah(inv.total)}</td>
@@ -199,7 +241,7 @@ export default function BillingPage() {
         )}
       </Panel>
 
-      {buy && <CheckoutDialog plan={buy} billing={period} data={d} onClose={() => setBuy(null)} onCreated={(inv) => { setBuy(null); setPay(inv); load(); }} />}
+      {buy && <CheckoutDialog plan={buy} billing={period} data={d} track={vt} addon={addon} onClose={() => setBuy(null)} onCreated={(inv) => { setBuy(null); setPay(inv); load(); }} />}
       {pay && <PayDialog invoice={pay} canSimulate={d.can_simulate} onClose={() => setPay(null)} onChanged={load} />}
       {view && <InvoiceDialog invoice={view} plans={d.plans} onClose={() => setView(null)} />}
     </div>

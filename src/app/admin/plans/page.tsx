@@ -8,19 +8,23 @@ import { api, ApiError, rupiah } from "@/lib/api";
 
 type Limits = Record<string, number | null>;
 type Plan = { id: string; name: string; monthly: number; limits: Limits; default: { name: string; monthly: number; limits: Limits } };
-type Platform = { plans: Plan[]; limit_labels: Record<string, string>; features: { key: string; label: string; plan: string; default: string }[] };
+type Track = "marketplace" | "social";
+type Platform = { plans: Plan[]; tracks: Record<Track, string>; catalog: Record<Track, Plan[]>; limit_labels: Record<string, string>; features: { key: string; label: string; plan: string; default: string }[] };
 
-const TONE: Record<string, string> = { gratis: "border-slate-300", starter: "border-sky-400", bisnis: "border-indigo-500", pro: "border-violet-500" };
+const TONE: Record<string, string> = { gratis: "border-slate-300", starter: "border-sky-400", bisnis: "border-indigo-500", pro: "border-violet-500", enterprise: "border-slate-800" };
 
 /** Console → Paket & Fitur: prices, quotas and which plan unlocks each feature. Applies to billing, quota checks and the pricing table. */
 export default function PlansAdmin() {
   const [data, setData] = useState<Platform | null>(null);
-  const [plans, setPlans] = useState<Plan[]>([]);
+  const [catalog, setCatalog] = useState<Record<Track, Plan[]>>({ marketplace: [], social: [] });
+  const [track, setTrack] = useState<Track>("marketplace");
+  const plans = catalog[track];
+  const setPlans = (f: (ps: Plan[]) => Plan[]) => setCatalog((c) => ({ ...c, [track]: f(c[track]) }));
   const [features, setFeatures] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const fill = (d: Platform) => { setData(d); setPlans(d.plans); setFeatures(Object.fromEntries(d.features.map((f) => [f.key, f.plan]))); };
+  const fill = (d: Platform) => { setData(d); setCatalog(d.catalog); setFeatures(Object.fromEntries(d.features.map((f) => [f.key, f.plan]))); };
   useEffect(() => { api<Platform>("/admin/platform").then(fill); }, []);
 
   const setPlan = (id: string, patch: Partial<Plan>) => setPlans((ps) => ps.map((p) => (p.id === id ? { ...p, ...patch } : p)));
@@ -29,7 +33,7 @@ export default function PlansAdmin() {
   const save = async () => {
     setSaving(true); setMsg(null);
     try {
-      const body = { plans: Object.fromEntries(plans.map((p) => [p.id, { name: p.name, monthly: p.monthly, limits: p.limits }])), features };
+      const body = { catalog: Object.fromEntries((Object.keys(catalog) as Track[]).map((t) => [t, Object.fromEntries(catalog[t].map((p) => [p.id, { name: p.name, monthly: p.monthly, limits: p.limits }]))])), features };
       fill(await api<Platform>("/admin/platform", { method: "PUT", json: body }));
       setMsg({ ok: true, text: "Tersimpan. Harga, kuota, dan akses fitur baru langsung berlaku untuk semua seller." });
     } catch (e) { setMsg({ ok: false, text: e instanceof ApiError ? e.message : "Gagal menyimpan" }); }
@@ -37,7 +41,7 @@ export default function PlansAdmin() {
   };
 
   if (!data) return <p className="py-24 text-center text-slate-400">Memuat paket…</p>;
-  const order = data.plans.map((p) => p.id);
+  const order = data.plans.map((p) => p.id).filter((id) => id !== "enterprise");
 
   return (
     <div className="space-y-6">
@@ -47,7 +51,14 @@ export default function PlansAdmin() {
       </div>
       {msg && <p className={`rounded-lg p-3 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>{msg.text}</p>}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="flex flex-wrap items-center gap-2">
+        {(Object.keys(data.tracks) as Track[]).map((t) => (
+          <button key={t} onClick={() => setTrack(t)} className={`h-10 rounded-lg px-4 text-sm font-semibold ${track === t ? "bg-slate-900 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}>{data.tracks[t]}</button>
+        ))}
+        <span className="text-xs text-slate-500">Tiap jalur punya harga & kuota sendiri. Add-on jalur kedua = harga jalur itu dipotong 30%. Enterprise: harga di sini hanya &quot;mulai dari&quot;, harga kontrak diatur per seller di Pengguna.</span>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {plans.map((p) => (
           <Panel key={p.id} className={`border-t-4 p-5 ${TONE[p.id]}`}>
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{p.id}</p>
@@ -56,7 +67,7 @@ export default function PlansAdmin() {
               <div className="relative mt-1"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">Rp</span>
                 <input type="number" min={0} disabled={p.id === "gratis"} className="input h-10 pl-10 disabled:bg-slate-50" value={p.monthly} onChange={(e) => setPlan(p.id, { monthly: Number(e.target.value) })} /></div>
             </label>
-            <p className="mt-2 text-xs text-slate-500">Tahunan {rupiah(p.monthly * 10)} (bayar 10 bulan)</p>
+            <p className="mt-2 text-xs text-slate-500">{p.id === "enterprise" ? "Kontrak per seller" : `Tahunan ${rupiah(Math.floor((p.monthly * 0.8) / 1000) * 1000 * 12)} (hemat 20%)`}</p>
             {(p.monthly !== p.default.monthly || p.name !== p.default.name) && <button onClick={() => setPlan(p.id, { name: p.default.name, monthly: p.default.monthly })} className="mt-2 flex items-center gap-1 text-xs font-semibold text-brand-600"><RotateCcw size={12} />Kembalikan default ({rupiah(p.default.monthly)})</button>}
           </Panel>
         ))}

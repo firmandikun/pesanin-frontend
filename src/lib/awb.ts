@@ -3,6 +3,7 @@ import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { redrawItemTable, type SkuRow, type TextItem } from "@/lib/awbTable";
 import { getCachedPrintSettings, type PrintSettings } from "@/lib/printSettings";
 import { API_URL, getToken } from "@/lib/api";
+import { getDirectPrefs, LABEL_MM, printPdfDirect } from "@/lib/thermal";
 
 type AwbItem = { item_sku?: string | null; model_sku?: string | null; sku?: string | null; qty?: number; name?: string | null; variant?: string | null };
 type AwbOrder = {
@@ -27,7 +28,7 @@ async function fetchAwb(ids: number[], kind: "order" | "booking" = "order"): Pro
 }
 
 /** What a print left out: parcels already shipped (skipped) and groups that failed (errors). */
-export type AwbResult = { skipped: string[]; errors: string[] };
+export type AwbResult = { skipped: string[]; errors: string[]; printed?: number };
 
 /**
  * Remove product names from Shopee's AWB: the item table is redrawn as "# | SKU | Variasi | Qty"
@@ -89,7 +90,9 @@ export async function openShopeeAwbMerged({ orders = [], bookings = [], settings
   const result: AwbResult = { skipped: [], errors: [] };
   if (!orders.length && !bookings.length) return result;
   const printSettings = settings ?? getCachedPrintSettings();
-  const win = window.open("", "_blank");
+  // "Cetak langsung" (Pengaturan → Cetak Resi & Label): straight to the Bluetooth label printer, no PDF tab.
+  const direct = getDirectPrefs().enabled && !!LABEL_MM[printSettings.paper_size];
+  const win = direct ? null : window.open("", "_blank");
   if (win) win.document.write("<p style='font-family:sans-serif;padding:24px;color:#475569'>Menyiapkan resi Shopee…</p>");
   try {
     const merged = await PDFDocument.create();
@@ -166,7 +169,12 @@ export async function openShopeeAwbMerged({ orders = [], bookings = [], settings
       }
     }
     if (!merged.getPageCount()) throw new Error(result.errors.join(" ") || "Tidak ada resi yang bisa dicetak.");
-    const url = URL.createObjectURL(new Blob([(await merged.save()).slice().buffer as ArrayBuffer], { type: "application/pdf" }));
+    const pdf = await merged.save();
+    if (direct) {
+      result.printed = await printPdfDirect(pdf, printSettings.paper_size);
+      return result;
+    }
+    const url = URL.createObjectURL(new Blob([pdf.slice().buffer as ArrayBuffer], { type: "application/pdf" }));
     if (win) win.location.href = url;
     else window.open(url, "_blank");
     return result;

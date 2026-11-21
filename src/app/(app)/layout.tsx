@@ -13,7 +13,7 @@ import { canOpen } from "@/lib/roles";
 import { Logo, LogoMark } from "@/components/Logo";
 import { WhatsNew } from "@/components/WhatsNew";
 
-type Child = { label: string; href: string };
+type Child = { label: string; href: string; lock?: string };
 type NavItem = { key: string; label: string; icon: LucideIcon; href?: string; badge?: string; children?: Child[]; external?: boolean };
 
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -119,6 +119,9 @@ function Shell({ children }: { children: React.ReactNode }) {
   useEffect(() => { if (lockedPath) router.replace("/langganan"); }, [lockedPath, router]);
   const [notice, setNotice] = useState<{ text: string; tone: string } | null>(null);
   const [sidebarItems, setSidebarItems] = useState<SidebarMenuItem[]>(() => user!.sidebar ?? NAV_FALLBACK);
+  const [hiddenPaths, setHiddenPaths] = useState<string[]>(() => user!.hidden_paths ?? []);
+  // A page of the other track (e.g. Landing Page for a Marketplace store): shown as an add-on prompt instead.
+  const otherTrack = !consoleOnly && hiddenPaths.some((h) => pathname === h || pathname.startsWith(h + "/"));
   useEffect(() => {
     if (user?.sidebar) setSidebarItems(user.sidebar);
   }, [user?.sidebar]);
@@ -127,11 +130,12 @@ function Shell({ children }: { children: React.ReactNode }) {
       if (s?.notice) setNotice({ text: s.notice, tone: s.notice_tone });
     });
     const refreshSidebar = () => {
-      api<{ items: SidebarMenuItem[] }>("/sidebar")
+      api<{ items: SidebarMenuItem[]; hidden?: string[] }>("/sidebar")
         .then((res) => {
           if (Array.isArray(res?.items)) {
             setSidebarItems(res.items);
-            setUser({ ...user!, sidebar: res.items });
+            setHiddenPaths(res.hidden ?? []);
+            setUser({ ...user!, sidebar: res.items, hidden_paths: res.hidden ?? [] });
           }
         })
         .catch(() => {});
@@ -257,6 +261,7 @@ function Shell({ children }: { children: React.ReactNode }) {
                               className={`relative flex items-center rounded-lg px-3 py-2 text-[14px] transition-all duration-200 ${on ? "bg-white font-medium text-brand-600" : "text-slate-500 hover:translate-x-0.5 hover:bg-white/60 hover:text-brand-600"}`}>
                               <span className={`absolute -left-[11px] h-[5px] w-[5px] rounded-full transition-all duration-200 ${on ? "bg-brand-600 ring-4 ring-brand-600/15" : "bg-transparent"}`} />
                               {c.label}
+                              {c.lock && <span title={`Tersedia mulai paket ${c.lock}`} className="ml-auto rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200">{c.lock}</span>}
                             </Link>
                           );
                         })}
@@ -295,7 +300,16 @@ function Shell({ children }: { children: React.ReactNode }) {
           {sub?.status === "grace" && <SubBanner tone="rose" icon={<AlertTriangle size={18} />} cta={member ? null : ["Perpanjang", "/langganan"]}
             text={<><b>Paket {PLAN_NAME[sub.plan] ?? sub.plan} sudah berakhir.</b> Masa tenggang {sub.days_left === 0 ? "habis hari ini" : `tinggal ${sub.days_left} hari`}, setelah itu akses dashboard dikunci sampai paket diperpanjang.</>} />}
           {notice && <div className={`mb-5 rounded-xl border px-4 py-3 text-sm font-medium ${notice.tone === "warning" ? "border-amber-200 bg-amber-50 text-amber-900" : notice.tone === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-sky-200 bg-sky-50 text-sky-800"}`}>📢 {notice.text}</div>}
-          {canOpen(member, pathname) ? children : (
+          {otherTrack ? (
+            <div className="mx-auto mt-16 max-w-lg rounded-2xl bg-white p-8 text-center">
+              <h1 className="text-lg font-bold text-navy">Fitur ini ada di jalur {user!.plan_track === "marketplace" ? "Pesanin Social & Web" : "Pesanin Marketplace"}</h1>
+              <p className="mt-2 text-sm text-slate-500">Paketmu di jalur {user!.plan_track === "marketplace" ? "Marketplace (Shopee)" : "Social & Web (Meta Ads, WhatsApp, IG & COD)"}. Jualan di keduanya? Tambahkan jalur ini sebagai add-on, hemat 30%.</p>
+              <div className="mt-5 flex justify-center gap-2">
+                <Link href="/settings/billing#paket" className="inline-flex h-10 items-center rounded-lg bg-brand-600 px-5 text-sm font-semibold text-white">Aktifkan add-on</Link>
+                <Link href="/dashboard" className="inline-flex h-10 items-center rounded-lg border border-slate-200 px-5 text-sm font-semibold text-slate-600">Ke Dashboard</Link>
+              </div>
+            </div>
+          ) : canOpen(member, pathname) ? children : (
             <div className="mx-auto mt-16 max-w-md rounded-2xl bg-white p-8 text-center">
               <h1 className="text-lg font-bold text-navy">Halaman ini tidak tersedia untuk peran {member?.role_label}</h1>
               <p className="mt-2 text-sm text-slate-500">Minta pemilik toko mengubah peranmu di Kelola Tim jika kamu perlu akses.</p>

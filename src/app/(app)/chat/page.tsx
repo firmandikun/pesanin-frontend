@@ -55,7 +55,7 @@ function receipt(m: Msg, all: Msg[], i: number): "failed" | "sent" | "delivered"
   return m.status === "delivered" ? "delivered" : "sent";
 }
 type ChannelInfo = { id: Channel; label: string; available: boolean; sources: { id: number | string; name: string }[] };
-type ListRes = { available: boolean; reason: string | null; conversations: Conv[]; unread: number; channels: ChannelInfo[]; meta?: { connected: boolean; configured: boolean; errors: string[] }; whatsapp?: { connected: boolean }; team?: TeamLite[]; labels?: ChatLabel[] };
+type ListRes = { allowed_channels?: Channel[]; available: boolean; reason: string | null; conversations: Conv[]; unread: number; channels: ChannelInfo[]; meta?: { connected: boolean; configured: boolean; errors: string[] }; whatsapp?: { connected: boolean }; team?: TeamLite[]; labels?: ChatLabel[] };
 // Inbox views (like a helpdesk): active chats, unread, unassigned, per CS, done.
 type View = "open" | "mine" | "unread" | "unassigned" | "done" | "all" | `cs:${number}`;
 const VIEW_LABEL: Record<string, string> = { open: "Aktif", mine: "Ditugaskan ke saya", unread: "Belum dibaca", unassigned: "Belum ditugaskan", done: "Selesai", all: "Semua status" };
@@ -114,7 +114,8 @@ function Chat() {
   const sp = useSearchParams();
   const [channel, setChannel] = useState<"" | Channel>((sp.get("channel") as Channel) || "");
   const [source, setSource] = useState(sp.get("source") ?? "");
-  const me = useAuth().user?.member ?? null;
+  const authUser = useAuth().user;
+  const me = authUser?.member ?? null;
   // A CS member lands on their own chats; the owner sees every active chat.
   const [view, setView] = useState<View>(me?.role === "cs" ? "mine" : "open");
   const [labelFilter, setLabelFilter] = useState("");
@@ -145,8 +146,11 @@ function Chat() {
     if (c && !sameConv(active, c)) open(c);
   }, [wanted, list]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const channels = preview ? SAMPLE_CHANNELS : list?.channels ?? [];
-  const all = preview ? SAMPLE.map((s) => s.conv) : list?.conversations ?? [];
+  // Only the channels of the store's track (Shopee for Marketplace; WhatsApp/Facebook/Instagram for Social & Web).
+  const allowed: Channel[] = list?.allowed_channels
+    ?? (authUser?.plan_addon ? (Object.keys(CHANNEL) as Channel[]) : authUser?.plan_track === "marketplace" ? ["shopee"] : ["facebook", "instagram", "whatsapp"]);
+  const channels = (preview ? SAMPLE_CHANNELS : list?.channels ?? []).filter((c) => allowed.includes(c.id as Channel));
+  const all = preview ? SAMPLE.map((s) => s.conv).filter((c) => allowed.includes(c.channel)) : list?.conversations ?? [];
   const team = preview ? SAMPLE_TEAM : list?.team ?? [];
   const labels = preview ? SAMPLE_LABELS : list?.labels ?? [];
   const inView = (c: Conv, v: View) => {
@@ -263,7 +267,7 @@ function Chat() {
         <button onClick={() => pickChannel("")} className={`flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-semibold ${channel === "" ? "bg-navy text-white" : "bg-white text-slate-600 hover:bg-slate-100"}`}>
           Semua <span className={`rounded-full px-1.5 text-xs ${channel === "" ? "bg-white/20" : "bg-slate-100 text-slate-500"}`}>{all.length}</span>
         </button>
-        {(channels.length ? channels : (Object.keys(CHANNEL) as Channel[]).map((id) => ({ id, label: CHANNEL[id].label, available: false, sources: [] }))).map((c) => (
+        {(channels.length ? channels : allowed.map((id) => ({ id, label: CHANNEL[id].label, available: false, sources: [] }))).map((c) => (
           <button key={c.id} onClick={() => (c.available ? pickChannel(c.id) : canConnect(c.id) && connectChannel(c.id))} disabled={!c.available && !canConnect(c.id)} title={c.available ? undefined : canConnect(c.id) ? (c.id === "whatsapp" ? "Hubungkan WhatsApp Business" : "Hubungkan Facebook & Instagram") : "Segera hadir"}
             className={`flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-semibold ${channel === c.id ? "bg-navy text-white" : c.available ? "bg-white text-slate-600 hover:bg-slate-100" : "cursor-not-allowed bg-white/60 text-slate-400"}`}>
             <SourceMark channel={c.id} size={16} />{c.label}

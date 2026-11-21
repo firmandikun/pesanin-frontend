@@ -34,7 +34,7 @@ export type SidebarMenuItem = {
   badge?: string;
   locked?: boolean;
   visible?: boolean;
-  children?: { label: string; href: string }[];
+  children?: { label: string; href: string; lock?: string }[];
 };
 
 /** Live site config from the admin console (contact, notice banner, registration, plan prices/quotas, sidebar visibility). */
@@ -42,6 +42,8 @@ export type SiteConfig = {
   registration_open: boolean; notice: string | null; notice_tone: "info" | "warning" | "success"; whatsapp: string | null; email: string | null;
   instagram?: string | null; tiktok?: string | null;
   plans: { id: string; name: string; monthly: number; limits: Record<string, number | null> }[];
+  pricing?: { tracks: Record<string, string>; yearly_discount: number; addon_discount: number;
+    catalog: Record<"marketplace" | "social", { id: string; name: string; monthly: number; yearly: number; limits: Record<string, number | null> }[]> };
   sidebar?: SidebarMenuItem[];
 };
 

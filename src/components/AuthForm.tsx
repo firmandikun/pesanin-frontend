@@ -45,15 +45,18 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const [loading, setLoading] = useState(false);
   const [show, setShow] = useState(false);
   const fields = login ? LOGIN : REGISTER;
+  // Track picked on the pricing page / ad landing page (?track=social|marketplace); new stores start there.
+  const track = () => { const t = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("track") : null; return t === "social" || t === "marketplace" ? t : undefined; };
+  const firstStep = () => (track() === "social" ? "/products/new" : "/marketplace/shops");
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!login && !agree) { setGeneral("Centang persetujuan Syarat Layanan dan Kebijakan Privasi dulu."); return; }
     setLoading(true); setErrors({}); setGeneral("");
     try {
-      const res = await api<{ token: string; user?: User }>(`/${mode}`, { method: "POST", json: form });
+      const res = await api<{ token: string; user?: User }>(`/${mode}`, { method: "POST", json: login ? form : { ...form, track: track() } });
       setToken(res.token);
-      router.replace(landingFor(res.user, login ? "/dashboard" : "/products/new"));
+      router.replace(landingFor(res.user, login ? "/dashboard" : firstStep()));
     } catch (err) {
       if (err instanceof ApiError) {
         if (Object.keys(err.errors).length) setErrors(err.errors);
@@ -67,9 +70,9 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   async function google(credential: string) {
     setLoading(true); setErrors({}); setGeneral("");
     try {
-      const res = await api<{ token: string; user?: User; created?: boolean }>("/auth/google", { method: "POST", json: { credential } });
+      const res = await api<{ token: string; user?: User; created?: boolean }>("/auth/google", { method: "POST", json: { credential, track: track() } });
       setToken(res.token);
-      router.replace(landingFor(res.user, res.created ? "/products/new" : "/dashboard"));
+      router.replace(landingFor(res.user, res.created ? firstStep() : "/dashboard"));
     } catch (err) {
       setGeneral(err instanceof ApiError ? (err.errors.email?.[0] ?? err.message) : "Tidak bisa terhubung ke server Pesanin. Periksa koneksi lalu coba lagi.");
       setLoading(false);

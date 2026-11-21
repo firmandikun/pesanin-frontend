@@ -1,6 +1,7 @@
 "use client";
 import { PageHead } from "@/components/kit";
 import { PrintSettingsCard } from "@/components/PrintSettingsCard";
+import { DirectPrinterCard } from "@/components/DirectPrinterCard";
 
 export default function PrintSettingsPage() {
   return (
@@ -14,6 +15,7 @@ export default function PrintSettingsPage() {
         Konfigurasi format cetak air waybill (AWB) Shopee dan label pengiriman web/manual Pesanin: ukuran kertas printer, ukuran tulisan SKU/produk, serta garis border tabel.
       </p>
       <PrintSettingsCard />
+      <DirectPrinterCard />
     </div>
   );
 }

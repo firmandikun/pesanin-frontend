@@ -6,6 +6,7 @@ import { PageHead, Panel, Toggle } from "@/components/kit";
 import { Select } from "@/components/Select";
 import { api, ApiError } from "@/lib/api";
 import { WaTemplate } from "@/lib/broadcast";
+import { useAuth } from "@/lib/auth";
 
 /** One scheduled send: the time (WIB) and which labels — only unprinted ones, or every ready label. */
 type AwbSlot = { time: string; scope: "new" | "all" };
@@ -98,6 +99,10 @@ function TelegramAwbPanel({ a, save }: { a: Automation; save: (next: Automation)
 
 /** Pengaturan → Otomatisasi Pesanan: auto resi once paid, auto delivery of digital products. */
 export default function AutomationSettings() {
+  // Only the automations of the store's track (both with the add-on).
+  const { user } = useAuth();
+  const showMp = !!user?.plan_addon || user?.plan_track !== "social";
+  const showSocial = !!user?.plan_addon || user?.plan_track !== "marketplace";
   const [a, setA] = useState<Automation | null>(null);
   const [ready, setReady] = useState<{ delivery: boolean; whatsapp: boolean; pickup: boolean; shopee: boolean } | null>(null);
   const [templates, setTemplates] = useState<WaTemplate[] | null>(null);
@@ -130,10 +135,11 @@ export default function AutomationSettings() {
   return (
     <div className="max-w-3xl space-y-5">
       <PageHead title="Otomatisasi Pesanan" tutorial={false} crumbs={[["Pengaturan"], ["Otomatisasi Pesanan"]]} />
-      <p className="-mt-2 text-sm text-slate-500">Pesanan web dan manual diproses sendiri setelah lunas: kurir dipesan lewat Komerce dan resi asli terbit untuk produk fisik, produk digital langsung dikirim ke pembeli. Pesanan Shopee bisa diatur pengirimannya otomatis di bawah.</p>
+      <p className="-mt-2 text-sm text-slate-500">{showSocial && showMp ? "Pesanan web dan manual diproses sendiri setelah lunas (resi otomatis & produk digital), dan pesanan Shopee bisa diatur pengirimannya otomatis." : showMp ? "Pesanan Shopee diatur pengirimannya otomatis dan resinya bisa dikirim ke Telegram sesuai jadwal." : "Pesanan web dan manual diproses sendiri setelah lunas: kurir dipesan lewat Komerce dan resi asli terbit untuk produk fisik, produk digital langsung dikirim ke pembeli."}</p>
       {msg && <p className={`rounded-lg p-2.5 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>{msg.text}</p>}
       {!a || !ready ? <p className="flex items-center gap-2 text-sm text-slate-500"><Loader2 size={16} className="animate-spin" />Memuat…</p> : (
         <>
+          {showSocial && (
           <Panel className="space-y-4 p-5">
             <div className="flex items-start gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600"><Truck size={20} /></span>
@@ -151,7 +157,9 @@ export default function AutomationSettings() {
             {a.auto_ship && !ready.pickup && <Warn>Alamat pickup belum diisi. <Link href="/settings/addresses" className="font-semibold underline">Tambah alamat</Link>.</Warn>}
             {a.auto_ship && ready.delivery && ready.pickup && <p className="flex items-center gap-1.5 text-xs text-emerald-700"><CheckCircle2 size={14} />Siap. Pesanan lunas diproses dalam ±30 detik. Jika gagal dicoba 3 kali, lalu kamu diberi notifikasi.</p>}
           </Panel>
+          )}
 
+          {showMp && (
           <Panel className="space-y-4 p-5">
             <div className="flex items-start gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-600"><Truck size={20} /></span>
@@ -172,9 +180,11 @@ export default function AutomationSettings() {
             {a.auto_ship_shopee && !ready.shopee && <Warn>Belum ada toko Shopee terhubung. <Link href="/marketplace/shops" className="font-semibold underline">Hubungkan toko</Link>.</Warn>}
             {a.auto_ship_shopee && ready.shopee && <p className="flex items-center gap-1.5 text-xs text-emerald-700"><CheckCircle2 size={14} />Siap. Alamat pickup & slot waktu dipilih otomatis dari Shopee. Jika gagal (mis. alamat pickup belum diatur di Seller Centre) dicoba 3 kali, lalu kamu diberi notifikasi.</p>}
           </Panel>
+          )}
 
-          <TelegramAwbPanel a={a} save={save} />
+          {showMp && <TelegramAwbPanel a={a} save={save} />}
 
+          {showSocial && (
           <Panel className="space-y-4 p-5">
             <div className="flex items-start gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600"><FileDown size={20} /></span>
@@ -202,6 +212,7 @@ export default function AutomationSettings() {
               )}
             </div>
           </Panel>
+          )}
           {saving && <p className="text-xs text-slate-400">Menyimpan…</p>}
         </>
       )}

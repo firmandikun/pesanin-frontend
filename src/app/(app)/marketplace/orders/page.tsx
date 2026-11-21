@@ -264,6 +264,7 @@ export default function ShopeeOrders() {
    */
   function afterPrint(r: AwbResult | null, error?: unknown) {
     const parts: string[] = [];
+    if (r?.printed) parts.push(`${r.printed} label dikirim langsung ke printer.`);
     if (r?.skipped.length) parts.push(`${r.skipped.length} resi tidak dicetak karena pesanannya sudah dikirim dan dipindah ke tab Dikirim: ${r.skipped.join(", ")}.`);
     if (r?.errors.length) parts.push(`Sebagian gagal dicetak: ${r.errors.join(" ")}`);
     if (error) parts.push((error as Error).message);

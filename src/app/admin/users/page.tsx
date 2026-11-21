@@ -14,6 +14,7 @@ type Row = {
   id: number; name: string; email: string; store_name: string; whatsapp: string | null; plan: string; active_plan: string; plan_billing: string | null;
   plan_expires_at: string | null; is_admin: boolean; suspended_at: string | null; created_at: string; mrr: number;
   orders_count: number | null; shops_count: number | null; products_count: number | null;
+  plan_track?: "marketplace" | "social"; plan_addon?: boolean; plan_price?: number | null; plan_label?: string;
 };
 type Detail = Row & {
   orders_30d: number; gmv_30d: number;
@@ -23,8 +24,8 @@ type Detail = Row & {
   activity: { action: string; description: string; created_at: string }[];
 };
 
-const PLANS = [["gratis", "Gratis"], ["starter", "Starter"], ["bisnis", "Bisnis"], ["pro", "Pro"]] as const;
-const PLAN_TONE: Record<string, string> = { gratis: "bg-slate-100 text-slate-600", starter: "bg-sky-50 text-sky-700", bisnis: "bg-brand-50 text-brand-700", pro: "bg-violet-50 text-violet-700" };
+const PLANS = [["gratis", "Gratis"], ["starter", "Starter"], ["bisnis", "Bisnis"], ["pro", "Pro"], ["enterprise", "Enterprise"]] as const;
+const PLAN_TONE: Record<string, string> = { gratis: "bg-slate-100 text-slate-600", starter: "bg-sky-50 text-sky-700", bisnis: "bg-brand-50 text-brand-700", pro: "bg-violet-50 text-violet-700", enterprise: "bg-slate-900 text-white" };
 const date = (d: string | null) => (d ? new Date(d).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "-");
 
 function Users() {
@@ -57,7 +58,7 @@ function Users() {
           <tbody className="divide-y divide-slate-100">{(data?.data ?? []).map((u) => (
             <tr key={u.id} onClick={() => setOpenId(u.id)} className="cursor-pointer hover:bg-slate-50">
               <td className="px-4 py-3"><b className="flex items-center gap-1.5 text-navy">{u.store_name || u.name}{u.is_admin && <Shield size={13} className="text-brand-600" />}</b><span className="text-xs text-slate-500">{u.email}</span></td>
-              <td className="px-4 py-3"><span className={`rounded-md px-2 py-1 text-xs font-semibold ${PLAN_TONE[u.active_plan]}`}>{PLANS.find((p) => p[0] === u.active_plan)?.[1]}</span>{u.active_plan !== u.plan && <span className="block pt-1 text-[11px] text-rose-500">{u.plan} kedaluwarsa</span>}</td>
+              <td className="px-4 py-3"><span className={`rounded-md px-2 py-1 text-xs font-semibold ${PLAN_TONE[u.active_plan]}`}>{u.plan_label ?? PLANS.find((p) => p[0] === u.active_plan)?.[1]}</span>{u.active_plan !== u.plan && <span className="block pt-1 text-[11px] text-rose-500">{u.plan} kedaluwarsa</span>}</td>
               <td className="px-4 py-3 text-xs text-slate-600">{u.active_plan === "gratis" ? "-" : date(u.plan_expires_at)}</td>
               <td className="px-4 py-3">{u.orders_count?.toLocaleString("id-ID")}</td>
               <td className="px-4 py-3">{u.shops_count}</td>
@@ -79,10 +80,16 @@ function UserDrawer({ id, onClose, onSaved }: { id: number; onClose: () => void;
   const [plan, setPlan] = useState("gratis");
   const [billing, setBilling] = useState("monthly");
   const [expires, setExpires] = useState<string | null>(null);
+  const [track, setTrack] = useState<"marketplace" | "social">("marketplace");
+  const [addon, setAddon] = useState(false);
+  const [price, setPrice] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const fill = (d: Detail) => { setU(d); setPlan(d.plan || "gratis"); setBilling(d.plan_billing || "monthly"); setExpires(d.plan_expires_at?.slice(0, 10) ?? null); };
+  const fill = (d: Detail) => {
+    setU(d); setPlan(d.plan || "gratis"); setBilling(d.plan_billing || "monthly"); setExpires(d.plan_expires_at?.slice(0, 10) ?? null);
+    setTrack(d.plan_track ?? "marketplace"); setAddon(!!d.plan_addon); setPrice(d.plan_price ? String(d.plan_price) : "");
+  };
   useEffect(() => { setU(null); api<Detail>(`/admin/users/${id}`).then(fill); }, [id]);
 
   const save = async (body: Record<string, unknown>, ok: string) => {
@@ -110,12 +117,21 @@ function UserDrawer({ id, onClose, onSaved }: { id: number; onClose: () => void;
 
             <section className="space-y-3 rounded-2xl border border-slate-200 p-4">
               <h3 className="font-bold text-navy">Paket langganan</h3>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Select className="input" value={track} onChange={(e) => setTrack(e.target.value as typeof track)}><option value="marketplace">Jalur Marketplace</option><option value="social">Jalur Social & Web</option></Select>
+                <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" className="h-4 w-4 accent-brand-600" checked={addon || plan === "enterprise"} disabled={plan === "enterprise"} onChange={(e) => setAddon(e.target.checked)} />Add-on jalur kedua</label>
+              </div>
               <div className="grid gap-3 sm:grid-cols-3">
                 <Select className="input" value={plan} onChange={(e) => setPlan(e.target.value)}>{PLANS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</Select>
                 <Select className="input" value={billing} onChange={(e) => setBilling(e.target.value)}><option value="monthly">Bulanan</option><option value="yearly">Tahunan</option></Select>
                 <DatePicker value={expires} onChange={setExpires} placeholder="Berlaku s/d" clearable />
               </div>
-              <button disabled={busy} onClick={() => save({ plan, plan_billing: plan === "gratis" ? null : billing, plan_expires_at: plan === "gratis" ? null : expires }, "Paket diperbarui.")} className="h-10 rounded-lg bg-brand-600 px-5 text-sm font-semibold text-white disabled:opacity-50">Simpan paket</button>
+              {plan === "enterprise" && (
+                <label className="block text-xs font-semibold text-slate-500">Harga kontrak Enterprise per bulan (Rp)
+                  <input className="input mt-1 h-10" inputMode="numeric" placeholder="mis. 3500000" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))} /></label>
+              )}
+              <button disabled={busy} onClick={() => save({ plan, plan_track: track, plan_addon: plan === "enterprise" ? true : addon, plan_price: plan === "enterprise" && price ? Number(price) : null,
+                plan_billing: plan === "gratis" ? null : billing, plan_expires_at: plan === "gratis" ? null : expires }, "Paket diperbarui.")} className="h-10 rounded-lg bg-brand-600 px-5 text-sm font-semibold text-white disabled:opacity-50">Simpan paket</button>
             </section>
 
             <section className="flex flex-wrap gap-2">

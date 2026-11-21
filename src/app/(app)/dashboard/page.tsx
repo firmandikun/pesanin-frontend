@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ChannelBadge } from "@/components/ChannelBadge";
 import { ORDERS_EVENT } from "@/components/NotificationBell";
 import { api, fmtDate, rupiah } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 
 type Sum = { revenue: number; net_profit: number; margin: number; orders: number; items: number; ads: number; roas: number | null; fees: number; cogs: number; aov: number };
 type Data = {
@@ -18,7 +19,7 @@ type Data = {
   daily: { date: string; revenue: number; net: number; ads: number }[];
   by_channel: { key: string; label: string; orders: number; revenue: number; net_profit: number }[];
   top_products: { name: string; qty: number; revenue: number; margin: number | null }[];
-  onboarding: Record<string, boolean>;
+  onboarding: Record<string, boolean>; onboarding_marketplace?: Record<string, boolean>; track?: "marketplace" | "social";
   recent_orders: any[];
 };
 
@@ -38,7 +39,17 @@ const STEPS: { key: string; title: string; href: string; icon: LucideIcon }[] = 
   { key: "whatsapp", title: "Isi WhatsApp & rekening", href: "/settings/account", icon: UserPlus },
 ];
 
+/** Marketplace activation (GTM Playbook): see real profit within the first 15 minutes. */
+const MP_STEPS: { key: string; title: string; href: string; icon: LucideIcon }[] = [
+  { key: "shop", title: "Hubungkan toko Shopee", href: "/marketplace/shops", icon: Package },
+  { key: "hpp", title: "Isi HPP 3 produk terlaris", href: "/marketplace/products", icon: Banknote },
+  { key: "order", title: "Pesanan Shopee tersinkron", href: "/marketplace/orders", icon: Truck },
+  { key: "profit", title: "Lihat laba bersih sebenarnya", href: "/reports/profit", icon: CheckCircle2 },
+  { key: "whatsapp", title: "Isi nomor WhatsApp", href: "/settings/account", icon: UserPlus },
+];
+
 export default function Dashboard() {
+  const { user } = useAuth();
   const [d, setD] = useState<Data | null>(null);
   const [hideSetup, setHideSetup] = useState(true);
 
@@ -48,14 +59,19 @@ export default function Dashboard() {
   useEffect(() => { try { setHideSetup(localStorage.getItem("formku_skip_tutorial") === "1"); } catch { setHideSetup(false); } }, []);
 
   const s = d?.summary, p = d?.previous;
-  const doneSteps = d ? STEPS.filter((x) => d.onboarding[x.key]).length : STEPS.length;
+  // Onboarding & to-do list follow the store's track (both with the add-on).
+  const mp = d?.track === "marketplace";
+  const both = !!user?.plan_addon;
+  const steps = mp ? MP_STEPS : STEPS;
+  const progress = (mp ? d?.onboarding_marketplace : d?.onboarding) ?? {};
+  const doneSteps = d ? steps.filter((x) => progress[x.key]).length : steps.length;
   const actions: { n: number; label: string; href: string; icon: LucideIcon; tone: string }[] = d ? [
     { n: d.actions.shopee_to_ship, label: "Pesanan Shopee perlu dikirim", href: "/marketplace/orders", icon: Truck, tone: "bg-orange-50 text-[#ee4d2d]" },
     { n: d.actions.shopee_to_print, label: "Resi Shopee siap dicetak", href: "/marketplace/orders", icon: Printer, tone: "bg-sky-50 text-sky-600" },
     { n: d.actions.pending, label: "Pesanan web tertunda", href: "/orders?status=pending", icon: Clock, tone: "bg-amber-50 text-amber-600" },
     { n: d.actions.confirm_transfer, label: "Transfer perlu dikonfirmasi", href: "/orders?payment_method=bank_transfer&payment_status=unpaid", icon: Banknote, tone: "bg-emerald-50 text-emerald-600" },
     { n: d.actions.abandoned_today, label: "Checkout ditinggalkan hari ini", href: "/orders?view=abandoned", icon: ShoppingCart, tone: "bg-rose-50 text-rose-600" },
-  ] : [];
+  ].filter((a) => both || (mp ? a.href.startsWith("/marketplace") : !a.href.startsWith("/marketplace"))) : [];
 
   return (
     <div className="space-y-5">
@@ -173,16 +189,16 @@ export default function Dashboard() {
         </section>
       </div>
 
-      {!hideSetup && doneSteps < STEPS.length && (
+      {!hideSetup && doneSteps < steps.length && (
         <section className="rounded-xl bg-white p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div><h2 className="font-bold text-navy">Lengkapi pengaturan toko</h2><p className="text-xs text-slate-500">{doneSteps} dari {STEPS.length} langkah selesai</p></div>
+            <div><h2 className="font-bold text-navy">Lengkapi pengaturan toko</h2><p className="text-xs text-slate-500">{doneSteps} dari {steps.length} langkah selesai</p></div>
             <button onClick={() => { setHideSetup(true); try { localStorage.setItem("formku_skip_tutorial", "1"); } catch {} }} className="text-xs font-semibold text-slate-500 hover:text-navy">Sembunyikan</button>
           </div>
-          <div className="mb-4 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-brand-500" style={{ width: `${(doneSteps / STEPS.length) * 100}%` }} /></div>
+          <div className="mb-4 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-brand-500" style={{ width: `${(doneSteps / steps.length) * 100}%` }} /></div>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {STEPS.map((x) => {
-              const ok = d?.onboarding[x.key];
+            {steps.map((x) => {
+              const ok = progress[x.key];
               return (
                 <Link key={x.key} href={x.href} className={`flex items-center gap-3 rounded-lg p-3 text-sm ${ok ? "text-slate-400" : "bg-slate-50 text-slate-700 hover:bg-slate-100"}`}>
                   {ok ? <CheckCircle2 size={18} className="text-emerald-600" /> : <x.icon size={18} className="text-brand-600" />}

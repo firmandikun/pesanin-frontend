@@ -4,21 +4,24 @@ import { useEffect, useState } from "react";
 import { BankLogo } from "@/components/Logos";
 import { Dialog } from "@/components/kit";
 import { api, ApiError, rupiah } from "@/lib/api";
-import { Billing, fmtDay, Invoice, INVOICE_STATUS, METHOD, PlanInfo } from "./types";
+import { Billing, fmtDay, Invoice, INVOICE_STATUS, METHOD, otherTrack, PlanInfo, Track, TRACK_SHORT, yearlyOf } from "./types";
 import { showAlert } from "@/components/Dialogs";
 
 const GROUPS = ["Virtual Account", "QRIS", "E-Wallet"] as const;
 
-export function CheckoutDialog({ plan, billing, data, onClose, onCreated }: {
-  plan: PlanInfo; billing: "monthly" | "yearly"; data: Billing; onClose: () => void; onCreated: (inv: Invoice) => void;
+export function CheckoutDialog({ plan, billing, data, onClose, onCreated, track, addon = false }: {
+  plan: PlanInfo; billing: "monthly" | "yearly"; data: Billing; onClose: () => void; onCreated: (inv: Invoice) => void; track?: Track; addon?: boolean;
 }) {
+  const t = track ?? data.track;
+  const monthly = plan.monthly + (addon ? plan.addon_monthly ?? 0 : 0);
+  const yearly = yearlyOf(monthly, data.yearly_discount ?? 20);
   const [period, setPeriod] = useState(billing);
   const [method, setMethod] = useState("va_bca");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const amount = period === "yearly" ? plan.yearly : plan.monthly;
+  const amount = period === "yearly" ? yearly : monthly;
   const tax = Math.round((amount * data.tax_percent) / 100);
-  const renew = data.plan === plan.id && data.expires_at && new Date(data.expires_at) > new Date();
+  const renew = data.plan === plan.id && t === data.track && data.expires_at && new Date(data.expires_at) > new Date();
   const start = renew ? new Date(data.expires_at!) : new Date();
   const end = new Date(start); period === "yearly" ? end.setFullYear(end.getFullYear() + 1) : end.setMonth(end.getMonth() + 1);
   const current = data.plans.find((p) => p.id === data.plan)!;
@@ -26,13 +29,13 @@ export function CheckoutDialog({ plan, billing, data, onClose, onCreated }: {
 
   async function submit() {
     setSaving(true); setError("");
-    try { onCreated(await api<Invoice>("/billing/checkout", { method: "POST", json: { plan: plan.id, billing: period, method } })); }
+    try { onCreated(await api<Invoice>("/billing/checkout", { method: "POST", json: { plan: plan.id, billing: period, method, track: t, addon } })); }
     catch (e) { setError(e instanceof ApiError ? e.message : "Gagal membuat tagihan"); }
     finally { setSaving(false); }
   }
 
   return (
-    <Dialog title={`${kind} paket ${plan.name}`} icon={CreditCard} onClose={onClose} width="max-w-2xl">
+    <Dialog title={`${kind} paket ${plan.name} ${TRACK_SHORT[t]}${addon ? ` + ${TRACK_SHORT[otherTrack(t)]}` : ""}`} icon={CreditCard} onClose={onClose} width="max-w-2xl">
       <div className="grid gap-5 md:grid-cols-[1fr_260px]">
         <div className="space-y-5">
           <div>
@@ -41,8 +44,8 @@ export function CheckoutDialog({ plan, billing, data, onClose, onCreated }: {
               {(["monthly", "yearly"] as const).map((p) => (
                 <button key={p} type="button" onClick={() => setPeriod(p)}
                   className={`rounded-xl border-2 p-3 text-left transition ${period === p ? "border-brand-500 bg-brand-50" : "border-slate-200 hover:border-slate-300"}`}>
-                  <span className="flex items-center justify-between text-sm font-bold text-navy">{p === "yearly" ? "Tahunan" : "Bulanan"}{p === "yearly" && <span className="rounded-full bg-brand-500 px-2 py-0.5 text-[10px] text-white">Hemat 2 bulan</span>}</span>
-                  <span className="mt-1 block text-sm text-slate-500">{rupiah(p === "yearly" ? plan.yearly : plan.monthly)} / {p === "yearly" ? "tahun" : "bulan"}</span>
+                  <span className="flex items-center justify-between text-sm font-bold text-navy">{p === "yearly" ? "Tahunan" : "Bulanan"}{p === "yearly" && <span className="rounded-full bg-brand-500 px-2 py-0.5 text-[10px] text-white">Hemat {data.yearly_discount ?? 20}%</span>}</span>
+                  <span className="mt-1 block text-sm text-slate-500">{rupiah(p === "yearly" ? yearly : monthly)} / {p === "yearly" ? "tahun" : "bulan"}</span>
                 </button>
               ))}
             </div>

@@ -28,7 +28,8 @@ function Picker() {
 
   const locked = sub?.status === "expired";
   const unpaid = d?.invoices.find((i) => i.status === "unpaid");
-  const paid = (d?.plans ?? []).filter((p) => p.monthly > 0);
+  // Self-serve plans of the store's track (Enterprise goes through sales).
+  const paid = (d?.plans ?? []).filter((p) => p.monthly > 0 && p.self_serve !== false);
   const free = d?.plans.find((p) => p.id === "gratis");
   const pick = (p: PlanInfo) => router.push(`/settings/billing?buy=${p.id}&period=${period}`);
 
@@ -94,7 +95,7 @@ function Picker() {
               <div className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1 text-sm font-semibold">
                 {(["monthly", "yearly"] as const).map((p) => (
                   <button key={p} onClick={() => setPeriod(p)} className={`flex items-center gap-2 rounded-full px-5 py-2 transition ${period === p ? "bg-navy text-white" : "text-slate-600 hover:text-navy"}`}>
-                    {p === "monthly" ? "Bulanan" : "Tahunan"}{p === "yearly" && <span className={`rounded-full px-2 py-0.5 text-[11px] ${period === p ? "bg-brand-500 text-white" : "bg-emerald-50 text-emerald-700"}`}>Hemat 17%</span>}
+                    {p === "monthly" ? "Bulanan" : "Tahunan"}{p === "yearly" && <span className={`rounded-full px-2 py-0.5 text-[11px] ${period === p ? "bg-brand-500 text-white" : "bg-emerald-50 text-emerald-700"}`}>Hemat {d?.yearly_discount ?? 20}%</span>}
                   </button>
                 ))}
               </div>

@@ -18,6 +18,10 @@ export type User = {
   member?: Member | null;
   /** Seller sidebar items configured from Admin Console (/admin/settings). */
   sidebar?: SidebarMenuItem[];
+  /** Pages of the other track (Marketplace vs Social & Web); blocked unless the add-on is active. */
+  hidden_paths?: string[];
+  plan_track?: "marketplace" | "social";
+  plan_addon?: boolean;
 };
 
 /** See backend Plans::status(). */

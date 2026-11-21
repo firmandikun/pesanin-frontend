@@ -1,7 +1,9 @@
-export type Limits = { orders: number | null; products: number | null; landing_pages: number | null; domains: number | null; team: number | null; research: number | null };
-export type PlanInfo = { id: string; name: string; rank: number; monthly: number; yearly: number; limits: Limits; features: string[] };
+export type Limits = { orders: number | null; products: number | null; landing_pages: number | null; domains: number | null; team: number | null; research: number | null; shops?: number | null };
+export type PlanInfo = { id: string; name: string; rank: number; monthly: number; yearly: number; limits: Limits; features: string[]; self_serve?: boolean; addon_monthly?: number };
+export type Track = "marketplace" | "social";
 export type Invoice = {
   id: number; number: string; plan: string; billing: "monthly" | "yearly"; amount: number; tax: number; total: number;
+  track?: Track | null; addon?: boolean;
   method: string; pay_code: string | null; payment_url?: string | null; status: "unpaid" | "paid" | "expired" | "cancelled";
   period_start: string; period_end: string; due_at: string; paid_at: string | null; created_at: string;
 };
@@ -9,7 +11,14 @@ export type Billing = {
   plan: string; billing: "monthly" | "yearly" | "trial" | null; expires_at: string | null; auto_renew: boolean; lapsed: boolean;
   usage: Record<keyof Limits, number>; plans: PlanInfo[]; tax_percent: number; methods: string[]; invoices: Invoice[]; can_simulate: boolean;
   subscription: import("@/lib/auth").Subscription; trial_days: number; grace_days: number;
+  track: Track; addon: boolean; effective: { name: string; limits: Limits; monthly: number };
+  tracks: Record<Track, string>; catalog: Record<Track, PlanInfo[]>; yearly_discount: number; addon_discount: number;
 };
+
+export const TRACK_SHORT: Record<Track, string> = { marketplace: "Marketplace", social: "Social & Web" };
+export const otherTrack = (t: Track): Track => (t === "marketplace" ? "social" : "marketplace");
+/** Same rounding as the invoice: per-month price at the yearly discount, rounded down to Rp1.000, × 12. */
+export const yearlyOf = (monthly: number, discount: number) => Math.floor((monthly * (100 - discount)) / 100 / 1000) * 1000 * 12;
 
 export const METHOD: Record<string, { label: string; logo: string; group: "Virtual Account" | "QRIS" | "E-Wallet" }> = {
   va_bca: { label: "BCA Virtual Account", logo: "BCA", group: "Virtual Account" },
@@ -30,9 +39,9 @@ export const INVOICE_STATUS: Record<Invoice["status"], [string, string]> = {
 };
 
 export const LIMIT_LABEL: [keyof Limits, string][] = [
-  ["orders", "Pesanan bulan ini"], ["products", "Produk"], ["landing_pages", "Landing page"], ["domains", "Custom domain"], ["team", "Anggota tim"], ["research", "Riset pasar hari ini"],
+  ["orders", "Pesanan bulan ini"], ["shops", "Toko marketplace"], ["products", "Produk"], ["landing_pages", "Landing page"], ["domains", "Custom domain"], ["team", "Anggota tim"], ["research", "Riset pasar hari ini"],
 ];
 
-export const FEATURE_LABEL: Record<string, string> = { pixels: "Tracking pixel", rotators: "WhatsApp Rotator", coupons: "Kupon & order bump", affiliates: "Program afiliasi" };
+export const FEATURE_LABEL: Record<string, string> = { stock_master: "Stok master lintas toko", pixels: "Tracking pixel", rotators: "WhatsApp Rotator", coupons: "Kupon & order bump", affiliates: "Program afiliasi", no_watermark: "Tanpa watermark Pesanin" };
 
 export const fmtDay = (s: string) => new Date(s).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
