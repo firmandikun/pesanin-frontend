@@ -66,11 +66,13 @@ const CHANNEL: Record<Channel, { label: string; tone: string; dot: string }> = {
   instagram: { label: "Instagram", tone: "bg-pink-50 text-[#d6249f]", dot: "bg-gradient-to-br from-[#fd5949] via-[#d6249f] to-[#285AEB]" },
   whatsapp: { label: "WhatsApp", tone: "bg-emerald-50 text-[#128c7e]", dot: "bg-[#25d366]" },
 };
+/** Channel style; an unknown channel from the server gets a neutral one instead of crashing the inbox. */
+const ch = (c: string) => CHANNEL[c as Channel] ?? { label: c ? c[0].toUpperCase() + c.slice(1) : "Chat", tone: "bg-slate-100 text-slate-600", dot: "bg-slate-400" };
 
 /** Small source mark shown on avatars and filters. */
 function SourceMark({ channel, size = 16 }: { channel: Channel; size?: number }) {
   if (channel === "shopee") return <ShopeeMark size={size} />;
-  return <span className={`inline-flex shrink-0 items-center justify-center rounded-full font-black text-white ${CHANNEL[channel].dot}`} style={{ width: size, height: size, fontSize: size * 0.55 }}>{CHANNEL[channel].label[0]}</span>;
+  return <span className={`inline-flex shrink-0 items-center justify-center rounded-full font-black text-white ${ch(channel).dot}`} style={{ width: size, height: size, fontSize: size * 0.55 }}>{ch(channel).label[0]}</span>;
 }
 
 // Preview data only: shows the layout before real chats arrive. Never sent anywhere.
@@ -281,7 +283,7 @@ function Chat() {
         <button onClick={() => pickChannel("")} className={`flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-semibold ${channel === "" ? "bg-navy text-white" : "bg-white text-slate-600 hover:bg-slate-100"}`}>
           Semua <span className={`rounded-full px-1.5 text-xs ${channel === "" ? "bg-white/20" : "bg-slate-100 text-slate-500"}`}>{all.length}</span>
         </button>
-        {(channels.length ? channels : allowed.map((id) => ({ id, label: CHANNEL[id].label, available: false, sources: [] }))).map((c) => (
+        {(channels.length ? channels : allowed.map((id) => ({ id, label: ch(id).label, available: false, sources: [] }))).map((c) => (
           <button key={c.id} onClick={() => (c.available ? pickChannel(c.id) : canConnect(c.id) && connectChannel(c.id))} disabled={!c.available && !canConnect(c.id)} title={c.available ? undefined : canConnect(c.id) ? (c.id === "whatsapp" ? "Hubungkan WhatsApp Business" : "Hubungkan Facebook & Instagram") : "Segera hadir"}
             className={`flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-semibold ${channel === c.id ? "bg-navy text-white" : c.available ? "bg-white text-slate-600 hover:bg-slate-100" : "cursor-not-allowed bg-white/60 text-slate-400"}`}>
             <SourceMark channel={c.id} size={16} />{c.label}
@@ -337,7 +339,7 @@ function Chat() {
                     <div className="flex items-center gap-1.5"><b className="truncate text-sm text-navy">{c.name}</b>{c.pinned && <Pin size={12} className="shrink-0 text-slate-400" />}<span className="ml-auto shrink-0 text-[11px] text-slate-400">{when(c.at)}</span></div>
                     <div className="mt-0.5 flex items-center gap-2"><p className={`truncate text-xs ${c.unread ? "font-semibold text-slate-700" : "text-slate-500"}`}>{c.last_from_me && "Anda: "}{c.last_text}</p>
                       {c.unread > 0 && <span className="ml-auto shrink-0 rounded-full bg-[#ee4d2d] px-1.5 text-[11px] font-bold text-white">{c.unread}</span>}</div>
-                    <p className="mt-1 flex items-center gap-1.5 text-[11px]"><span className={`rounded px-1.5 py-px font-semibold ${CHANNEL[c.channel].tone}`}>{CHANNEL[c.channel].label}</span><span className="truncate text-slate-400">{c.source_name}</span>
+                    <p className="mt-1 flex items-center gap-1.5 text-[11px]"><span className={`rounded px-1.5 py-px font-semibold ${ch(c.channel).tone}`}>{ch(c.channel).label}</span><span className="truncate text-slate-400">{c.source_name}</span>
                       {c.status === "done" && <CheckCheck size={13} className="shrink-0 text-emerald-600" aria-label="Selesai" />}
                       {c.assignee && <span title={`Ditugaskan ke ${c.assignee}`} className="ml-auto flex shrink-0 items-center gap-0.5 rounded bg-slate-100 px-1.5 py-px font-semibold text-slate-500"><UserRound size={10} />{c.assignee}</span>}</p>
                     {!!c.labels?.length && <div className="mt-1 flex flex-wrap gap-1">{c.labels.slice(0, 3).map((l) => <span key={l} className={`rounded px-1.5 py-px text-[10px] font-semibold ${labelTone(labels, l)}`}>{l}</span>)}{c.labels.length > 3 && <span className="text-[10px] text-slate-400">+{c.labels.length - 3}</span>}</div>}
@@ -361,7 +363,7 @@ function Chat() {
                 <span className="relative shrink-0"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-sm font-bold text-slate-600">{initial(active.name)}</span>
                   <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-white p-px"><SourceMark channel={active.channel} size={14} /></span></span>
                 <div className="min-w-0 flex-1"><b className="block truncate text-sm text-navy">{active.name}</b>
-                  <span className="flex min-w-0 items-center gap-1.5 text-xs text-slate-400"><span className={`shrink-0 rounded px-1.5 font-semibold ${CHANNEL[active.channel].tone}`}>{CHANNEL[active.channel].label}</span><span className="truncate">{active.source_name}</span></span></div>
+                  <span className="flex min-w-0 items-center gap-1.5 text-xs text-slate-400"><span className={`shrink-0 rounded px-1.5 font-semibold ${ch(active.channel).tone}`}>{ch(active.channel).label}</span><span className="truncate">{active.source_name}</span></span></div>
                 {active.status === "done"
                   ? <button onClick={() => updateThread(active, { status: "open" })} className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"><RotateCcw size={14} />Buka lagi</button>
                   : <button onClick={() => updateThread(active, { status: "done" })} className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"><CheckCheck size={14} />Selesai</button>}
@@ -423,7 +425,7 @@ function Chat() {
                 <div ref={bottom} />
               </div>
               {err && <p className="border-t border-rose-100 bg-rose-50 px-4 py-2 text-xs text-rose-700">{err}</p>}
-              {windowClosed && <p className="border-t border-amber-100 bg-amber-50 px-4 py-2 text-xs text-amber-800">Sudah lewat 24 jam sejak pesan terakhir pembeli. Meta hanya mengizinkan balasan dalam 24 jam, jadi balas lewat aplikasi {CHANNEL[active.channel].label} atau tunggu pembeli mengirim pesan lagi.</p>}
+              {windowClosed && <p className="border-t border-amber-100 bg-amber-50 px-4 py-2 text-xs text-amber-800">Sudah lewat 24 jam sejak pesan terakhir pembeli. Meta hanya mengizinkan balasan dalam 24 jam, jadi balas lewat aplikasi {ch(active.channel).label} atau tunggu pembeli mengirim pesan lagi.</p>}
               <form onSubmit={(e) => { e.preventDefault(); send(); }} className="relative flex items-end gap-2 border-t border-slate-100 p-3">
                 {slash && (
                   <div className="absolute bottom-full left-3 right-3 mb-1 max-h-64 overflow-y-auto rounded-xl bg-white p-1.5 shadow-xl ring-1 ring-slate-200">
@@ -442,7 +444,7 @@ function Chat() {
                       className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-brand-600 disabled:opacity-40"><ImagePlus size={17} /></button>
                   </>
                 )}
-                <textarea rows={1} disabled={windowClosed} className="input max-h-32 min-h-10 flex-1 resize-none py-2 text-sm disabled:bg-slate-50" placeholder={windowClosed ? "Balasan ditutup (lewat 24 jam)" : `Balas lewat ${CHANNEL[active.channel].label}… (ketik / untuk balasan cepat)`} value={draft} onChange={(e) => { setDraft(e.target.value); setPick(0); }}
+                <textarea rows={1} disabled={windowClosed} className="input max-h-32 min-h-10 flex-1 resize-none py-2 text-sm disabled:bg-slate-50" placeholder={windowClosed ? "Balasan ditutup (lewat 24 jam)" : `Balas lewat ${ch(active.channel).label}… (ketik / untuk balasan cepat)`} value={draft} onChange={(e) => { setDraft(e.target.value); setPick(0); }}
                   onKeyDown={(e) => {
                     if (slash && matches.length) {
                       if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); setPick((p) => (p + (e.key === "ArrowDown" ? 1 : matches.length - 1)) % matches.length); return; }
