@@ -20,8 +20,8 @@ type ShopOpt = { id: number; shop_id: number; name: string; channels: { id: numb
 type Img = { id: string; url: string; name: string };
 type VideoUpload = { video_upload_id: string; name: string; size: number };
 type Answer = { value_ids: number[]; text: string; unit: string; custom?: boolean };
-type Tier = { name: string; options: string[] };
-type Model = { index: number[]; price: number; stock: number; sku: string };
+type Tier = { name: string; options: string[]; option_images?: (Img | null)[] };
+type Model = { index: number[]; price: number; stock: number; cost_price?: number; sku: string };
 type Wholesale = { min: number; max: number; price: number };
 type CopySource = {
   source: { shop_id: number; shop_name: string; item_id: number }; name: string; description: string; category: Cat | null; brand_id: number; images: string[];
@@ -75,9 +75,11 @@ function Publish() {
   // Informasi Penjualan
   const [price, setPrice] = useState(0);
   const [stock, setStock] = useState(0);
+  const [costPrice, setCostPrice] = useState(0);
   const [tiers, setTiers] = useState<Tier[]>([]);
   const [models, setModels] = useState<Model[]>([]);
-  const [bulk, setBulk] = useState({ price: "", stock: "", sku: "" });
+  const [bulk, setBulk] = useState({ price: "", stock: "", cost_price: "", sku: "" });
+  const [uploadingOpt, setUploadingOpt] = useState<string | null>(null);
   const [wholesale, setWholesale] = useState<Wholesale[]>([]);
 
   // Kategori, GTIN & Spesifikasi
@@ -238,6 +240,29 @@ function Publish() {
 
   useEffect(() => () => { if (videoPreview) URL.revokeObjectURL(videoPreview); }, [videoPreview]);
 
+  const uploadOptionImage = async (ti: number, oi: number, file: File | null) => {
+    if (!file) return;
+    const key = `${ti}-${oi}`;
+    const fd = new FormData();
+    fd.append("files[]", file);
+    setUploadingOpt(key); setErr("");
+    try {
+      const [added] = await api<Img[]>("/marketplace/publish/images", { method: "POST", body: fd });
+      if (added) {
+        setTiers((cur) => cur.map((t, j) => {
+          if (j !== ti) return t;
+          const imgs = [...(t.option_images ?? [])];
+          imgs[oi] = added;
+          return { ...t, option_images: imgs };
+        }));
+      }
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : "Upload foto variasi gagal");
+    } finally {
+      setUploadingOpt(null);
+    }
+  };
+
   /* ---------- Variasi ---------- */
   const keyOf = (t: Tier[], index: number[]) => index.map((ti, k) => t[k]?.options[ti]).join("\u0001");
   /** Change the tiers and rebuild the combination table, keeping what was typed for combinations that still exist. */
@@ -245,10 +270,17 @@ function Publish() {
     const old = new Map(models.map((m) => [keyOf(tiers, m.index), m]));
     const usable = next.filter((t) => t.options.some((o) => o.trim()));
     const shaped = usable.map((t) => ({ ...t, options: t.options.filter((o) => o.trim()) }));
-    setModels(combos(shaped).map((index) => { const prev = old.get(keyOf(shaped, index)); return prev ? { ...prev, index } : { index, price: price || 0, stock: 0, sku: "" }; }));
+    setModels(combos(shaped).map((index) => { const prev = old.get(keyOf(shaped, index)); return prev ? { ...prev, index } : { index, price: price || 0, stock: 0, cost_price: costPrice || undefined, sku: "" }; }));
     setTiers(next);
   };
-  const liveTiers = tiers.map((t) => ({ ...t, options: t.options.filter((o) => o.trim()) })).filter((t) => t.options.length);
+  const liveTiers = tiers.map((t, ti) => {
+    const kept = t.options.map((o, oi) => ({ o: o.trim(), img: t.option_images?.[oi] ?? null })).filter((x) => x.o);
+    return {
+      name: t.name,
+      options: kept.map((x) => x.o),
+      ...(ti === 0 && kept.some((x) => x.img) ? { option_images: kept.map((x) => x.img?.id ?? null) } : {}),
+    };
+  }).filter((t) => t.options.length);
   const hasVariants = models.length > 0 && liveTiers.length > 0;
   const samePrice = !hasVariants || new Set(models.map((m) => m.price)).size === 1;
   const basePrice = hasVariants ? Math.min(...models.map((m) => m.price)) : price;
@@ -328,10 +360,10 @@ function Publish() {
     const body = {
       product_id: productId ? Number(productId) : null, name: name.trim(), description: desc.trim(), category_id: cat!.id,
       brand_id: brandId, brand_name: (brandId && info?.brands.list.find((b) => b.id === brandId)?.name) || "NoBrand",
-      price: hasVariants ? basePrice : price, stock: hasVariants ? totalStock : stock, sku: sku || null, weight, image_ids: images.map((i) => i.id), video_upload_id: video?.video_upload_id ?? null,
+      price: hasVariants ? basePrice : price, stock: hasVariants ? totalStock : stock, cost_price: !hasVariants && costPrice > 0 ? costPrice : null, sku: sku || null, weight, image_ids: images.map((i) => i.id), video_upload_id: video?.video_upload_id ?? null,
       ...(dims.length && dims.width && dims.height ? { length: +dims.length, width: +dims.width, height: +dims.height } : {}),
       attributes: Object.entries(answers).map(([id, a]) => ({ id: +id, value_ids: a.value_ids, text: a.text, unit: a.unit || null })),
-      ...(hasVariants ? { tiers: liveTiers, models: models.map((m) => ({ index: m.index, price: m.price, stock: m.stock, sku: m.sku || null })) } : {}),
+      ...(hasVariants ? { tiers: liveTiers, models: models.map((m) => ({ index: m.index, price: m.price, stock: m.stock, cost_price: m.cost_price && m.cost_price > 0 ? m.cost_price : null, sku: m.sku || null })) } : {}),
       ...(gtinValue ? { gtin: gtinValue } : {}),
       condition, dangerous, pre_order: preOrder, ...(preOrder ? { days_to_ship: dts } : {}),
       wholesale: samePrice ? wholesale : [], channels: onChannels, status,
@@ -585,13 +617,40 @@ function Publish() {
                       <div className="flex items-start gap-2">
                         <span className="w-20 shrink-0 pt-2 text-xs font-medium text-slate-600">Opsi</span>
                         <div className="grid flex-1 gap-2 sm:grid-cols-2">
-                          {[...t.options, ""].slice(0, 50).map((o, oi) => (
-                            <div key={oi} className="flex items-center gap-1">
-                              <input className="input h-9" maxLength={20} placeholder={oi === t.options.length ? "Tambah opsi" : "mis. Merah"} value={o}
-                                onChange={(e) => { const opts = [...t.options]; opts[oi] = e.target.value; editTiers(tiers.map((x, j) => j === ti ? { ...x, options: opts } : x)); }} />
-                              {oi < t.options.length && t.options.length > 1 && <button onClick={() => editTiers(tiers.map((x, j) => j === ti ? { ...x, options: x.options.filter((_, k) => k !== oi) } : x))} className="p-1 text-slate-400 hover:text-rose-600" aria-label="Hapus opsi"><Trash2 size={14} /></button>}
-                            </div>
-                          ))}
+                          {[...t.options, ""].slice(0, 50).map((o, oi) => {
+                            const optImg = ti === 0 ? t.option_images?.[oi] ?? null : null;
+                            const isUp = uploadingOpt === `${ti}-${oi}`;
+                            return (
+                              <div key={oi} className="flex items-center gap-1.5">
+                                {ti === 0 && oi < t.options.length && (
+                                  optImg ? (
+                                    <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
+                                      <img src={optImg.url} alt="" className="h-full w-full object-cover" />
+                                      <button
+                                        type="button"
+                                        onClick={() => setTiers((cur) => cur.map((x, j) => {
+                                          if (j !== ti) return x;
+                                          const imgs = [...(x.option_images ?? [])];
+                                          imgs[oi] = null;
+                                          return { ...x, option_images: imgs };
+                                        }))}
+                                        className="absolute right-0 top-0 rounded-bl bg-black/60 p-0.5 text-white hover:bg-rose-600"
+                                        aria-label="Hapus foto variasi"
+                                      ><X size={10} /></button>
+                                    </div>
+                                  ) : (
+                                    <label className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white text-slate-400 hover:border-[#ee4d2d] hover:text-[#ee4d2d]" title="Foto opsi variasi">
+                                      {isUp ? <Loader2 size={14} className="animate-spin" /> : <ImagePlus size={14} />}
+                                      <input type="file" accept="image/*" className="hidden" onChange={(e) => { void uploadOptionImage(ti, oi, e.target.files?.[0] ?? null); e.target.value = ""; }} />
+                                    </label>
+                                  )
+                                )}
+                                <input className="input h-9" maxLength={20} placeholder={oi === t.options.length ? "Tambah opsi" : "mis. Merah"} value={o}
+                                  onChange={(e) => { const opts = [...t.options]; opts[oi] = e.target.value; editTiers(tiers.map((x, j) => j === ti ? { ...x, options: opts } : x)); }} />
+                                {oi < t.options.length && t.options.length > 1 && <button onClick={() => editTiers(tiers.map((x, j) => j === ti ? { ...x, options: x.options.filter((_, k) => k !== oi), option_images: x.option_images?.filter((_, k) => k !== oi) } : x))} className="p-1 text-slate-400 hover:text-rose-600" aria-label="Hapus opsi"><Trash2 size={14} /></button>}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     </div>
@@ -602,23 +661,25 @@ function Publish() {
             </Row>
 
             {hasVariants ? (
-              <Row label="Daftar Variasi" req>
+              <Row label="Daftar Variasi" req hint="Kolom HPP hanya disimpan di Pesanin (tidak dikirim ke Shopee).">
                 <div className="mb-2 flex flex-wrap gap-2">
                   <input type="number" className="input h-9 w-32" placeholder="Harga" value={bulk.price} onChange={(e) => setBulk({ ...bulk, price: e.target.value })} />
-                  <input type="number" className="input h-9 w-28" placeholder="Stok" value={bulk.stock} onChange={(e) => setBulk({ ...bulk, stock: e.target.value })} />
+                  <input type="number" className="input h-9 w-24" placeholder="Stok" value={bulk.stock} onChange={(e) => setBulk({ ...bulk, stock: e.target.value })} />
+                  <input type="number" className="input h-9 w-32" placeholder="HPP (Pesanin)" value={bulk.cost_price} onChange={(e) => setBulk({ ...bulk, cost_price: e.target.value })} />
                   <input className="input h-9 w-32" placeholder="Kode Variasi" value={bulk.sku} onChange={(e) => setBulk({ ...bulk, sku: e.target.value })} />
-                  <button onClick={() => { setModels(models.map((m) => ({ ...m, ...(bulk.price ? { price: +bulk.price } : {}), ...(bulk.stock ? { stock: +bulk.stock } : {}), ...(bulk.sku ? { sku: bulk.sku } : {}) }))); setBulk({ price: "", stock: "", sku: "" }); }}
+                  <button onClick={() => { setModels(models.map((m) => ({ ...m, ...(bulk.price ? { price: +bulk.price } : {}), ...(bulk.stock ? { stock: +bulk.stock } : {}), ...(bulk.cost_price ? { cost_price: +bulk.cost_price } : {}), ...(bulk.sku ? { sku: bulk.sku } : {}) }))); setBulk({ price: "", stock: "", cost_price: "", sku: "" }); }}
                     className="h-9 rounded-lg bg-[#ee4d2d] px-4 text-sm font-semibold text-white">Terapkan ke Semua</button>
                 </div>
                 <div className="overflow-x-auto rounded-lg border border-slate-200">
-                  <table className="w-full min-w-[560px] text-sm">
-                    <thead className="bg-slate-50 text-left text-xs text-slate-500"><tr>{liveTiers.map((t) => <th key={t.name} className="px-3 py-2">{t.name || "Variasi"}</th>)}<th className="px-3 py-2">* Harga</th><th className="px-3 py-2">* Stok</th><th className="px-3 py-2">Kode Variasi</th></tr></thead>
+                  <table className="w-full min-w-[660px] text-sm">
+                    <thead className="bg-slate-50 text-left text-xs text-slate-500"><tr>{liveTiers.map((t) => <th key={t.name} className="px-3 py-2">{t.name || "Variasi"}</th>)}<th className="px-3 py-2">* Harga</th><th className="px-3 py-2">* Stok</th><th className="px-3 py-2">HPP (Pesanin)</th><th className="px-3 py-2">Kode Variasi</th></tr></thead>
                     <tbody className="divide-y divide-slate-100">
                       {models.map((m, i) => (
                         <tr key={m.index.join("-")}>
                           {m.index.map((oi, k) => <td key={k} className="px-3 py-2 font-medium text-slate-700">{liveTiers[k]?.options[oi]}</td>)}
                           <td className="px-2 py-1.5"><div className="relative"><span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">Rp</span><input type="number" className="input h-9 pl-8" value={m.price || ""} onChange={(e) => setModels(models.map((x, j) => j === i ? { ...x, price: +e.target.value } : x))} /></div></td>
                           <td className="px-2 py-1.5"><input type="number" className="input h-9" value={m.stock} onChange={(e) => setModels(models.map((x, j) => j === i ? { ...x, stock: +e.target.value } : x))} /></td>
+                          <td className="px-2 py-1.5"><div className="relative"><span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">Rp</span><input type="number" className="input h-9 pl-8" placeholder="Opsional" value={m.cost_price || ""} onChange={(e) => setModels(models.map((x, j) => j === i ? { ...x, cost_price: +e.target.value || undefined } : x))} /></div></td>
                           <td className="px-2 py-1.5"><input className="input h-9" value={m.sku} onChange={(e) => setModels(models.map((x, j) => j === i ? { ...x, sku: e.target.value } : x))} /></td>
                         </tr>
                       ))}
@@ -630,6 +691,7 @@ function Publish() {
               <>
                 <Row label="Harga" req><div className="relative max-w-xs"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">Rp</span><input type="number" className="input h-10 pl-9" placeholder="Masukkan" value={price || ""} onChange={(e) => setPrice(+e.target.value)} /></div></Row>
                 <Row label="Stok" req><input type="number" className="input h-10 max-w-xs" value={stock} onChange={(e) => setStock(+e.target.value)} /></Row>
+                <Row label="HPP (Modal)" hint="Khusus catatan internal Pesanin, tidak dikirim ke Shopee."><div className="relative max-w-xs"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">Rp</span><input type="number" className="input h-10 pl-9" placeholder="Opsional" value={costPrice || ""} onChange={(e) => setCostPrice(+e.target.value)} /></div></Row>
               </>
             )}
 
