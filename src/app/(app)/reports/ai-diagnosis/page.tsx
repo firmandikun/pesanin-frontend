@@ -239,7 +239,7 @@ export default function AiDiagnosisPage() {
           <ul className="space-y-1 text-left text-xs">
             {STEPS.map((s, i) => <li key={s} className={i < step ? "text-emerald-600" : i === step ? "font-semibold text-slate-700" : "text-slate-400"}>{i < step ? "✓" : i === step ? "•" : "○"} {s}</li>)}
           </ul>
-          <p className="text-[11px] text-slate-400">Biasanya 20–90 detik. Halaman boleh ditinggal, hasilnya tersimpan.</p>
+          <p className="text-[11px] text-slate-400">Model Pro biasanya 1–3 menit. Halaman boleh ditinggal, hasilnya tersimpan.</p>
         </Panel>
       ) : diagnosis ? (
         <div className="space-y-4">

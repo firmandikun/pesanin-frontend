@@ -121,7 +121,7 @@ export function AdsAiPanel({ shopId, range, onApplied }: { shopId?: string; rang
         </div>
       )}
 
-      {busy && <p className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500"><Loader2 size={16} className="animate-spin text-violet-600" />AI membaca semua iklan, ROAS vs titik impas, CTR, CR, dan tren 7 hari… (20–90 detik, halaman boleh ditinggal)</p>}
+      {busy && <p className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500"><Loader2 size={16} className="animate-spin text-violet-600" />AI membaca semua iklan, ROAS vs titik impas, CTR, CR, dan tren 7 hari… (model Pro: 1–3 menit, halaman boleh ditinggal)</p>}
 
       {!busy && a && open && (
         <div className="space-y-4 p-5">
