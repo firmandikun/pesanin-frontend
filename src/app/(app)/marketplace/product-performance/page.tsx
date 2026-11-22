@@ -37,6 +37,7 @@ type PerfVariant = {
   period_orders: number;
   period_revenue: number;
   period_fee?: number;
+  period_ad?: number;
   period_net?: number;
 };
 
@@ -234,8 +235,8 @@ export default function ShopeeProductPerformancePage() {
           </div>
           <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900">{rupiah(s?.period_revenue ?? 0)}</p>
           <p className="mt-1 text-[11px] text-slate-500">
-            {(s?.period_fee ?? 0) > 0
-              ? <>Bersih <b className="text-emerald-700">{rupiah(s?.period_net ?? 0)}</b> · Admin <span className="text-rose-600">-{rupiah(s?.period_fee ?? 0)}</span></>
+            {(s?.period_fee ?? 0) > 0 || (s?.total_ad_expense ?? 0) > 0
+              ? <>Bersih <b className="text-emerald-700">{rupiah(s?.period_net ?? 0)}</b> · Admin <span className="text-rose-600">-{rupiah(s?.period_fee ?? 0)}</span>{(s?.total_ad_expense ?? 0) > 0 ? <> · Iklan <span className="text-rose-600">-{rupiah(s?.total_ad_expense ?? 0)}</span></> : null}</>
               : <span className="text-slate-400">{num(s?.period_units ?? 0)} unit terjual ({range.from} s/d {range.to})</span>}
           </p>
         </Panel>
@@ -427,9 +428,9 @@ export default function ShopeeProductPerformancePage() {
                         </td>
                         <td className="px-3 py-3 text-right">
                           <div className="font-semibold text-slate-900">{rupiah(item.period_revenue)}</div>
-                          {(item.period_fee ?? 0) > 0 && (
+                          {((item.period_fee ?? 0) > 0 || item.ad_expense > 0) && (
                             <div className="text-[10px] text-slate-400">
-                              Admin -{rupiah(item.period_fee ?? 0)} · <span className="font-medium text-emerald-700">Bersih {rupiah(item.period_net ?? 0)}</span>
+                              Admin -{rupiah(item.period_fee ?? 0)}{item.ad_expense > 0 ? ` · Iklan -${rupiah(item.ad_expense)}` : ""} · <span className={`font-medium ${(item.period_net ?? 0) < 0 ? "text-rose-600" : "text-emerald-700"}`}>Bersih {rupiah(item.period_net ?? 0)}</span>
                             </div>
                           )}
                         </td>
@@ -497,6 +498,7 @@ export default function ShopeeProductPerformancePage() {
                                     <th className="px-3 py-2 text-right">Terjual Periode</th>
                                     <th className="px-3 py-2 text-right">Omzet Kotor</th>
                                     <th className="px-3 py-2 text-right">Biaya Admin</th>
+                                    <th className="px-3 py-2 text-right">Biaya Iklan</th>
                                     <th className="px-3 py-2 text-right">Omzet Bersih</th>
                                     <th className="px-3 py-2 text-right">Stok</th>
                                   </tr>
@@ -514,7 +516,8 @@ export default function ShopeeProductPerformancePage() {
                                       </td>
                                       <td className="px-3 py-2 text-right font-semibold text-slate-900">{rupiah(v.period_revenue)}</td>
                                       <td className="px-3 py-2 text-right text-rose-600">{(v.period_fee ?? 0) > 0 ? `-${rupiah(v.period_fee ?? 0)}` : <span className="text-slate-300">-</span>}</td>
-                                      <td className="px-3 py-2 text-right font-semibold text-emerald-700">{rupiah(v.period_net ?? v.period_revenue)}</td>
+                                      <td className="px-3 py-2 text-right text-rose-600">{(v.period_ad ?? 0) > 0 ? `-${rupiah(v.period_ad ?? 0)}` : <span className="text-slate-300">-</span>}</td>
+                                      <td className={`px-3 py-2 text-right font-semibold ${(v.period_net ?? v.period_revenue) < 0 ? "text-rose-600" : "text-emerald-700"}`}>{rupiah(v.period_net ?? v.period_revenue)}</td>
                                       <td className="px-3 py-2 text-right">
                                         <span className={`font-semibold ${v.stock === 0 ? "text-rose-600" : v.stock <= 5 ? "text-amber-600" : "text-slate-700"}`}>
                                           {num(v.stock)}
