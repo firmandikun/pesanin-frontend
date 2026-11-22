@@ -45,7 +45,8 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
   const controls = useRef<IScannerControls | null>(null);
   const busy = useRef(false);
   const gen = useRef(0);
-  // Viewfinder follows the label: wide for a barcode, square for a QR / Data Matrix; and a box around the code just read.
+  // Viewfinder follows the label: auto-detects both 1D barcode & QR/Data Matrix by default, or locks to one.
+  const [scanMode, setScanMode] = useState<"auto" | "bar" | "qr">("auto");
   const [guide, setGuide] = useState<"bar" | "qr">("bar");
   const [hit, setHit] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   const hitTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -128,7 +129,7 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
   };
 
   const stopCam = () => { gen.current++; controls.current?.stop(); controls.current = null; setCamOn(false); };
-  const startCam = useCallback(async (mode: "bar" | "qr" = guide) => {
+  const startCam = useCallback(async (mode: "auto" | "bar" | "qr" = scanMode) => {
     setCamErr("");
     if (!video.current) return;
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
@@ -144,18 +145,19 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
       v.muted = true;
       const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await Promise.all([import("@zxing/browser"), import("@zxing/library")]);
       const hints = new Map();
-      const formats = mode === "qr"
-        ? [BarcodeFormat.QR_CODE, BarcodeFormat.DATA_MATRIX]
-        : [BarcodeFormat.CODE_128, BarcodeFormat.CODE_39, BarcodeFormat.CODE_93, BarcodeFormat.EAN_13, BarcodeFormat.ITF, BarcodeFormat.CODABAR];
+      const oneD = [BarcodeFormat.CODE_128, BarcodeFormat.CODE_39, BarcodeFormat.CODE_93, BarcodeFormat.EAN_13, BarcodeFormat.ITF, BarcodeFormat.CODABAR];
+      const twoD = [BarcodeFormat.QR_CODE, BarcodeFormat.DATA_MATRIX];
+      const formats = mode === "qr" ? twoD : mode === "bar" ? oneD : [...oneD, ...twoD];
       hints.set(DecodeHintType.POSSIBLE_FORMATS, formats);
       hints.set(DecodeHintType.TRY_HARDER, true);
-      const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: mode === "bar" ? 80 : 110 });
+      const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: mode === "bar" ? 80 : 90 });
       const c = await reader.decodeFromConstraints(
         { video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } } },
         v,
         (res) => {
           if (!res) return;
           const square = res.getBarcodeFormat() === BarcodeFormat.QR_CODE || res.getBarcodeFormat() === BarcodeFormat.DATA_MATRIX;
+          setGuide(square ? "qr" : "bar");
           markHit(res.getResultPoints().map((p) => [p.getX(), p.getY()] as [number, number]), square);
           send(res.getText());
         },
@@ -167,13 +169,13 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
     } catch (e: any) {
       setCamErr(e?.name === "NotAllowedError" ? "Izin kamera ditolak. Izinkan kamera di pengaturan browser lalu coba lagi." : "Kamera tidak bisa dibuka. Coba lagi atau ketik resi manual.");
     }
-  }, [guide, send]);
+  }, [scanMode, send]);
 
-  // Open the camera right away once the session is valid and staff name is set (and restart when Barcode/QR mode changes).
+  // Open the camera right away once the session is valid and staff name is set (and restart when scan mode changes).
   useEffect(() => {
-    if (info?.session.open && !finished && staff) startCam(guide);
+    if (info?.session.open && !finished && staff) startCam(scanMode);
     return () => { gen.current++; controls.current?.stop(); controls.current = null; };
-  }, [info, finished, staff, guide, startCam]);
+  }, [info, finished, staff, scanMode, startCam]);
 
   const undo = async () => {
     try {
@@ -243,20 +245,20 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
       <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-slate-900">
         <video ref={video} className="h-full w-full object-cover" autoPlay muted playsInline style={{ transform: "translateZ(0)" }} />
         {camOn && (
-          <div className={`pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl border-2 border-white/85 bg-white/5 transition-all duration-300 ${guide === "qr" ? "aspect-square w-[56%]" : "h-24 w-[84%]"}`} />
+          <div className={`pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl border-2 border-white/85 bg-white/5 transition-all duration-300 ${(scanMode === "qr" || (scanMode === "auto" && guide === "qr")) ? "aspect-square w-[56%]" : "h-24 w-[84%]"}`} />
         )}
         {camOn && hit && <div className="pointer-events-none absolute rounded-lg border-[3px] border-emerald-400 bg-emerald-400/15 transition-all duration-150" style={hit} />}
         {camOn && (
           <div className="absolute bottom-2.5 left-1/2 flex -translate-x-1/2 overflow-hidden rounded-full bg-black/65 p-0.5 text-xs font-semibold text-white shadow-sm backdrop-blur-sm">
-            {(["bar", "qr"] as const).map((g) => (
-              <button key={g} type="button" onClick={() => setGuide(g)} className={`whitespace-nowrap rounded-full px-3.5 py-1 transition-colors ${guide === g ? "bg-white text-slate-800" : "text-white/90"}`}>{g === "bar" ? "Barcode" : "QR / kotak"}</button>
+            {([["auto", "Otomatis"], ["bar", "Barcode"], ["qr", "QR / kotak"]] as const).map(([m, label]) => (
+              <button key={m} type="button" onClick={() => { setScanMode(m); if (m !== "auto") setGuide(m); }} className={`whitespace-nowrap rounded-full px-3 py-1 transition-colors ${scanMode === m ? "bg-white text-slate-800" : "text-white/90"}`}>{label}</button>
             ))}
           </div>
         )}
         {!camOn && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
             {camErr && <p className="text-sm text-white/90">{camErr}</p>}
-            <button type="button" onClick={() => startCam(guide)} className="flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-sm"><Camera size={16} />Buka kamera</button>
+            <button type="button" onClick={() => startCam(scanMode)} className="flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-sm"><Camera size={16} />Buka kamera</button>
           </div>
         )}
         <div className="absolute left-3 top-3 rounded-full bg-black/65 px-3 py-1 text-xs font-bold text-white backdrop-blur-sm">{summary.total} paket</div>

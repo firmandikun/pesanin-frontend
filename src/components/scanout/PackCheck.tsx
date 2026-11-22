@@ -69,6 +69,11 @@ export function usePackCheck(save: (orderId: number, fd: FormData) => Promise<un
   };
 
   const bump = (i: number, d: number) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, packed: Math.max(0, Math.min(l.qty, l.packed + d)) } : l)));
+  const fillAll = () => {
+    setLines((ls) => ls.map((l) => ({ ...l, packed: l.qty })));
+    feedback("ok");
+    setMsg({ ok: true, text: "Produk lengkap! Sekarang foto/upload bukti paket, lalu klik Selesai paket." });
+  };
 
   const finish = async () => {
     if (!order || !complete || saving) return;
@@ -87,7 +92,7 @@ export function usePackCheck(save: (orderId: number, fd: FormData) => Promise<un
     } finally { setSaving(false); }
   };
 
-  return { order, lines, complete, missing, photo, photoUrl, setPhoto, saving, msg, setMsg, start, scan, bump, finish, cancel: reset };
+  return { order, lines, complete, missing, photo, photoUrl, setPhoto, saving, msg, setMsg, start, scan, bump, fillAll, finish, cancel: reset };
 }
 
 export type PackCheckState = ReturnType<typeof usePackCheck>;
@@ -105,10 +110,15 @@ export function PackPanel({ pack, snap, compact, onAction }: { pack: PackCheckSt
     <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
       <div className="flex items-start justify-between gap-2 border-b border-slate-100 p-3">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Cek isi paket</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">1. Cek isi paket</p>
           <p className="truncate font-mono text-sm font-bold text-slate-800">{o.order_sn ?? o.code}</p>
         </div>
-        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${pack.complete ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{pack.complete ? "Lengkap" : `Kurang ${pack.missing} pcs`}</span>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {!pack.complete && (
+            <button type="button" onClick={() => { pack.fillAll(); after(); }} className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200">Lengkap semua</button>
+          )}
+          <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${pack.complete ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{pack.complete ? "Lengkap" : `Kurang ${pack.missing} pcs`}</span>
+        </div>
       </div>
       {o.note && <p className="mx-3 mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800"><b>Catatan:</b> {o.note}</p>}
       <div className="divide-y divide-slate-100">
@@ -130,11 +140,12 @@ export function PackPanel({ pack, snap, compact, onAction }: { pack: PackCheckSt
         })}
       </div>
       <div className="space-y-2 border-t border-slate-100 p-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">2. Upload foto bukti paket</p>
         <input ref={file} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) pack.setPhoto(f); e.target.value = ""; after(); }} />
         {pack.photoUrl ? (
           <div className="flex items-center gap-2">
             <img src={pack.photoUrl} alt="Foto paket" className="h-14 w-14 rounded-lg object-cover ring-1 ring-slate-200" />
-            <span className="flex-1 text-xs text-emerald-700">Foto paket siap disimpan.</span>
+            <span className="flex-1 text-xs text-emerald-700">Foto bukti siap disimpan.</span>
             <button type="button" onClick={() => { pack.setPhoto(null); after(); }} className="text-xs font-semibold text-slate-500">Hapus</button>
           </div>
         ) : (
