@@ -1,5 +1,5 @@
 "use client";
-import { Check, Layers, Loader2, Megaphone, Plus, Search, Sparkles, Store, Trash2 } from "lucide-react";
+import { Check, Loader2, Megaphone, Plus, Search, Sparkles, Store, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
@@ -49,7 +49,6 @@ function CreateShopeeAdPage() {
   const [busy, setBusy] = useState(false);
 
   // Panel 1: Mode Pemilihan
-  const [adMode, setAdMode] = useState<"individual" | "group">("individual");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [q, setQ] = useState("");
   const [onlyRec, setOnlyRec] = useState(false);
@@ -58,7 +57,6 @@ function CreateShopeeAdPage() {
   // Panel 2: Strategi Iklan
   const [bidding, setBidding] = useState<"auto" | "roas">("roas");
   const [targets, setTargets] = useState<Record<number, string>>({});
-  const [groupTarget, setGroupTarget] = useState("");
   const [shopFeePct, setShopFeePct] = useState(0);
   const [suggests, setSuggests] = useState<Record<number, { budget_suggested: number | null; roi_suggested: number | null; category_name?: string | null }>>({});
 
@@ -129,13 +127,12 @@ function CreateShopeeAdPage() {
         method: "POST",
         json: {
           shop_id: Number(shopId),
-          ad_mode: adMode,
+          ad_mode: "individual",
           item_ids: selectedIds,
           bidding_method: bidding,
           budget_mode: budgetMode,
           budget: budgetMode === "daily" ? Math.max(25000, Number(budget) || 0) : undefined,
-          roas_target: bidding === "roas" && adMode === "group" && groupTarget ? Number(groupTarget) : undefined,
-          targets: bidding === "roas" && adMode === "individual"
+          targets: bidding === "roas"
             ? Object.fromEntries(Object.entries(targets).filter(([, v]) => Number(v) > 0).map(([k, v]) => [k, Number(v)]))
             : undefined,
           start_date: periodMode === "custom" ? startDate || undefined : undefined,
@@ -183,30 +180,12 @@ function CreateShopeeAdPage() {
 
         <div className="grid gap-3 md:grid-cols-[180px_1fr] md:items-start">
           <label className="pt-2 text-xs font-medium text-slate-600">Mode Pemilihan Produk</label>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => setAdMode("group")}
-              className={`flex items-start gap-3 rounded-xl border p-4 text-left transition ${adMode === "group" ? "border-[#ee4d2d] bg-orange-50/30 ring-1 ring-[#ee4d2d]" : "border-slate-200 bg-white hover:border-slate-300"}`}
-            >
-              <div className="flex-1">
-                <b className="block text-sm text-slate-800">Grup Iklan</b>
-                <p className="mt-1 text-xs text-slate-500">Maksimalkan modal dan ROAS dengan mengiklankan beberapa produk sekaligus dalam satu grup.</p>
-              </div>
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-[#ee4d2d]"><Layers size={20} /></span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setAdMode("individual")}
-              className={`flex items-start gap-3 rounded-xl border p-4 text-left transition ${adMode === "individual" ? "border-[#ee4d2d] bg-orange-50/30 ring-1 ring-[#ee4d2d]" : "border-slate-200 bg-white hover:border-slate-300"}`}
-            >
-              <div className="flex-1">
-                <b className="block text-sm text-slate-800">Iklan Individual</b>
-                <p className="mt-1 text-xs text-slate-500">Iklankan produk satu per satu berdasarkan target ROAS &amp; tujuanmu.</p>
-              </div>
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-[#ee4d2d]"><Megaphone size={20} /></span>
-            </button>
+          <div className="flex items-start gap-3 rounded-xl border border-[#ee4d2d] bg-orange-50/30 p-4 ring-1 ring-[#ee4d2d] sm:max-w-md">
+            <div className="flex-1">
+              <b className="block text-sm text-slate-800">Iklan Individual</b>
+              <p className="mt-1 text-xs text-slate-500">Iklankan produk satu per satu berdasarkan target ROAS &amp; tujuanmu.</p>
+            </div>
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-[#ee4d2d]"><Megaphone size={20} /></span>
           </div>
         </div>
 
@@ -256,31 +235,6 @@ function CreateShopeeAdPage() {
               </button>
             </div>
 
-            {bidding === "roas" && adMode === "group" && selectedProducts.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2 rounded-xl bg-slate-50 p-3">
-                <label className="text-xs font-medium text-slate-700">Target ROAS Grup:</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0.5"
-                  max="100"
-                  placeholder="mis. 6.0"
-                  value={groupTarget}
-                  onChange={(e) => setGroupTarget(e.target.value)}
-                  className="input h-8 w-32 bg-white text-xs"
-                />
-                {suggests[selectedIds[0]]?.roi_suggested && (
-                  <button
-                    type="button"
-                    onClick={() => setGroupTarget(String(suggests[selectedIds[0]].roi_suggested))}
-                    className="rounded-full bg-orange-50 px-2.5 py-1 text-[11px] font-semibold text-[#ee4d2d] hover:bg-orange-100"
-                  >
-                    Pakai saran Shopee: {suggests[selectedIds[0]].roi_suggested}x
-                  </button>
-                )}
-              </div>
-            )}
-
             {/* Selected Products Table */}
             <div className="overflow-hidden rounded-xl border border-slate-200">
               <table className="w-full text-left text-xs">
@@ -315,8 +269,6 @@ function CreateShopeeAdPage() {
                           <td className="px-4 py-3">
                             {bidding === "auto" ? (
                               <span className="text-slate-500">Otomatis Shopee</span>
-                            ) : adMode === "group" ? (
-                              <span className="text-slate-600">{groupTarget ? `${groupTarget}x (Grup)` : "Mengikuti Grup"}</span>
                             ) : (
                               <div className="flex flex-wrap items-center gap-2">
                                 <input
@@ -443,11 +395,7 @@ function CreateShopeeAdPage() {
         suggests={suggests}
         onApplyRoas={(itemId, roas) => {
           setBidding("roas");
-          if (adMode === "group") {
-            setGroupTarget(String(roas));
-          } else {
-            setTargets((cur) => ({ ...cur, [itemId]: String(roas) }));
-          }
+          setTargets((cur) => ({ ...cur, [itemId]: String(roas) }));
         }}
       />
 
