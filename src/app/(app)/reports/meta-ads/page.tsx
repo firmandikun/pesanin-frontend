@@ -1,11 +1,12 @@
 "use client";
-import { AlertTriangle, CheckCircle2, ExternalLink, KeyRound, Loader2, RefreshCcw, Unplug } from "lucide-react";
+import { AlertTriangle, Archive, CheckCircle2, ExternalLink, KeyRound, Loader2, Pause, Pencil, Play, Plus, RefreshCcw, Unplug } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { askConfirm } from "@/components/Dialogs";
 import { DateRange, useDefaultRange } from "@/components/DateRange";
 import { PageHead, Panel } from "@/components/kit";
 import { Select } from "@/components/Select";
+import { Modal } from "@/components/ui";
 import { api, ApiError, rupiah } from "@/lib/api";
 
 type Account = { id: string; name: string; currency: string; status: number; amount_spent: number; spend_cap: number | null; balance: number; prepaid?: boolean; prepaid_balance?: number | null };
@@ -13,6 +14,8 @@ type Status = { app_configured: boolean; connected: boolean; name: string | null
 type Row = { id: string; name: string; status: string | null; objective: string | null; spend: number; impressions: number; reach: number; clicks: number; ctr: number; results: number; result_label: string | null; cost_per_result: number | null; meta_purchases: number; meta_value: number; messages: number; orders: number; revenue: number; roas: number | null; cost_per_order: number | null };
 type Report = { totals: { spend: number; impressions: number; reach: number; clicks: number; results: number; result_label: string | null; meta_purchases: number; meta_value: number; messages: number; orders: number; revenue: number; roas: number | null };
   unmatched: { orders: number; revenue: number; campaigns: string[] }; daily: { date: string; spend: number }[]; campaigns: Row[] };
+type LiveCampaign = { id: string; account_id: string; account_name: string; currency: string; name: string; status: string | null; effective_status: string | null; objective: string | null; daily_budget: number | null };
+type FbPage = { id: string; name: string };
 
 const ACCOUNT_STATUS: Record<number, [string, string]> = { 1: ["Aktif", "bg-emerald-50 text-emerald-700"], 2: ["Nonaktif", "bg-rose-50 text-rose-700"], 3: ["Tagihan belum lunas", "bg-amber-50 text-amber-700"], 7: ["Ditinjau", "bg-sky-50 text-sky-700"], 9: ["Masa tenggang", "bg-amber-50 text-amber-700"], 101: ["Ditutup", "bg-slate-100 text-slate-500"] };
 const CAMPAIGN_STATUS: Record<string, [string, string]> = { ACTIVE: ["Aktif", "bg-emerald-50 text-emerald-700"], PAUSED: ["Dijeda", "bg-slate-100 text-slate-600"], CAMPAIGN_PAUSED: ["Dijeda", "bg-slate-100 text-slate-600"], ARCHIVED: ["Diarsipkan", "bg-slate-100 text-slate-500"], DELETED: ["Dihapus", "bg-slate-100 text-slate-500"], WITH_ISSUES: ["Bermasalah", "bg-rose-50 text-rose-700"], IN_PROCESS: ["Diproses", "bg-sky-50 text-sky-700"] };
@@ -36,13 +39,23 @@ function MetaAds() {
     sp.get("connected") ? { ok: true, text: "Akun Meta terhubung. Klik Ambil data iklan untuk menarik 30 hari terakhir." } : sp.get("error") ? { ok: false, text: sp.get("error")! } : null,
   );
   const [token, setToken] = useState("");
+  const [live, setLive] = useState<LiveCampaign[]>([]);
+  const [pages, setPages] = useState<FbPage[]>([]);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [withAd, setWithAd] = useState(false);
+  const [form, setForm] = useState({ account_id: "", name: "", objective: "OUTCOME_SALES", daily_budget: "50000", status: "PAUSED", page_id: "", link_url: "", message: "", headline: "" });
 
   const loadStatus = useCallback(() => api<Status>("/meta-ads").then(setStatus), []);
   const loadReport = useCallback(() => {
     api<Report>(`/meta-ads/report?${new URLSearchParams({ from: range.from, to: range.to, ...(account ? { account } : {}) })}`).then(setReport);
   }, [range, account]);
+  const loadLive = useCallback(() => {
+    api<{ campaigns: LiveCampaign[]; pages: FbPage[] }>(`/meta-ads/campaigns${account ? `?account=${encodeURIComponent(account)}` : ""}`)
+      .then((r) => { setLive(r.campaigns); setPages(r.pages); })
+      .catch(() => {});
+  }, [account]);
   useEffect(() => { loadStatus(); }, [loadStatus]);
-  useEffect(() => { if (status?.connected) loadReport(); }, [status?.connected, loadReport]);
+  useEffect(() => { if (status?.connected) { loadReport(); loadLive(); } }, [status?.connected, loadReport, loadLive]);
 
   const run = async (key: string, fn: () => Promise<void>) => {
     setBusy(key); setMsg(null);
@@ -50,7 +63,52 @@ function MetaAds() {
   };
   const login = () => run("login", async () => { const { url } = await api("/meta-ads/connect", { method: "POST" }); window.location.href = url; });
   const saveToken = () => run("token", async () => { const r = await api("/meta-ads/token", { method: "POST", json: { access_token: token.trim() } }); setToken(""); setMsg({ ok: true, text: `Terhubung sebagai ${r.name}. Klik Ambil data iklan.` }); await loadStatus(); });
-  const sync = () => run("sync", async () => { const r = await api("/meta-ads/sync", { method: "POST", json: { days: 30 } }); setMsg({ ok: true, text: `Data iklan Meta diperbarui (${r.rows} baris kampanye-hari).` }); await loadStatus(); loadReport(); });
+  const sync = () => run("sync", async () => { const r = await api("/meta-ads/sync", { method: "POST", json: { days: 30 } }); setMsg({ ok: true, text: `Data iklan Meta diperbarui (${r.rows} baris kampanye-hari).` }); await loadStatus(); loadReport(); loadLive(); });
+  const openCreate = () => {
+    const activeAccs = status?.accounts.filter((a) => a.status !== 101) ?? [];
+    setForm((f) => ({
+      ...f,
+      account_id: f.account_id || account || activeAccs[0]?.id || status?.accounts[0]?.id || "",
+      page_id: f.page_id || pages[0]?.id || "",
+    }));
+    setCreateOpen(true);
+  };
+  const submitCreate = (e: React.FormEvent) => {
+    e.preventDefault();
+    run("create", async () => {
+      const payload = {
+        account_id: form.account_id,
+        name: form.name.trim(),
+        objective: form.objective,
+        daily_budget: Math.max(10000, Number(form.daily_budget) || 0),
+        status: form.status,
+        ...(withAd && form.page_id && form.link_url ? { page_id: form.page_id, link_url: form.link_url.trim(), message: form.message.trim(), headline: form.headline.trim() } : {}),
+      };
+      await api("/meta-ads/campaigns", { method: "POST", json: payload });
+      setCreateOpen(false);
+      setForm((f) => ({ ...f, name: "", link_url: "", message: "", headline: "" }));
+      setMsg({ ok: true, text: `Kampanye "${payload.name}" berhasil dibuat di Meta Ads.` });
+      loadLive();
+    });
+  };
+  const patchCampaign = (c: LiveCampaign, fields: { status?: string; daily_budget?: number }) =>
+    run(`camp:${c.id}`, async () => {
+      await api(`/meta-ads/campaigns/${c.id}`, { method: "PATCH", json: { ...fields, currency: c.currency } });
+      setMsg({ ok: true, text: `Kampanye "${c.name}" diperbarui.` });
+      loadLive();
+      loadReport();
+    });
+  const editBudget = (c: LiveCampaign) => {
+    const val = window.prompt(`Ubah budget harian untuk "${c.name}" (${c.currency}):`, String(c.daily_budget ?? 50000));
+    if (!val) return;
+    const n = Number(val.replace(/[^\d]/g, ""));
+    if (!n || n < 10000) { setMsg({ ok: false, text: "Budget minimal Rp10.000." }); return; }
+    patchCampaign(c, { daily_budget: n });
+  };
+  const archiveCampaign = async (c: LiveCampaign) => {
+    if (!(await askConfirm(`Arsipkan kampanye "${c.name}"? Kampanye yang diarsipkan berhenti tayang permanen.`))) return;
+    patchCampaign(c, { status: "ARCHIVED" });
+  };
   const disconnect = async () => {
     if (!(await askConfirm("Putuskan akun Meta? Akses Pesanin di akun Facebook-mu juga dicabut. Data iklan yang sudah diambil tetap tersimpan untuk laporan."))) return;
     run("off", async () => { await api("/meta-ads", { method: "DELETE" }); setReport(null); await loadStatus(); });
@@ -73,7 +131,7 @@ function MetaAds() {
       <Panel className="space-y-5 p-6">
         <div>
           <h2 className="text-lg font-bold text-navy">Hubungkan akun iklan Facebook & Instagram</h2>
-          <p className="mt-1 max-w-2xl text-sm text-slate-500">Biaya iklan per kampanye diambil otomatis dari Meta, lalu dicocokkan dengan pesanan yang benar-benar masuk ke Pesanin, jadi kamu melihat ROAS dan biaya per pesanan yang asli, bukan klaim Ads Manager. Pesanin hanya meminta izin <b>baca</b> (ads_read).</p>
+          <p className="mt-1 max-w-2xl text-sm text-slate-500">Biaya iklan per kampanye diambil otomatis dari Meta lalu dicocokkan dengan pesanan yang benar-benar masuk ke Pesanin, sekaligus bisa membuat dan mengelola kampanye iklan langsung dari sini.</p>
         </div>
         {status.app_configured && (
           <button onClick={login} disabled={!!busy} className="flex h-11 items-center gap-2 rounded-lg bg-[#1877f2] px-5 text-sm font-semibold text-white disabled:opacity-50">
@@ -82,7 +140,7 @@ function MetaAds() {
         )}
         <div className="rounded-xl bg-slate-50 p-4">
           <p className="flex items-center gap-2 text-sm font-semibold text-navy"><KeyRound size={15} />{status.app_configured ? "Atau tempel access token" : "Tempel access token"}</p>
-          <p className="mt-1 text-xs text-slate-500">Buka <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noreferrer" className="font-semibold text-brand-600">Graph API Explorer <ExternalLink size={11} className="inline" /></a>, pilih app kamu, tambahkan izin <code className="rounded bg-white px-1">ads_read</code>, klik Generate Access Token, lalu salin ke sini.</p>
+          <p className="mt-1 text-xs text-slate-500">Buka <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noreferrer" className="font-semibold text-brand-600">Graph API Explorer <ExternalLink size={11} className="inline" /></a>, pilih app kamu, tambahkan izin <code className="rounded bg-white px-1">ads_read</code> dan <code className="rounded bg-white px-1">ads_management</code> (untuk buat/kelola iklan), klik Generate Access Token, lalu salin ke sini.</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <input className="input h-10 min-w-[260px] flex-1 font-mono text-xs" placeholder="EAAG…" value={token} onChange={(e) => setToken(e.target.value)} autoComplete="off" />
             <button onClick={saveToken} disabled={token.trim().length < 20 || !!busy} className="flex h-10 items-center gap-2 rounded-lg bg-navy px-4 text-sm font-semibold text-white disabled:opacity-50">{busy === "token" && <Loader2 size={15} className="animate-spin" />}Hubungkan</button>
@@ -98,6 +156,7 @@ function MetaAds() {
   return (
     <div className="space-y-5">
       <PageHead title="Iklan Meta" tutorial={false} crumbs={[["Laporan"], ["Iklan Meta"]]}>
+        <button onClick={openCreate} disabled={!!busy || !status.accounts.length} className="flex h-10 items-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"><Plus size={16} />Buat Iklan</button>
         <button onClick={sync} disabled={!!busy} className="flex h-10 items-center gap-2 rounded-lg bg-[#1877f2] px-4 text-sm font-semibold text-white disabled:opacity-50">{busy === "sync" ? <Loader2 size={16} className="animate-spin" /> : <RefreshCcw size={16} />}Ambil data iklan</button>
         <button onClick={disconnect} className="flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-sm font-semibold text-slate-600 hover:text-rose-600" title="Putuskan Pesanin dari akun Facebook"><Unplug size={16} />Putuskan</button>
       </PageHead>
@@ -211,6 +270,120 @@ function MetaAds() {
           <p className="text-xs text-slate-400">Biaya iklan Meta yang diambil otomatis juga masuk ke Laporan → Biaya Iklan dan laporan laba. Hapus catatan biaya Meta yang dulu diinput manual untuk periode yang sama supaya tidak terhitung dua kali.</p>
         </>
       )}
+
+      {live.length > 0 && (
+        <Panel className="overflow-x-auto">
+          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+            <div>
+              <h2 className="font-bold text-navy">Kelola Kampanye Live ({live.length})</h2>
+              <p className="text-xs text-slate-400">Aktifkan, jeda, ubah budget harian, atau arsipkan kampanye langsung ke Meta Ads (butuh izin <code className="rounded bg-slate-100 px-1">ads_management</code>).</p>
+            </div>
+          </div>
+          <table className="w-full min-w-[760px] text-sm">
+            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+              <tr><th className="py-2.5 pl-4 pr-3">Kampanye</th><th className="px-3 py-2.5">Akun</th><th className="px-3 py-2.5">Status</th><th className="px-3 py-2.5 text-right">Budget Harian</th><th className="py-2.5 pl-3 pr-4 text-right">Aksi</th></tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {live.map((c) => {
+                const st = c.status ?? c.effective_status ?? "";
+                const [label, tone] = CAMPAIGN_STATUS[c.effective_status ?? st] ?? [st || "-", "bg-slate-100 text-slate-500"];
+                const rowBusy = busy === `camp:${c.id}`;
+                const archived = st === "ARCHIVED" || st === "DELETED";
+                return (
+                  <tr key={c.id}>
+                    <td className="py-2.5 pl-4 pr-3"><p className="max-w-[260px] truncate font-medium text-navy" title={c.name}>{c.name}</p><p className="text-[11px] text-slate-400">{OBJECTIVE[c.objective ?? ""] ?? c.objective}</p></td>
+                    <td className="px-3 py-2.5 text-xs text-slate-500">{c.account_name}</td>
+                    <td className="px-3 py-2.5"><span className={`rounded px-2 py-0.5 text-[11px] font-semibold ${tone}`}>{label}</span></td>
+                    <td className="px-3 py-2.5 text-right font-semibold text-navy">{c.daily_budget ? rupiah(c.daily_budget) : "-"}</td>
+                    <td className="py-2.5 pl-3 pr-4 text-right">
+                      {!archived && (
+                        <div className="inline-flex items-center gap-1.5">
+                          <button onClick={() => patchCampaign(c, { status: st === "ACTIVE" ? "PAUSED" : "ACTIVE" })} disabled={!!busy} className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold ${st === "ACTIVE" ? "bg-amber-50 text-amber-700 hover:bg-amber-100" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"}`}>
+                            {rowBusy ? <Loader2 size={12} className="animate-spin" /> : st === "ACTIVE" ? <Pause size={12} /> : <Play size={12} />}{st === "ACTIVE" ? "Jeda" : "Aktifkan"}
+                          </button>
+                          <button onClick={() => editBudget(c)} disabled={!!busy} className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200"><Pencil size={12} />Budget</button>
+                          <button onClick={() => archiveCampaign(c)} disabled={!!busy} className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Arsipkan"><Archive size={14} /></button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </Panel>
+      )}
+
+      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Buat Iklan Meta Baru" icon={Plus}>
+        <form onSubmit={submitCreate} className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-600">Akun Iklan</label>
+            <Select className="input w-full" value={form.account_id} onChange={(e) => setForm({ ...form, account_id: e.target.value })}>
+              {status.accounts.filter((a) => a.status !== 101).map((a) => <option key={a.id} value={a.id}>{a.name} ({a.currency})</option>)}
+            </Select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-600">Nama Kampanye</label>
+            <input required maxLength={150} className="input w-full" placeholder="mis. Promo Helm Cargloss Nov" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600">Tujuan (Objective)</label>
+              <Select className="input w-full" value={form.objective} onChange={(e) => setForm({ ...form, objective: e.target.value })}>
+                <option value="OUTCOME_SALES">Penjualan (Sales)</option>
+                <option value="OUTCOME_TRAFFIC">Traffic / Klik Link</option>
+                <option value="OUTCOME_ENGAGEMENT">Interaksi (Engagement)</option>
+                <option value="OUTCOME_LEADS">Prospek (Leads)</option>
+                <option value="OUTCOME_AWARENESS">Awareness</option>
+              </Select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600">Budget Harian (Rp)</label>
+              <input required type="number" min={10000} step={1000} className="input w-full" value={form.daily_budget} onChange={(e) => setForm({ ...form, daily_budget: e.target.value })} />
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-600">Status Awal</label>
+            <Select className="input w-full" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+              <option value="PAUSED">Dijeda (Draft — aman untuk cek dulu)</option>
+              <option value="ACTIVE">Langsung Aktif</option>
+            </Select>
+          </div>
+          <label className="flex cursor-pointer items-center gap-2 pt-1 text-xs font-semibold text-slate-700">
+            <input type="checkbox" checked={withAd} onChange={(e) => setWithAd(e.target.checked)} />
+            Sekalian buat Ad Set (Indonesia 18–65) &amp; Iklan Link
+          </label>
+          {withAd && (
+            <div className="space-y-2.5 rounded-xl bg-slate-50 p-3">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-600">Halaman Facebook (Page)</label>
+                {pages.length ? (
+                  <Select className="input w-full" value={form.page_id} onChange={(e) => setForm({ ...form, page_id: e.target.value })}>
+                    {pages.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </Select>
+                ) : (
+                  <p className="text-xs text-amber-700">Tidak ada Halaman Facebook ditemukan di token ini (butuh izin <code>pages_show_list</code>).</p>
+                )}
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-600">Link Tujuan (otomatis ditambah UTM Pesanin)</label>
+                <input type="url" required={withAd} className="input w-full" placeholder="https://pesaninn.my.id/toko/..." value={form.link_url} onChange={(e) => setForm({ ...form, link_url: e.target.value })} />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-600">Teks Utama Iklan</label>
+                <textarea rows={2} className="input w-full py-2" placeholder="Promo hari ini! Gratis ongkir..." value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-600">Judul (Headline)</label>
+                <input maxLength={200} className="input w-full" placeholder="Beli Sekarang" value={form.headline} onChange={(e) => setForm({ ...form, headline: e.target.value })} />
+              </div>
+            </div>
+          )}
+          <button type="submit" disabled={busy === "create" || !form.account_id} className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand-600 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50">
+            {busy === "create" ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}Buat Kampanye di Meta Ads
+          </button>
+        </form>
+      </Modal>
     </div>
   );
 }
