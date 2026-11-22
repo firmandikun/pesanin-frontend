@@ -79,9 +79,16 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
     // The camera reads the same label many times a second: ignore repeats for a few seconds
     // (1.5 s while checking products, so two units of the same product can be scanned one after another).
     const open = packRef.current.order;
-    if (!code || busy.current || (seen.current.code === code && now - seen.current.at < (open ? 1500 : 4000))) return;
+    if (!code || busy.current || (seen.current.code === code && now - seen.current.at < 4000)) return;
     seen.current = { code, at: now };
-    if (open) { packRef.current.scan(code); return; }
+    if (open) {
+      const sameLabel = [open.resi, open.order_sn, open.code].some(
+        (x) => (x ?? "").trim().replace(/\s+/g, "").toUpperCase() === code.replace(/\s+/g, "").toUpperCase(),
+      );
+      if (sameLabel) { packRef.current.scan(code); return; }
+      // Scanning a new resi automatically moves on from the previous proof card.
+      packRef.current.cancel();
+    }
     const resiErr = validateResiCode(code);
     if (resiErr) {
       feedback("invalid");
@@ -272,7 +279,7 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
       {pack.order && pack.msg && <div className={`rounded-2xl p-3 text-sm font-semibold ring-1 ${pack.msg.ok ? "bg-emerald-50 text-emerald-800 ring-emerald-200" : "bg-rose-50 text-rose-800 ring-rose-200"}`}>{pack.msg.text}</div>}
       {pack.order && <PackPanel pack={pack} snap={camOn ? snap : undefined} compact />}
 
-      {!pack.order && pack.msg?.ok && pack.msg.text.startsWith("Paket ") && <div className="rounded-2xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-800 ring-1 ring-emerald-200">{pack.msg.text}</div>}
+      {!pack.order && pack.msg?.ok && pack.msg.text.startsWith("Bukti paket ") && <div className="rounded-2xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-800 ring-1 ring-emerald-200">{pack.msg.text}</div>}
       {last && !pack.order && (
         <div className={`overflow-hidden rounded-2xl p-4 ring-1 ${STATUS_STYLE[last.status].box}`}>
           <div className="text-xs font-bold uppercase">{STATUS_STYLE[last.status].label}</div>
