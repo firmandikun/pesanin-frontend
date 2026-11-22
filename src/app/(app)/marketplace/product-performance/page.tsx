@@ -29,6 +29,7 @@ type PerfVariant = {
   name: string;
   sku: string | null;
   price: number;
+  cost_price?: number | null;
   stock: number;
   shopee_stock: number;
   has_master_stock: boolean;
@@ -47,6 +48,8 @@ type PerfItem = {
   image: string | null;
   price_min: number;
   price_max: number;
+  hpp_min?: number | null;
+  hpp_max?: number | null;
   stock: number;
   shopee_stock?: number;
   has_master_stock?: boolean;
@@ -475,6 +478,7 @@ export default function ShopeeProductPerformancePage() {
                                     <th className="px-3 py-2">Variasi</th>
                                     <th className="px-3 py-2">SKU</th>
                                     <th className="px-3 py-2 text-right">Harga</th>
+                                    <th className="px-3 py-2 text-right">HPP</th>
                                     <th className="px-3 py-2 text-right">Terjual Periode</th>
                                     <th className="px-3 py-2 text-right">Omzet Periode</th>
                                     <th className="px-3 py-2 text-right">Stok</th>
@@ -486,6 +490,7 @@ export default function ShopeeProductPerformancePage() {
                                       <td className="px-3 py-2 font-medium text-slate-800">{v.name}</td>
                                       <td className="px-3 py-2 font-mono text-[11px] text-slate-500">{v.sku || "-"}</td>
                                       <td className="px-3 py-2 text-right text-slate-700">{rupiah(v.price)}</td>
+                                      <td className="px-3 py-2 text-right text-slate-600">{v.cost_price ? rupiah(v.cost_price) : <span className="text-slate-300">-</span>}</td>
                                       <td className="px-3 py-2 text-right">
                                         <span className="font-semibold text-slate-900">{num(v.period_units)} unit</span>
                                         <span className="ml-1.5 text-[10px] text-slate-400">({num(v.period_orders)} pesanan)</span>

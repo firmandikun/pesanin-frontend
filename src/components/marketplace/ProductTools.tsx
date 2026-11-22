@@ -136,33 +136,33 @@ export function PriceDialog({ rows, onClose, onSaved }: { rows: PriceRow[]; onCl
   };
   return (
     <Modal open onClose={onClose} title={`Ubah Harga (${rows.length} variasi)`} wide>
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-end gap-2 rounded-xl bg-slate-50 p-3">
-          <label className="text-xs"><span className="mb-1 block font-medium text-slate-600">Cara ubah</span>
-            <select className="input h-9 w-44" value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
+      <div className="space-y-4">
+        <div className="grid items-end gap-3 rounded-xl bg-slate-50 p-3.5 sm:grid-cols-[1fr_1fr_auto]">
+          <label className="block text-xs"><span className="mb-1 block font-medium text-slate-600">Cara ubah</span>
+            <select className="input h-9 w-full" value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
               <option value="pct">Naik/turun persen (%)</option><option value="amount">Naik/turun nominal (Rp)</option><option value="set">Samakan harga (Rp)</option>
             </select></label>
-          <label className="text-xs"><span className="mb-1 block font-medium text-slate-600">{mode === "pct" ? "Persen (mis. 10 atau -5)" : mode === "amount" ? "Nominal (mis. 2000 atau -1000)" : "Harga baru"}</span>
-            <input className="input h-9 w-44" value={val} onChange={(e) => setVal(e.target.value)} inputMode="numeric" /></label>
-          <button onClick={apply} className="h-9 rounded-lg border border-[#ee4d2d] px-4 text-sm font-semibold text-[#ee4d2d]">Terapkan ke semua</button>
+          <label className="block text-xs"><span className="mb-1 block font-medium text-slate-600">{mode === "pct" ? "Persen (mis. 10 atau -5)" : mode === "amount" ? "Nominal (mis. 2000 atau -1000)" : "Harga baru"}</span>
+            <input className="input h-9 w-full" value={val} onChange={(e) => setVal(e.target.value)} inputMode="numeric" /></label>
+          <button onClick={apply} className="h-9 shrink-0 rounded-lg border border-[#ee4d2d] bg-white px-4 text-sm font-semibold text-[#ee4d2d] hover:bg-orange-50">Terapkan ke semua</button>
         </div>
         <div className="max-h-[50vh] divide-y divide-slate-100 overflow-auto rounded-xl border border-slate-200">
           {rows.map((r) => {
             const p = Number(prices[r.id]);
             return (
-              <div key={r.id} className="flex items-center gap-3 px-3 py-2 text-sm">
-                <span className="min-w-0 flex-1"><span className="block truncate text-slate-800">{r.name}</span>{r.model_name && <span className="block truncate text-xs text-slate-500">{r.model_name}</span>}
+              <div key={r.id} className="flex items-center gap-3 px-3.5 py-2.5 text-sm">
+                <span className="min-w-0 flex-1"><span className="block truncate font-medium text-slate-800">{r.name}</span>{r.model_name && <span className="block truncate text-xs text-slate-500">{r.model_name}</span>}
                   {errors[r.id] && <span className="block text-xs text-rose-600">{errors[r.id]}</span>}</span>
-                <span className="w-28 text-right text-xs text-slate-400 line-through decoration-slate-300">{p !== r.price ? rupiah(r.price) : ""}</span>
-                <input className={`input h-9 w-36 text-right ${p !== r.price ? "border-[#ee4d2d] font-semibold" : ""}`} value={prices[r.id]} inputMode="numeric"
+                <span className="w-24 shrink-0 text-right text-xs text-slate-400 line-through decoration-slate-300">{p !== r.price ? rupiah(r.price) : ""}</span>
+                <input className={`input h-9 w-32 shrink-0 text-right ${p !== r.price ? "border-[#ee4d2d] font-semibold" : ""}`} value={prices[r.id]} inputMode="numeric"
                   onChange={(e) => setPrices({ ...prices, [r.id]: e.target.value.replace(/\D/g, "") })} />
               </div>
             );
           })}
         </div>
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-slate-500">{changed.length} variasi akan diubah langsung di Shopee. Produk yang sedang ikut promo/flash sale bisa ditolak Shopee.</p>
-          <button onClick={save} disabled={busy || !changed.length} className="flex h-10 items-center gap-2 rounded-lg bg-[#ee4d2d] px-5 text-sm font-semibold text-white disabled:opacity-50">{busy && <Loader2 size={15} className="animate-spin" />}Simpan ke Shopee</button>
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+          <p className="min-w-0 flex-1 text-xs text-slate-500">{changed.length} variasi akan diubah langsung di Shopee. Produk yang sedang ikut promo/flash sale bisa ditolak Shopee.</p>
+          <button onClick={save} disabled={busy || !changed.length} className="flex h-10 shrink-0 items-center gap-2 rounded-lg bg-[#ee4d2d] px-5 text-sm font-semibold text-white hover:bg-[#d73211] disabled:opacity-50">{busy && <Loader2 size={15} className="animate-spin" />}Simpan ke Shopee</button>
         </div>
       </div>
     </Modal>
@@ -188,15 +188,16 @@ export function TextDialog({ shopId, itemId, onClose, onSaved }: { shopId: numbe
   };
   return (
     <Modal open onClose={onClose} title="Ubah Judul & Deskripsi" wide>
-      {!d ? <p className="flex items-center gap-2 py-6 text-sm text-slate-500"><Loader2 size={15} className="animate-spin" />Mengambil data dari Shopee…</p> : (
-        <div className="space-y-3">
-          <label className="block text-sm"><span className="mb-1 flex justify-between font-medium text-slate-700">Judul produk<span className={`text-xs ${d.name.length > 255 ? "text-rose-600" : "text-slate-400"}`}>{d.name.length}/255</span></span>
+      {!d ? <p className="flex items-center gap-2 py-8 text-sm text-slate-500"><Loader2 size={15} className="animate-spin" />Mengambil data dari Shopee…</p> : (
+        <div className="space-y-4">
+          <label className="block text-sm"><span className="mb-1.5 flex justify-between font-medium text-slate-700">Judul produk<span className={`text-xs ${d.name.length > 255 ? "text-rose-600" : "text-slate-400"}`}>{d.name.length}/255</span></span>
             <input className="input h-10 w-full" value={d.name} onChange={(e) => setD({ ...d, name: e.target.value })} /></label>
-          <label className="block text-sm"><span className="mb-1 flex justify-between font-medium text-slate-700">Deskripsi<span className="text-xs text-slate-400">{d.description.length}/5000</span></span>
-            <textarea className="input min-h-[240px] w-full py-2" value={d.description} disabled={d.extended} onChange={(e) => setD({ ...d, description: e.target.value })} /></label>
+          <label className="block text-sm"><span className="mb-1.5 flex justify-between font-medium text-slate-700">Deskripsi<span className="text-xs text-slate-400">{d.description.length}/5000</span></span>
+            <textarea className="input min-h-[240px] w-full py-2.5" value={d.description} disabled={d.extended} onChange={(e) => setD({ ...d, description: e.target.value })} /></label>
           {d.extended && <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">Deskripsi produk ini berformat{d.has_images ? " dan berisi gambar" : ""}, jadi hanya judul yang diubah dari sini. Ubah deskripsinya di Seller Centre.</p>}
-          <div className="flex justify-end">
-            <button onClick={save} disabled={busy || d.name.trim().length < 10} className="flex h-10 items-center gap-2 rounded-lg bg-[#ee4d2d] px-5 text-sm font-semibold text-white disabled:opacity-50">{busy && <Loader2 size={15} className="animate-spin" />}Simpan ke Shopee</button>
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <button type="button" onClick={onClose} className="h-10 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50">Batal</button>
+            <button onClick={save} disabled={busy || d.name.trim().length < 10} className="flex h-10 items-center gap-2 rounded-lg bg-[#ee4d2d] px-5 text-sm font-semibold text-white hover:bg-[#d73211] disabled:opacity-50">{busy && <Loader2 size={15} className="animate-spin" />}Simpan ke Shopee</button>
           </div>
         </div>
       )}
@@ -250,32 +251,41 @@ export function SkuDialog({ keys, onClose, onSaved }: { keys?: string[]; onClose
 
   return (
     <Modal open onClose={onClose} title={scope === "selected" ? "Ubah SKU Produk Terpilih" : "Buat SKU Otomatis"} wide>
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-end gap-2 rounded-xl bg-slate-50 p-3 text-xs">
-          <label><span className="mb-1 block font-medium text-slate-600">Format SKU</span>
-            <select className="input h-9 w-64" value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
-              <option value="abbr">Singkatan nama + variasi (CTKA-HIT-OLD)</option>
-              <option value="number">Awalan + nomor urut (PSN-0001)</option>
-            </select></label>
-          <label><span className="mb-1 block font-medium text-slate-600">Awalan {mode === "abbr" ? "(opsional)" : ""}</span>
-            <input className="input h-9 w-36 uppercase" maxLength={12} placeholder={mode === "abbr" ? "mis. MST" : "SKU"} value={prefix} onChange={(e) => setPrefix(e.target.value.replace(/[^A-Za-z0-9-]/g, ""))} /></label>
-          <p className="ml-auto max-w-xs text-[11px] text-slate-500">{scope === "selected" ? `${keys?.length} produk terpilih.` : "Semua variasi yang SKU-nya masih kosong (maks. 500)."} Produk & variasi yang sama di beberapa toko mendapat SKU yang sama.</p>
+      <div className="space-y-4">
+        <div className="space-y-2.5 rounded-xl bg-slate-50 p-3.5 text-xs">
+          <div className="grid gap-3 sm:grid-cols-[1fr_180px]">
+            <label className="block"><span className="mb-1 block font-medium text-slate-600">Format SKU</span>
+              <select className="input h-9 w-full" value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
+                <option value="abbr">Singkatan nama + variasi (CTKA-HIT-OLD)</option>
+                <option value="number">Awalan + nomor urut (PSN-0001)</option>
+              </select></label>
+            <label className="block"><span className="mb-1 block font-medium text-slate-600">Awalan {mode === "abbr" ? "(opsional)" : ""}</span>
+              <input className="input h-9 w-full uppercase" maxLength={12} placeholder={mode === "abbr" ? "mis. MST" : "SKU"} value={prefix} onChange={(e) => setPrefix(e.target.value.replace(/[^A-Za-z0-9-]/g, ""))} /></label>
+          </div>
+          <p className="text-[11px] text-slate-500">{scope === "selected" ? `${keys?.length} produk terpilih.` : "Semua variasi yang SKU-nya masih kosong (maks. 500)."} Produk &amp; variasi yang sama di beberapa toko mendapat SKU yang sama.</p>
         </div>
         {done && <p className={`rounded-lg p-2.5 text-sm ${Object.keys(errors).length ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-700"}`}>{done}</p>}
-        <div className="max-h-[50vh] overflow-auto rounded-xl border border-slate-200">
+        <div className="max-h-[48vh] overflow-auto rounded-xl border border-slate-200">
           {rows === null ? <p className="flex items-center gap-2 p-4 text-sm text-slate-400"><Loader2 size={14} className="animate-spin" />Menyusun usulan SKU…</p>
             : !rows.length ? <p className="p-6 text-center text-sm text-slate-500">{scope === "empty" ? "Semua produk sudah punya SKU." : "Tidak ada produk."}</p> : (
               <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-slate-50 text-left text-xs text-slate-500"><tr><th className="px-3 py-2">Produk / Variasi</th><th className="px-3 py-2">Toko</th><th className="px-3 py-2">SKU sekarang</th><th className="px-3 py-2">SKU baru</th></tr></thead>
+                <thead className="sticky top-0 bg-slate-50 text-left text-xs text-slate-500">
+                  <tr>
+                    <th className="px-3.5 py-2.5 font-semibold">Produk / Variasi</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 font-semibold">Toko</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SKU sekarang</th>
+                    <th className="whitespace-nowrap px-3.5 py-2.5 font-semibold">SKU baru</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {rows.map((r) => (
                     <tr key={r.id} className="border-t border-slate-100">
-                      <td className="max-w-[300px] px-3 py-2"><span className="block truncate text-slate-800" title={r.name}>{r.name}</span>{r.model_name && <span className="block truncate text-xs text-slate-500">{r.model_name}</span>}
+                      <td className="max-w-[260px] px-3.5 py-2.5"><span className="block truncate font-medium text-slate-800" title={r.name}>{r.name}</span>{r.model_name && <span className="block truncate text-xs text-slate-500">{r.model_name}</span>}
                         {errors[r.id] && <span className="block text-xs text-rose-600">{errors[r.id]}</span>}</td>
-                      <td className="px-3 py-2 text-xs text-slate-500">{r.shop_name}</td>
-                      <td className="px-3 py-2 font-mono text-xs text-slate-400">{r.current || "-"}</td>
-                      <td className="px-3 py-2"><input className={`input h-8 w-48 font-mono text-xs ${dupes.has(r.sku) ? "border-amber-400 bg-amber-50/50" : r.sku !== (r.current ?? "") ? "border-[#ee4d2d]" : ""}`} value={r.sku} maxLength={100} onChange={(e) => set(r.id, e.target.value)} />
-                        {dupes.has(r.sku) && <span className="block text-[11px] text-amber-700">sama dengan produk lain · stok digabung</span>}</td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-xs text-slate-500">{r.shop_name}</td>
+                      <td className="whitespace-nowrap px-3 py-2.5 font-mono text-xs text-slate-400">{r.current || "-"}</td>
+                      <td className="px-3.5 py-2.5"><input className={`input h-8 w-44 font-mono text-xs sm:w-52 ${dupes.has(r.sku) ? "border-amber-400 bg-amber-50/50" : r.sku !== (r.current ?? "") ? "border-slate-300 font-semibold focus:border-[#ee4d2d]" : ""}`} value={r.sku} maxLength={100} onChange={(e) => set(r.id, e.target.value)} />
+                        {dupes.has(r.sku) && <span className="mt-0.5 block text-[11px] text-amber-700">sama dengan produk lain · stok digabung</span>}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -283,19 +293,19 @@ export function SkuDialog({ keys, onClose, onSaved }: { keys?: string[]; onClose
             )}
         </div>
         {groups.length > 0 && (
-          <div className="rounded-xl border border-slate-200 p-3">
-            <label className="flex items-start gap-2 text-sm">
+          <div className="rounded-xl border border-slate-200 p-3.5">
+            <label className="flex items-start gap-2.5 text-sm">
               <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[#ee4d2d]" checked={share} onChange={(e) => setShare(e.target.checked)} />
               <span><b className="text-slate-800">Samakan stok untuk SKU yang sama</b>
                 <span className="block text-xs text-slate-500">{groups.length} SKU dipakai lebih dari satu listing. Stoknya dijadikan satu lewat Stok Master dan dikirim ke semua toko, lalu berkurang otomatis setiap ada pesanan.</span></span>
             </label>
             {share && (
-              <div className="mt-2 max-h-48 divide-y divide-slate-100 overflow-auto rounded-lg bg-slate-50/60">
+              <div className="mt-2.5 max-h-48 divide-y divide-slate-100 overflow-auto rounded-lg bg-slate-50/60">
                 {groups.map((g) => (
                   <div key={g.sku} className="flex items-center gap-3 px-3 py-2 text-sm">
                     <span className="min-w-0 flex-1"><b className="font-mono text-xs text-slate-800">{g.sku}</b>
                       <span className="block truncate text-xs text-slate-500">{g.rows.length} listing · {[...new Set(g.rows.map((x) => x.shop_name))].join(", ")} · stok sekarang {g.min === g.max ? g.min : `${g.min}–${g.max}`}</span></span>
-                    <label className="flex items-center gap-1.5 text-xs text-slate-500">Stok
+                    <label className="flex shrink-0 items-center gap-1.5 text-xs text-slate-500">Stok
                       <input className="input h-8 w-20 text-right" inputMode="numeric" value={stockOf(g)} onChange={(e) => setStocks({ ...stocks, [g.sku]: e.target.value.replace(/\D/g, "") })} /></label>
                   </div>
                 ))}
@@ -303,10 +313,10 @@ export function SkuDialog({ keys, onClose, onSaved }: { keys?: string[]; onClose
             )}
           </div>
         )}
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-slate-500">{changed.length} SKU akan disimpan ke Shopee (SKU induk & kode variasi). SKU tidak terlihat pembeli.
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+          <p className="min-w-0 flex-1 text-xs text-slate-500">{changed.length} SKU akan disimpan ke Shopee (SKU induk &amp; kode variasi). SKU tidak terlihat pembeli.
             {dupes.size > 0 && <span className="block text-amber-700">{dupes.size} SKU dipakai lebih dari satu produk: di Stok Master produk-produk itu akan memakai satu stok yang sama. Ubah kalau sebenarnya barangnya berbeda.</span>}</p>
-          <button onClick={save} disabled={busy || !changed.length} className="flex h-10 items-center gap-2 rounded-lg bg-[#ee4d2d] px-5 text-sm font-semibold text-white disabled:opacity-50">{busy && <Loader2 size={15} className="animate-spin" />}Simpan ke Shopee</button>
+          <button onClick={save} disabled={busy || !changed.length} className="flex h-10 shrink-0 items-center gap-2 rounded-lg bg-[#ee4d2d] px-5 text-sm font-semibold text-white hover:bg-[#d73211] disabled:opacity-50">{busy && <Loader2 size={15} className="animate-spin" />}Simpan ke Shopee</button>
         </div>
       </div>
     </Modal>
