@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ShopeeMark } from "@/components/ChannelBadge";
-import { NotificationBell } from "@/components/NotificationBell";
+import { CHAT_EVENT, NotificationBell } from "@/components/NotificationBell";
 import { api, ApiError, rupiah } from "@/lib/api";
 
 type Channel = "shopee" | "facebook" | "instagram" | "whatsapp";
@@ -79,10 +79,15 @@ export function FloatingChatDrawer() {
   useEffect(() => {
     if (pathname?.startsWith("/chat")) return;
     loadInbox();
+    const onChat = () => loadInbox();
+    window.addEventListener(CHAT_EVENT, onChat);
     const t = setInterval(() => {
       if (!document.hidden) loadInbox();
-    }, 25000);
-    return () => clearInterval(t);
+    }, 10000);
+    return () => {
+      window.removeEventListener(CHAT_EVENT, onChat);
+      clearInterval(t);
+    };
   }, [pathname, loadInbox]);
 
   const loadMsgs = useCallback((c: Conv) => {
@@ -103,6 +108,9 @@ export function FloatingChatDrawer() {
     if (!active) return;
     setMsgs(null);
     loadMsgs(active);
+    const onChat = () => loadMsgs(active);
+    window.addEventListener(CHAT_EVENT, onChat);
+    return () => window.removeEventListener(CHAT_EVENT, onChat);
   }, [active, loadMsgs]);
 
   useEffect(() => {
@@ -195,8 +203,19 @@ export function FloatingChatDrawer() {
                 <div key={m.id} className={`flex ${m.from_me ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-[82%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${m.from_me ? "rounded-br-sm bg-[#ee4d2d] text-white" : "rounded-bl-sm bg-white text-slate-700 ring-1 ring-slate-200/70"}`}>
                     {m.order && <MiniOrderCard o={m.order} fromMe={m.from_me} />}
-                    {m.image && <a href={m.image} target="_blank" rel="noreferrer"><img src={m.image} alt="" className="mb-1 max-h-44 rounded-lg object-cover" /></a>}
-                    {!(m.order && m.text === "[Pesanan]") && m.text && <p className="whitespace-pre-wrap break-words">{m.text}</p>}
+                    {m.video ? (
+                      <div className="mb-1 space-y-1">
+                        <video src={m.video} poster={m.image ?? undefined} controls preload="metadata" playsInline className="max-h-56 w-56 rounded-lg bg-black" />
+                        <a href={m.video} target="_blank" rel="noreferrer" className={`block text-[10px] underline ${m.from_me ? "text-white/80" : "text-slate-500"}`}>Buka video</a>
+                      </div>
+                    ) : m.image ? (
+                      <a href={m.image} target="_blank" rel="noreferrer"><img src={m.image} alt="" className="mb-1 max-h-44 rounded-lg object-cover" /></a>
+                    ) : m.type === "video" ? (
+                      <p className="italic opacity-80">[Video] Buka di aplikasi Shopee untuk melihat</p>
+                    ) : null}
+                    {!(m.order && m.text === "[Pesanan]") && !(m.image && /^\[(Gambar|Stiker|Pesan)\]$/.test(m.text)) && !(m.video && m.text === "[Video]") && !(m.type === "video" && !m.video && m.text === "[Video]") && m.text && (
+                      <p className="whitespace-pre-wrap break-words">{m.text}</p>
+                    )}
                     <p className={`mt-0.5 text-right text-[10px] ${m.from_me ? "text-white/75" : "text-slate-400"}`}>{shortTime(m.at)}</p>
                   </div>
                 </div>
