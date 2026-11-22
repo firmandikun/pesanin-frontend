@@ -666,13 +666,13 @@ function Publish() {
                   <input type="number" className="input h-9 w-32" placeholder="Harga" value={bulk.price} onChange={(e) => setBulk({ ...bulk, price: e.target.value })} />
                   <input type="number" className="input h-9 w-24" placeholder="Stok" value={bulk.stock} onChange={(e) => setBulk({ ...bulk, stock: e.target.value })} />
                   <input type="number" className="input h-9 w-32" placeholder="HPP (Pesanin)" value={bulk.cost_price} onChange={(e) => setBulk({ ...bulk, cost_price: e.target.value })} />
-                  <input className="input h-9 w-32" placeholder="Kode Variasi" value={bulk.sku} onChange={(e) => setBulk({ ...bulk, sku: e.target.value })} />
+                  <input className="input h-9 w-32" placeholder="SKU Variasi" value={bulk.sku} onChange={(e) => setBulk({ ...bulk, sku: e.target.value })} />
                   <button onClick={() => { setModels(models.map((m) => ({ ...m, ...(bulk.price ? { price: +bulk.price } : {}), ...(bulk.stock ? { stock: +bulk.stock } : {}), ...(bulk.cost_price ? { cost_price: +bulk.cost_price } : {}), ...(bulk.sku ? { sku: bulk.sku } : {}) }))); setBulk({ price: "", stock: "", cost_price: "", sku: "" }); }}
                     className="h-9 rounded-lg bg-[#ee4d2d] px-4 text-sm font-semibold text-white">Terapkan ke Semua</button>
                 </div>
                 <div className="overflow-x-auto rounded-lg border border-slate-200">
                   <table className="w-full min-w-[660px] text-sm">
-                    <thead className="bg-slate-50 text-left text-xs text-slate-500"><tr>{liveTiers.map((t) => <th key={t.name} className="px-3 py-2">{t.name || "Variasi"}</th>)}<th className="px-3 py-2">* Harga</th><th className="px-3 py-2">* Stok</th><th className="px-3 py-2">HPP (Pesanin)</th><th className="px-3 py-2">Kode Variasi</th></tr></thead>
+                    <thead className="bg-slate-50 text-left text-xs text-slate-500"><tr>{liveTiers.map((t) => <th key={t.name} className="px-3 py-2">{t.name || "Variasi"}</th>)}<th className="px-3 py-2">* Harga</th><th className="px-3 py-2">* Stok</th><th className="px-3 py-2">HPP (Pesanin)</th><th className="px-3 py-2">SKU Variasi</th></tr></thead>
                     <tbody className="divide-y divide-slate-100">
                       {models.map((m, i) => (
                         <tr key={m.index.join("-")}>
@@ -680,7 +680,7 @@ function Publish() {
                           <td className="px-2 py-1.5"><div className="relative"><span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">Rp</span><input type="number" className="input h-9 pl-8" value={m.price || ""} onChange={(e) => setModels(models.map((x, j) => j === i ? { ...x, price: +e.target.value } : x))} /></div></td>
                           <td className="px-2 py-1.5"><input type="number" className="input h-9" value={m.stock} onChange={(e) => setModels(models.map((x, j) => j === i ? { ...x, stock: +e.target.value } : x))} /></td>
                           <td className="px-2 py-1.5"><div className="relative"><span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">Rp</span><input type="number" className="input h-9 pl-8" placeholder="Opsional" value={m.cost_price || ""} onChange={(e) => setModels(models.map((x, j) => j === i ? { ...x, cost_price: +e.target.value || undefined } : x))} /></div></td>
-                          <td className="px-2 py-1.5"><input className="input h-9" value={m.sku} onChange={(e) => setModels(models.map((x, j) => j === i ? { ...x, sku: e.target.value } : x))} /></td>
+                          <td className="px-2 py-1.5"><input className="input h-9" placeholder="SKU Variasi" value={m.sku} onChange={(e) => setModels(models.map((x, j) => j === i ? { ...x, sku: e.target.value } : x))} /></td>
                         </tr>
                       ))}
                     </tbody>
