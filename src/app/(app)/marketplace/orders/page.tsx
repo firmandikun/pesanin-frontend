@@ -194,14 +194,14 @@ export default function ShopeeOrders() {
 
   // Only the newest request may fill the list: switching tabs fast must not show an older tab's result.
   const reqId = useRef(0);
-  const load = useCallback(() => {
+  const load = useCallback((silent = false) => {
     const id = ++reqId.current;
-    setData(null);
+    if (!silent) setData(null);
     const st: Record<string, string> = state ? { shopee_state: state } : {};
     const stockQ: Record<string, string> = tab === "shipping" && kind === "order" && stock ? { stock } : {};
     const doneQ: Record<string, string> = tab === "done" && doneScope === "all" ? { done: "all" } : {};
     if (showingReturns) {
-      setReturns(null);
+      if (!silent) setReturns(null);
       api<Paginated<ReturnReq>>(`/marketplace/returns?${new URLSearchParams({ ...(shopId ? { shop_id: shopId } : {}), ...(filters.search ? { search: filters.search } : {}), page: String(page), per_page: String(perPage) })}`)
         .then((r) => { if (id === reqId.current) setReturns(r); });
     }
@@ -222,18 +222,26 @@ export default function ShopeeOrders() {
       .then((r) => { if (id === reqId.current) setCounts(Object.fromEntries(r)); });
     const splitState = tab === "perlu_kirim" ? "perlu_kirim" : state;
     api<ListRes>(`/orders?${base({ ...(splitState ? { shopee_state: splitState } : {}), per_page: "1" })}`).then((d) => { if (id === reqId.current) setSplit({ order: d.stats.total_orders, kilat: d.bookings?.total ?? 0 }); });
-    setSelected([]);
-    setSelectedBk([]);
+    if (!silent) {
+      setSelected([]);
+      setSelectedBk([]);
+    }
   }, [base, state, kind, stock, doneScope, tab, showingReturns, shopId, filters.search, dir, page, perPage]);
-  useEffect(() => { const t = setTimeout(load, 150); return () => clearTimeout(t); }, [load]);
-  useEffect(() => { window.addEventListener(ORDERS_EVENT, load); return () => window.removeEventListener(ORDERS_EVENT, load); }, [load]);
+  const loadRef = useRef(load);
+  loadRef.current = load;
+  useEffect(() => { const t = setTimeout(() => load(false), 150); return () => clearTimeout(t); }, [load]);
+  useEffect(() => {
+    const onOrders = () => loadRef.current(true);
+    window.addEventListener(ORDERS_EVENT, onOrders);
+    return () => window.removeEventListener(ORDERS_EVENT, onOrders);
+  }, []);
   useEffect(() => {
     api("/marketplace/shops").then((d) => {
       const active = d.shops.filter((s: any) => s.status !== "disconnected");
       setShops(active);
-      // Fast background poll on page open so newly created Pengiriman Kilat reservations & orders appear immediately
+      // Fast background poll on page open so newly created Pengiriman Kilat reservations & orders appear without flashing the list
       Promise.all(active.filter((s: any) => !s.is_demo).map((s: any) => api(`/marketplace/shops/${s.id}/sync`, { method: "POST", json: { what: "recent" } }).catch(() => null)))
-        .then((res) => { if (res.some((r: any) => (r?.result?.recent ?? 0) > 0)) load(); });
+        .then((res) => { if (res.some((r: any) => (r?.result?.recent ?? 0) > 0)) loadRef.current(true); });
     }).catch(() => setShops([]));
   }, []);
   const shopList = shops ?? [];
@@ -269,7 +277,7 @@ export default function ShopeeOrders() {
     if (r?.errors.length) parts.push(`Sebagian gagal dicetak: ${r.errors.join(" ")}`);
     if (error) parts.push((error as Error).message);
     setNotice(parts.join(" "));
-    if (r?.skipped.length || error) load();
+    if (r?.skipped.length || error) load(true);
   }
   const bookingAwb = (b: Booking) => ({ id: b.id, marketplace_shop_id: b.marketplace_shop_id, courier: b.shipping_carrier, items: b.items ?? undefined, booking_sn: b.booking_sn, order_sn: b.order_sn });
   async function print(list: Order[]) {
@@ -308,7 +316,7 @@ export default function ShopeeOrders() {
       });
       setNotice(r.message);
       if (detail?.id === o.id) setDetail(r.order);
-      load();
+      load(true);
     } catch (e) {
       setNotice(e instanceof ApiError ? e.message : "Gagal memproses pengajuan pembatalan di Shopee.");
     } finally {
@@ -317,20 +325,20 @@ export default function ShopeeOrders() {
   }
   const toggleBk = (id: number, on: boolean) => setSelectedBk(on ? [...selectedBk, id] : selectedBk.filter((x) => x !== id));
   async function refreshAwb(orderIds: number[] = [], bookingIds: number[] = [], tries = 3) {
-    if (!orderIds.length && !bookingIds.length) { load(); return; }
+    if (!orderIds.length && !bookingIds.length) { load(true); return; }
     for (let i = 0; i < tries; i++) {
       await new Promise((r) => setTimeout(r, i === 0 && tries > 1 ? 4000 : 1500));
       const r = await api("/labels/shopee/refresh", { method: "POST", json: { order_ids: orderIds, booking_ids: bookingIds } }).catch(() => null);
       if (r && r.ready >= r.total) break;
     }
-    load();
+    load(true);
   }
   async function sync() {
     setBusy("sync"); setNotice("");
     try {
       const results = await Promise.all(shopList.map((s) => api(`/marketplace/shops/${s.id}/sync`, { method: "POST", json: { what: "orders" } })));
       setNotice(`Sinkron selesai: ${results.reduce((n, r) => n + (r.result?.orders ?? 0), 0)} pesanan diperbarui dari ${shopList.length} toko.`);
-      load();
+      load(true);
     } catch (e) { setNotice(e instanceof ApiError ? e.message : "Sinkron gagal"); } finally { setBusy(""); }
   }
   // Seller Centre's Dikirim tab has no "Semua" type: it opens on Pesanan.
