@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { PageHead, Panel } from "@/components/kit";
+import { RoasCalculatorSection } from "@/components/marketplace/RoasCalculatorSection";
 import { Select } from "@/components/Select";
 import { Modal } from "@/components/ui";
 import { api, ApiError, rupiah } from "@/lib/api";
@@ -15,6 +16,7 @@ type AdProduct = {
   sku: string | null;
   image: string | null;
   price: number;
+  cost_price: number;
   stock: number;
   recommended: boolean;
   already_advertised: boolean;
@@ -57,7 +59,8 @@ function CreateShopeeAdPage() {
   const [bidding, setBidding] = useState<"auto" | "roas">("roas");
   const [targets, setTargets] = useState<Record<number, string>>({});
   const [groupTarget, setGroupTarget] = useState("");
-  const [suggests, setSuggests] = useState<Record<number, { budget_suggested: number | null; roi_suggested: number | null }>>({});
+  const [shopFeePct, setShopFeePct] = useState(0);
+  const [suggests, setSuggests] = useState<Record<number, { budget_suggested: number | null; roi_suggested: number | null; category_name?: string | null }>>({});
 
   // Panel 3: Modal & Durasi
   const [budgetMode, setBudgetMode] = useState<"unlimited" | "daily">("daily");
@@ -70,10 +73,11 @@ function CreateShopeeAdPage() {
     setLoading(true);
     setErr("");
     const qs = sid ? `?shop_id=${encodeURIComponent(sid)}` : "";
-    api<{ shops: AdShop[]; shop_id?: number; products: AdProduct[] }>(`/marketplace/ads/create/options${qs}`)
+    api<{ shops: AdShop[]; shop_id?: number; shop_fee_pct?: number; products: AdProduct[] }>(`/marketplace/ads/create/options${qs}`)
       .then((r) => {
         setShops(r.shops);
         if (r.shop_id) setShopId(String(r.shop_id));
+        setShopFeePct(r.shop_fee_pct ?? 0);
         setProducts(r.products);
       })
       .catch((e) => setErr(e instanceof ApiError ? e.message : "Gagal memuat produk toko Shopee."))
@@ -89,7 +93,7 @@ function CreateShopeeAdPage() {
     if (!shopId || !selectedIds.length) return;
     selectedIds.forEach((id) => {
       if (suggests[id]) return;
-      api<{ budget_suggested: number | null; roi_suggested: number | null }>(
+      api<{ budget_suggested: number | null; roi_suggested: number | null; category_name?: string | null }>(
         `/marketplace/ads/create/suggest?shop_id=${shopId}&item_id=${id}&bidding_method=auto`,
       )
         .then((res) => setSuggests((cur) => ({ ...cur, [id]: res })))
@@ -431,6 +435,21 @@ function CreateShopeeAdPage() {
           </div>
         </div>
       </Panel>
+
+      {/* Panel 4: Kalkulator ROAS & Simulasi Margin Cuan */}
+      <RoasCalculatorSection
+        products={selectedProducts}
+        shopFeePct={shopFeePct}
+        suggests={suggests}
+        onApplyRoas={(itemId, roas) => {
+          setBidding("roas");
+          if (adMode === "group") {
+            setGroupTarget(String(roas));
+          } else {
+            setTargets((cur) => ({ ...cur, [itemId]: String(roas) }));
+          }
+        }}
+      />
 
       {/* Bottom Action Bar */}
       <div className="flex items-center justify-end gap-3 pt-1">
