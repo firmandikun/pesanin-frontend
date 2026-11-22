@@ -1,5 +1,5 @@
 "use client";
-import { CheckCircle2, Clock, Loader2, RefreshCcw, Store, Wallet } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, Clock, ExternalLink, Loader2, RefreshCcw, Store, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ShopeeMark } from "@/components/ChannelBadge";
@@ -49,6 +49,7 @@ export default function MarketplaceBalance() {
               <TotalCard icon={<Clock size={18} />} tone="bg-amber-100 text-amber-600" label={many ? "Total Belum Cair" : "Belum Cair"} value={money(d.totals.pending)} hint="Penghasilan pesanan yang masih ditahan Shopee" />
               <TotalCard icon={<CheckCircle2 size={18} />} tone="bg-emerald-100 text-emerald-600" label={many ? "Total Sudah Cair" : "Sudah Cair"} value={money(d.totals.released)} hint="Penghasilan yang sudah dilepas ke saldo" />
             </div>
+            <PendingBreakdown shopeePending={d.totals.pending} />
             <Panel className="space-y-4 p-6">
               <h2 className="flex items-center gap-2 text-[17px] font-semibold text-slate-800"><ShopeeMark size={18} />{many ? "Rincian per toko" : "Mutasi saldo terakhir"}</h2>
               {d.shops.map((w) => <ShopeeWalletCard key={w.shop_id} w={w} showName={many} />)}
@@ -103,5 +104,78 @@ function ShopeeWalletCard({ w, showName }: { w: ShopeeWallet; showName: boolean 
         </div>
       )}
     </div>
+  );
+}
+
+type PendingItem = { order_id: number; order_sn: string; shop: string | null; buyer: string | null; amount: number; estimated: boolean; since: string | null; days: number | null; stuck: string | null; resi: string | null };
+type PendingGroup = { key: string; title: string; help: string; count: number; amount: number; stuck: number; items: PendingItem[] };
+type Pending = { groups: PendingGroup[]; total: number; count: number; stuck: number };
+
+const GROUP_TONE: Record<string, string> = {
+  cancel: "bg-rose-50 text-rose-700", return: "bg-rose-50 text-rose-700", delivered: "bg-emerald-50 text-emerald-700",
+  shipping: "bg-sky-50 text-sky-700", not_shipped: "bg-amber-50 text-amber-700",
+};
+
+/** Where the pending (not yet released) money is: per order status, with the orders that hold it too long. */
+function PendingBreakdown({ shopeePending }: { shopeePending: number | null }) {
+  const [p, setP] = useState<Pending | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
+  useEffect(() => {
+    api<Pending>("/marketplace/balance/pending").then((r) => { setP(r); setOpen((o) => o ?? r.groups.find((g) => g.stuck > 0)?.key ?? null); }).catch(() => setP(null));
+  }, []);
+  if (!p) return null;
+
+  return (
+    <Panel className="overflow-hidden">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-6 py-4">
+        <div>
+          <h2 className="flex items-center gap-2 text-[17px] font-semibold text-slate-800"><Clock size={18} className="text-amber-600" />Rincian Dana Pending</h2>
+          <p className="mt-0.5 text-xs text-slate-500">Shopee menahan penghasilan sampai pesanan selesai. Ini posisi uangnya per status pesanan (dari {p.count} pesanan yang belum selesai).</p>
+        </div>
+        <div className="text-right">
+          <p className="text-xl font-bold text-amber-600">{rupiah(p.total)}</p>
+          <p className="text-[11px] text-slate-400">perkiraan Pesanin{shopeePending !== null ? ` · Shopee: ${rupiah(shopeePending)}` : ""}</p>
+        </div>
+      </div>
+      {p.stuck > 0 && <p className="flex items-center gap-2 border-b border-slate-100 bg-amber-50/60 px-6 py-2.5 text-xs font-semibold text-amber-800"><AlertTriangle size={14} />{p.stuck} pesanan menahan dana terlalu lama atau butuh tindakan.</p>}
+      {!p.count && <p className="px-6 py-8 text-center text-sm text-slate-500">Tidak ada pesanan yang menahan dana.</p>}
+      <div className="divide-y divide-slate-100">
+        {p.groups.filter((g) => g.count > 0).map((g) => {
+          const isOpen = open === g.key;
+          return (
+            <div key={g.key}>
+              <button onClick={() => setOpen(isOpen ? null : g.key)} className="flex w-full items-center gap-3 px-6 py-3.5 text-left hover:bg-slate-50/60">
+                <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${GROUP_TONE[g.key] ?? "bg-slate-100 text-slate-600"}`}>{g.count}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-navy">{g.title}</span>
+                  {g.stuck > 0 && <span className="text-[11px] font-semibold text-amber-700">{g.stuck} perlu tindakan</span>}
+                </span>
+                <span className="font-semibold text-navy">{rupiah(g.amount)}</span>
+                <ChevronDown size={16} className={`shrink-0 text-slate-400 transition ${isOpen ? "rotate-180" : ""}`} />
+              </button>
+              {isOpen && (
+                <div className="border-t border-slate-100 bg-slate-50/40">
+                  <p className="px-6 py-2 text-xs text-slate-500">{g.help}</p>
+                  <div className="divide-y divide-slate-100">
+                    {g.items.map((i) => (
+                      <div key={i.order_id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-6 py-2.5 text-sm">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-mono font-semibold text-navy">{i.order_sn}</p>
+                          <p className="text-xs text-slate-500">{[i.shop, i.buyer, i.days !== null ? `${i.days} hari` : null, i.resi].filter(Boolean).join(" · ")}</p>
+                          {i.stuck && <p className="text-[11px] font-semibold text-amber-700">{i.stuck}</p>}
+                        </div>
+                        <span className="text-right font-semibold text-navy">{rupiah(i.amount)}{i.estimated && <span className="block text-[10px] font-normal text-slate-400">perkiraan</span>}</span>
+                        <Link href={`/marketplace/orders/${i.order_id}`} className="flex items-center gap-1 text-xs font-semibold text-brand-600">Detail<ExternalLink size={12} /></Link>
+                      </div>
+                    ))}
+                    {g.count > g.items.length && <p className="px-6 py-2 text-xs text-slate-400">+{g.count - g.items.length} pesanan lain</p>}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </Panel>
   );
 }
