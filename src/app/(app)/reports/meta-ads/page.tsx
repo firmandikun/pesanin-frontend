@@ -10,7 +10,7 @@ import { Modal } from "@/components/ui";
 import { api, ApiError, rupiah } from "@/lib/api";
 
 type Account = { id: string; name: string; currency: string; status: number; amount_spent: number; spend_cap: number | null; balance: number; prepaid?: boolean; prepaid_balance?: number | null };
-type Status = { app_configured: boolean; connected: boolean; name: string | null; token_expires_at: string | null; synced_at: string | null; selected: string[] | null; accounts: Account[]; error: string | null };
+type Status = { app_configured: boolean; connected: boolean; can_manage?: boolean; name: string | null; token_expires_at: string | null; synced_at: string | null; selected: string[] | null; accounts: Account[]; error: string | null };
 type Row = { id: string; name: string; status: string | null; objective: string | null; spend: number; impressions: number; reach: number; clicks: number; ctr: number; results: number; result_label: string | null; cost_per_result: number | null; meta_purchases: number; meta_value: number; messages: number; orders: number; revenue: number; roas: number | null; cost_per_order: number | null };
 type Report = { totals: { spend: number; impressions: number; reach: number; clicks: number; results: number; result_label: string | null; meta_purchases: number; meta_value: number; messages: number; orders: number; revenue: number; roas: number | null };
   unmatched: { orders: number; revenue: number; campaigns: string[] }; daily: { date: string; spend: number }[]; campaigns: Row[] };
@@ -161,6 +161,12 @@ function MetaAds() {
         <button onClick={disconnect} className="flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-sm font-semibold text-slate-600 hover:text-rose-600" title="Putuskan Pesanin dari akun Facebook"><Unplug size={16} />Putuskan</button>
       </PageHead>
       {Msg}
+      {status.can_manage === false && (
+        <p className="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+          <span>Token Meta saat ini hanya memiliki izin baca (<code className="rounded bg-white px-1">ads_read</code>). Untuk membuat atau mengedit kampanye iklan, klik <b>Putuskan</b> lalu hubungkan ulang dengan izin <code className="rounded bg-white px-1">ads_read</code> dan <code className="rounded bg-white px-1">ads_management</code>.</span>
+        </p>
+      )}
       {status.error && <p className="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-800"><AlertTriangle size={16} className="mt-0.5 shrink-0" />{status.error}</p>}
 
       <Panel className="p-4">
