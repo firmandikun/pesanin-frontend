@@ -36,6 +36,8 @@ type PerfVariant = {
   period_units: number;
   period_orders: number;
   period_revenue: number;
+  period_fee?: number;
+  period_net?: number;
 };
 
 type PerfItem = {
@@ -65,6 +67,8 @@ type PerfItem = {
   period_units: number;
   period_orders: number;
   period_revenue: number;
+  period_fee?: number;
+  period_net?: number;
   conversion_rate: number;
   needs_attention: boolean;
   is_advertised: boolean;
@@ -91,6 +95,8 @@ type PerfData = {
     total_sales: number;
     period_units: number;
     period_revenue: number;
+    period_fee?: number;
+    period_net?: number;
     avg_rating: number | null;
     low_conversion_count: number;
     advertised_count: number;
@@ -227,8 +233,10 @@ export default function ShopeeProductPerformancePage() {
             </span>
           </div>
           <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900">{rupiah(s?.period_revenue ?? 0)}</p>
-          <p className="mt-1 text-[11px] text-slate-400">
-            {num(s?.period_units ?? 0)} unit terjual ({range.from} s/d {range.to})
+          <p className="mt-1 text-[11px] text-slate-500">
+            {(s?.period_fee ?? 0) > 0
+              ? <>Bersih <b className="text-emerald-700">{rupiah(s?.period_net ?? 0)}</b> · Admin <span className="text-rose-600">-{rupiah(s?.period_fee ?? 0)}</span></>
+              : <span className="text-slate-400">{num(s?.period_units ?? 0)} unit terjual ({range.from} s/d {range.to})</span>}
           </p>
         </Panel>
 
@@ -417,7 +425,14 @@ export default function ShopeeProductPerformancePage() {
                           </span>
                           <span className="block text-[10px] text-slate-400">{num(item.period_orders)} pesanan</span>
                         </td>
-                        <td className="px-3 py-3 text-right font-semibold text-slate-900">{rupiah(item.period_revenue)}</td>
+                        <td className="px-3 py-3 text-right">
+                          <div className="font-semibold text-slate-900">{rupiah(item.period_revenue)}</div>
+                          {(item.period_fee ?? 0) > 0 && (
+                            <div className="text-[10px] text-slate-400">
+                              Admin -{rupiah(item.period_fee ?? 0)} · <span className="font-medium text-emerald-700">Bersih {rupiah(item.period_net ?? 0)}</span>
+                            </div>
+                          )}
+                        </td>
                         <td className="px-3 py-3 text-right">
                           {item.ad_expense > 0 ? (
                             <>
@@ -480,7 +495,9 @@ export default function ShopeeProductPerformancePage() {
                                     <th className="px-3 py-2 text-right">Harga</th>
                                     <th className="px-3 py-2 text-right">HPP</th>
                                     <th className="px-3 py-2 text-right">Terjual Periode</th>
-                                    <th className="px-3 py-2 text-right">Omzet Periode</th>
+                                    <th className="px-3 py-2 text-right">Omzet Kotor</th>
+                                    <th className="px-3 py-2 text-right">Biaya Admin</th>
+                                    <th className="px-3 py-2 text-right">Omzet Bersih</th>
                                     <th className="px-3 py-2 text-right">Stok</th>
                                   </tr>
                                 </thead>
@@ -496,6 +513,8 @@ export default function ShopeeProductPerformancePage() {
                                         <span className="ml-1.5 text-[10px] text-slate-400">({num(v.period_orders)} pesanan)</span>
                                       </td>
                                       <td className="px-3 py-2 text-right font-semibold text-slate-900">{rupiah(v.period_revenue)}</td>
+                                      <td className="px-3 py-2 text-right text-rose-600">{(v.period_fee ?? 0) > 0 ? `-${rupiah(v.period_fee ?? 0)}` : <span className="text-slate-300">-</span>}</td>
+                                      <td className="px-3 py-2 text-right font-semibold text-emerald-700">{rupiah(v.period_net ?? v.period_revenue)}</td>
                                       <td className="px-3 py-2 text-right">
                                         <span className={`font-semibold ${v.stock === 0 ? "text-rose-600" : v.stock <= 5 ? "text-amber-600" : "text-slate-700"}`}>
                                           {num(v.stock)}
