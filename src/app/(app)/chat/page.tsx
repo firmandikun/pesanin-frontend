@@ -391,10 +391,11 @@ function Chat() {
               <div className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-slate-50 px-4 py-4">
                 {!msgs ? <p className="flex items-center justify-center gap-2 py-10 text-sm text-slate-400"><Loader2 size={15} className="animate-spin" />Memuat pesan…</p>
                   : !msgs.length ? <p className="py-10 text-center text-xs text-slate-400">Belum ada pesan yang bisa ditampilkan dari Shopee untuk percakapan ini.</p>
-                  : msgs.map((m, i) => m.system ? (
+                  : msgs.filter((m) => m.text || m.image || m.video || m.order).map((m, i) => m.system ? (
                     // Shopee notice (AI assistant paused, etc.): a small centred note, like in Seller Centre.
                     <div key={m.id} className="flex flex-col items-center gap-1.5">
                       {m.order && <div className="max-w-[85%] rounded-2xl bg-white p-3 ring-1 ring-slate-200/70"><OrderCard o={m.order} /></div>}
+                      {m.image && <a href={m.image} target="_blank" rel="noreferrer"><img src={m.image} alt="" className="max-h-56 rounded-lg" /></a>}
                       {m.text && <p className="max-w-[85%] rounded-lg bg-white/80 px-3 py-1.5 text-center text-xs text-slate-500 ring-1 ring-slate-200/70">{m.text}</p>}
                     </div>
                   ) : (

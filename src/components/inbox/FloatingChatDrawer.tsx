@@ -33,6 +33,7 @@ type Msg = {
   link?: string | null;
   at: string | null;
   system?: boolean;
+  bot?: boolean;
   order?: MsgOrder | null;
 };
 type InboxRes = { conversations: Conv[]; unread: number };
@@ -197,10 +198,11 @@ export function FloatingChatDrawer() {
               msgs.filter((m) => m.text || m.image || m.video || m.order).map((m) => m.system ? (
                 <div key={m.id} className="flex flex-col items-center gap-1">
                   {m.order && <MiniOrderCard o={m.order} />}
+                  {m.image && <a href={m.image} target="_blank" rel="noreferrer"><img src={m.image} alt="" className="max-h-44 rounded-lg object-cover" /></a>}
                   {m.text && <p className="max-w-[90%] rounded-lg bg-white/85 px-2.5 py-1 text-center text-[11px] text-slate-500 ring-1 ring-slate-200/70">{m.text}</p>}
                 </div>
               ) : (
-                <div key={m.id} className={`flex ${m.from_me ? "justify-end" : "justify-start"}`}>
+                <div key={m.id} className={`flex flex-col ${m.from_me ? "items-end" : "items-start"}`}>
                   <div className={`max-w-[82%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${m.from_me ? "rounded-br-sm bg-[#ee4d2d] text-white" : "rounded-bl-sm bg-white text-slate-700 ring-1 ring-slate-200/70"}`}>
                     {m.order && <MiniOrderCard o={m.order} fromMe={m.from_me} />}
                     {m.video ? (
@@ -218,6 +220,7 @@ export function FloatingChatDrawer() {
                     )}
                     <p className={`mt-0.5 text-right text-[10px] ${m.from_me ? "text-white/75" : "text-slate-400"}`}>{shortTime(m.at)}</p>
                   </div>
+                  {m.bot && <span className="mt-0.5 px-1 text-[10px] text-slate-400">Dikirim oleh Asisten AI</span>}
                 </div>
               ))
             )}
