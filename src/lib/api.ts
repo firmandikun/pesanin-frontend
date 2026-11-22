@@ -38,7 +38,11 @@ export async function api<T = any>(path: string, options: RequestInit & { json?:
     // Paket & Tagihan stays usable so the store can pay; other widgets there just fail quietly.
     if (!/^\/(langganan|settings\/billing)/.test(location.pathname)) location.href = "/langganan";
   } else if (res.status === 402 && typeof window !== "undefined") window.dispatchEvent(new CustomEvent("pesanin:upgrade", { detail: data.message }));
-  if (!res.ok) throw new ApiError(res.status, data.message ?? "Terjadi kesalahan", data.errors, data);
+  // A non-JSON error page (nginx 502/504, PHP fatal 500): say what happened instead of a bare "Terjadi kesalahan".
+  const fallback = [502, 503, 504].includes(res.status) ? `Server tidak menjawab tepat waktu (${res.status}). Coba lagi sebentar lagi.`
+    : res.status === 429 ? "Terlalu sering dicoba. Tunggu sebentar lalu coba lagi."
+    : res.status >= 500 ? `Terjadi kesalahan di server (${res.status}). Coba lagi.` : "Terjadi kesalahan";
+  if (!res.ok) throw new ApiError(res.status, data.message || fallback, data.errors, data);
   return data;
 }
 

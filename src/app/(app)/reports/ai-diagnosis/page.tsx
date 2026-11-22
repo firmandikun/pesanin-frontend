@@ -4,7 +4,7 @@ import {
   TrendingDown, TrendingUp, Wallet, Wrench, Zap,
 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { DateRange } from "@/components/DateRange";
 import { showAlert } from "@/components/Dialogs";
 import { PageHead, Panel } from "@/components/kit";
@@ -100,21 +100,31 @@ export default function AiDiagnosisPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [step, setStep] = useState(0);
 
-  const load = useCallback(() => {
-    setLoading(true);
-    setLoadErr("");
-    api<{ gemini_connected: boolean; snapshot: Snapshot; diagnosis: Diagnosis | null; history?: History }>(`/reports/ai-diagnosis?${new URLSearchParams(range)}`)
-      .then((r) => { setConnected(r.gemini_connected); setSnapshot(r.snapshot); setDiagnosis(r.diagnosis); setHistory(r.history ?? []); })
-      .catch((e) => setLoadErr(e instanceof ApiError ? e.message : "Gagal memuat data diagnosa bisnis."))
+  const poll = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const started = useRef(false);
+  // The diagnosis runs in the background on the server (Gemini takes 20–90 s): poll until it is done.
+  const load = useCallback((quiet = false) => {
+    clearTimeout(poll.current);
+    if (!quiet) { setLoading(true); setLoadErr(""); }
+    api<{ gemini_connected: boolean; snapshot: Snapshot; diagnosis: Diagnosis | null; history?: History; job?: { status: string; error?: string } | null }>(`/reports/ai-diagnosis?${new URLSearchParams(range)}`)
+      .then((r) => {
+        setConnected(r.gemini_connected); setSnapshot(r.snapshot); setHistory(r.history ?? []);
+        if (r.job?.status === "running") { setAnalyzing(true); poll.current = setTimeout(() => load(true), 4000); return; }
+        setAnalyzing(false);
+        if (r.job?.status === "failed" && started.current) showAlert(r.job.error || "Diagnosa AI gagal", "Gagal");
+        started.current = false;
+        setDiagnosis(r.diagnosis);
+      })
+      .catch((e) => { setAnalyzing(false); if (!quiet) setLoadErr(e instanceof ApiError ? e.message : "Gagal memuat data diagnosa bisnis."); })
       .finally(() => setLoading(false));
   }, [range]);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); return () => clearTimeout(poll.current); }, [load]);
 
   // Progress text while Gemini works (it takes 20–60 s).
   useEffect(() => {
     if (!analyzing) return;
     setStep(0);
-    const t = setInterval(() => setStep((s) => Math.min(STEPS.length - 1, s + 1)), 7000);
+    const t = setInterval(() => setStep((s) => Math.min(STEPS.length - 1, s + 1)), 9000);
     return () => clearInterval(t);
   }, [analyzing]);
 
@@ -123,11 +133,13 @@ export default function AiDiagnosisPage() {
     if (q !== undefined) setQuestion(q);
     setAnalyzing(true);
     try {
-      const r = await api<{ snapshot: Snapshot; diagnosis: Diagnosis; history: History }>("/reports/ai-diagnosis", { method: "POST", json: { ...range, question: ask || null } });
-      setSnapshot(r.snapshot); setDiagnosis(r.diagnosis); setHistory(r.history ?? []);
+      await api("/reports/ai-diagnosis", { method: "POST", json: { ...range, question: ask || null } });
+      started.current = true;
+      poll.current = setTimeout(() => load(true), 4000);
     } catch (e) {
+      setAnalyzing(false);
       showAlert(e instanceof ApiError ? e.message : "Gagal menjalankan diagnosa AI", "Gagal");
-    } finally { setAnalyzing(false); }
+    }
   };
 
   const f = snapshot?.financials;
@@ -227,7 +239,7 @@ export default function AiDiagnosisPage() {
           <ul className="space-y-1 text-left text-xs">
             {STEPS.map((s, i) => <li key={s} className={i < step ? "text-emerald-600" : i === step ? "font-semibold text-slate-700" : "text-slate-400"}>{i < step ? "✓" : i === step ? "•" : "○"} {s}</li>)}
           </ul>
-          <p className="text-[11px] text-slate-400">Biasanya 20–60 detik.</p>
+          <p className="text-[11px] text-slate-400">Biasanya 20–90 detik. Halaman boleh ditinggal, hasilnya tersimpan.</p>
         </Panel>
       ) : diagnosis ? (
         <div className="space-y-4">

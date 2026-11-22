@@ -1,7 +1,7 @@
 "use client";
 import { ArrowRight, Bot, Check, ChevronDown, Lightbulb, Loader2, Settings, Shuffle, Sparkles } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { askConfirm, showAlert } from "@/components/Dialogs";
 import { Panel } from "@/components/kit";
 import { api, ApiError, rupiah } from "@/lib/api";
@@ -49,21 +49,36 @@ export function AdsAiPanel({ shopId, range, onApplied }: { shopId?: string; rang
   const [applied, setApplied] = useState<Record<number, string>>({});
   const qs = new URLSearchParams({ ...range, ...(shopId ? { shop_id: shopId } : {}) }).toString();
 
+  type State = { gemini_connected: boolean; analysis: Analysis | null; job: { status: "running" | "done" | "failed"; error?: string } | null };
+  const poll = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const started = useRef(false);
+
+  // The analysis runs in the background on the server (Gemini takes 20–90 s): poll until it is done.
   const load = useCallback(() => {
-    api<{ gemini_connected: boolean; analysis: Analysis | null }>(`/marketplace/ads/ai?${qs}`).then((r) => { setConnected(r.gemini_connected); setA(r.analysis); setApplied({}); }).catch(() => setConnected(false));
+    clearTimeout(poll.current);
+    api<State>(`/marketplace/ads/ai?${qs}`).then((r) => {
+      setConnected(r.gemini_connected);
+      if (r.job?.status === "running") { setBusy(true); poll.current = setTimeout(load, 4000); return; }
+      setBusy(false);
+      if (r.job?.status === "failed" && started.current) showAlert(r.job.error || "Analisa AI gagal", "Gagal");
+      started.current = false;
+      setA(r.analysis); setApplied({});
+    }).catch(() => { setBusy(false); setConnected((c) => c ?? false); });
   }, [qs]);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); return () => clearTimeout(poll.current); }, [load]);
 
   const run = async (q?: string) => {
     const ask = (q ?? question).trim();
     if (q !== undefined) setQuestion(q);
     setBusy(true); setOpen(true);
     try {
-      const r = await api<{ analysis: Analysis }>(`/marketplace/ads/ai?${qs}`, { method: "POST", json: { question: ask || null } });
-      setA(r.analysis); setApplied({});
+      await api(`/marketplace/ads/ai?${qs}`, { method: "POST", json: { question: ask || null } });
+      started.current = true;
+      poll.current = setTimeout(load, 4000);
     } catch (e) {
+      setBusy(false);
       showAlert(e instanceof ApiError ? e.message : "Analisa AI gagal", "Gagal");
-    } finally { setBusy(false); }
+    }
   };
 
   const apply = async (c: Camp) => {
@@ -84,7 +99,7 @@ export function AdsAiPanel({ shopId, range, onApplied }: { shopId?: string; rang
         <span className="grid h-10 w-10 place-items-center rounded-xl bg-violet-100 text-violet-700"><Sparkles size={20} /></span>
         <div className="min-w-0 flex-1">
           <p className="font-bold text-navy">Analisa AI Iklan</p>
-          <p className="text-xs text-slate-500">Keputusan per iklan, rencana pindah budget, dan perbaikan akun iklan dari data iklan periode ini.</p>
+          <p className="text-xs text-slate-500">Keputusan per iklan, rencana pindah budget, dan perbaikan akun iklan. Data dibaca sesuai periode{shopId ? " & toko" : ""} yang dipilih: <b className="text-slate-700">{range.from} s/d {range.to}</b>.</p>
         </div>
         {connected === false ? (
           <Link href="/settings/integrations" className="flex h-9 items-center gap-1.5 rounded-lg bg-amber-500 px-3 text-xs font-semibold text-white"><Settings size={14} />Hubungkan Gemini</Link>
@@ -106,7 +121,7 @@ export function AdsAiPanel({ shopId, range, onApplied }: { shopId?: string; rang
         </div>
       )}
 
-      {busy && <p className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500"><Loader2 size={16} className="animate-spin text-violet-600" />AI membaca semua iklan, ROAS vs titik impas, CTR, CR, dan tren 7 hari… (20–60 detik)</p>}
+      {busy && <p className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500"><Loader2 size={16} className="animate-spin text-violet-600" />AI membaca semua iklan, ROAS vs titik impas, CTR, CR, dan tren 7 hari… (20–90 detik, halaman boleh ditinggal)</p>}
 
       {!busy && a && open && (
         <div className="space-y-4 p-5">
