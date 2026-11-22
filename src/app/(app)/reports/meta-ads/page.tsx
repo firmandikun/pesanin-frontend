@@ -16,6 +16,12 @@ type Report = { totals: { spend: number; impressions: number; reach: number; cli
   unmatched: { orders: number; revenue: number; campaigns: string[] }; daily: { date: string; spend: number }[]; campaigns: Row[] };
 type LiveCampaign = { id: string; account_id: string; account_name: string; currency: string; name: string; status: string | null; effective_status: string | null; objective: string | null; daily_budget: number | null };
 type FbPage = { id: string; name: string };
+type DestData = {
+  has_global_fb_pixel: boolean;
+  landing_pages: { id: number; title: string; slug: string; status: string; product_id: number | null; url: string }[];
+  products: { id: number; name: string; slug: string; price: number; image: string | null; has_pixel: boolean; url: string }[];
+  wa_rotators: { id: number; name: string; slug: string; url: string }[];
+};
 
 const ACCOUNT_STATUS: Record<number, [string, string]> = { 1: ["Aktif", "bg-emerald-50 text-emerald-700"], 2: ["Nonaktif", "bg-rose-50 text-rose-700"], 3: ["Tagihan belum lunas", "bg-amber-50 text-amber-700"], 7: ["Ditinjau", "bg-sky-50 text-sky-700"], 9: ["Masa tenggang", "bg-amber-50 text-amber-700"], 101: ["Ditutup", "bg-slate-100 text-slate-500"] };
 const CAMPAIGN_STATUS: Record<string, [string, string]> = { ACTIVE: ["Aktif", "bg-emerald-50 text-emerald-700"], PAUSED: ["Dijeda", "bg-slate-100 text-slate-600"], CAMPAIGN_PAUSED: ["Dijeda", "bg-slate-100 text-slate-600"], ARCHIVED: ["Diarsipkan", "bg-slate-100 text-slate-500"], DELETED: ["Dihapus", "bg-slate-100 text-slate-500"], WITH_ISSUES: ["Bermasalah", "bg-rose-50 text-rose-700"], IN_PROCESS: ["Diproses", "bg-sky-50 text-sky-700"] };
@@ -41,9 +47,16 @@ function MetaAds() {
   const [token, setToken] = useState("");
   const [live, setLive] = useState<LiveCampaign[]>([]);
   const [pages, setPages] = useState<FbPage[]>([]);
+  const [dests, setDests] = useState<DestData | null>(null);
+  const [destPick, setDestPick] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
-  const [withAd, setWithAd] = useState(false);
-  const [form, setForm] = useState({ account_id: "", name: "", objective: "OUTCOME_SALES", daily_budget: "50000", status: "PAUSED", page_id: "", link_url: "", message: "", headline: "" });
+  const [withAd, setWithAd] = useState(true);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [form, setForm] = useState({
+    account_id: "", name: "", objective: "OUTCOME_SALES", daily_budget: "50000", status: "PAUSED",
+    page_id: "", link_url: "", message: "", headline: "", description: "", cta: "SHOP_NOW",
+    age_min: "18", age_max: "65", gender: "0", placement: "auto", start_time: "", end_time: "",
+  });
 
   const loadStatus = useCallback(() => api<Status>("/meta-ads").then(setStatus), []);
   const loadReport = useCallback(() => {
@@ -55,7 +68,44 @@ function MetaAds() {
       .catch(() => {});
   }, [account]);
   useEffect(() => { loadStatus(); }, [loadStatus]);
-  useEffect(() => { if (status?.connected) { loadReport(); loadLive(); } }, [status?.connected, loadReport, loadLive]);
+  useEffect(() => {
+    if (status?.connected) {
+      loadReport();
+      loadLive();
+      api<DestData>("/meta-ads/destinations").then(setDests).catch(() => {});
+    }
+  }, [status?.connected, loadReport, loadLive]);
+
+  const applyDestination = useCallback((key: string, d: DestData | null) => {
+    setDestPick(key);
+    if (!key || !d) return;
+    const [kind, rawId] = key.split(":");
+    const id = Number(rawId);
+    if (kind === "landing") {
+      const lp = d.landing_pages.find((x) => x.id === id);
+      if (lp) setForm((f) => ({ ...f, link_url: lp.url, name: f.name || `LP - ${lp.title}`, headline: f.headline || lp.title }));
+    } else if (kind === "product") {
+      const pr = d.products.find((x) => x.id === id);
+      if (pr) setForm((f) => ({ ...f, link_url: pr.url, name: f.name || `Produk - ${pr.name}`, headline: f.headline || pr.name }));
+    } else if (kind === "wa") {
+      const wa = d.wa_rotators.find((x) => x.id === id);
+      if (wa) setForm((f) => ({ ...f, link_url: wa.url, name: f.name || `WA - ${wa.name}`, headline: f.headline || "Chat WhatsApp Sekarang", cta: "SEND_MESSAGE" }));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!status?.connected || !dests || sp.get("create") !== "1") return;
+    const activeAccs = status.accounts.filter((a) => a.status !== 101);
+    setForm((f) => ({
+      ...f,
+      account_id: f.account_id || activeAccs[0]?.id || status.accounts[0]?.id || "",
+      page_id: f.page_id || pages[0]?.id || "",
+    }));
+    const t = sp.get("type");
+    const id = sp.get("id");
+    if (t && id) applyDestination(`${t}:${id}`, dests);
+    setCreateOpen(true);
+  }, [status, dests, pages, sp, applyDestination]);
 
   const run = async (key: string, fn: () => Promise<void>) => {
     setBusy(key); setMsg(null);
@@ -76,18 +126,32 @@ function MetaAds() {
   const submitCreate = (e: React.FormEvent) => {
     e.preventDefault();
     run("create", async () => {
-      const payload = {
-        account_id: form.account_id,
-        name: form.name.trim(),
-        objective: form.objective,
-        daily_budget: Math.max(10000, Number(form.daily_budget) || 0),
-        status: form.status,
-        ...(withAd && form.page_id && form.link_url ? { page_id: form.page_id, link_url: form.link_url.trim(), message: form.message.trim(), headline: form.headline.trim() } : {}),
-      };
-      await api("/meta-ads/campaigns", { method: "POST", json: payload });
+      const fd = new FormData();
+      fd.append("account_id", form.account_id);
+      fd.append("name", form.name.trim());
+      fd.append("objective", form.objective);
+      fd.append("daily_budget", String(Math.max(10000, Number(form.daily_budget) || 0)));
+      fd.append("status", form.status);
+      if (withAd && form.page_id && form.link_url) {
+        fd.append("page_id", form.page_id);
+        fd.append("link_url", form.link_url.trim());
+        if (form.message.trim()) fd.append("message", form.message.trim());
+        if (form.headline.trim()) fd.append("headline", form.headline.trim());
+        if (form.description.trim()) fd.append("description", form.description.trim());
+        fd.append("cta", form.cta);
+        fd.append("age_min", form.age_min);
+        fd.append("age_max", form.age_max);
+        fd.append("gender", form.gender);
+        fd.append("placement", form.placement);
+        if (form.start_time) fd.append("start_time", form.start_time);
+        if (form.end_time) fd.append("end_time", form.end_time);
+        if (imageFile) fd.append("image", imageFile);
+      }
+      await api("/meta-ads/campaigns", { method: "POST", body: fd });
       setCreateOpen(false);
-      setForm((f) => ({ ...f, name: "", link_url: "", message: "", headline: "" }));
-      setMsg({ ok: true, text: `Kampanye "${payload.name}" berhasil dibuat di Meta Ads.` });
+      setImageFile(null);
+      setForm((f) => ({ ...f, name: "", link_url: "", message: "", headline: "", description: "" }));
+      setMsg({ ok: true, text: `Kampanye "${form.name.trim()}" berhasil dibuat di Meta Ads.` });
       loadLive();
     });
   };
@@ -357,10 +421,87 @@ function MetaAds() {
           </div>
           <label className="flex cursor-pointer items-center gap-2 pt-1 text-xs font-semibold text-slate-700">
             <input type="checkbox" checked={withAd} onChange={(e) => setWithAd(e.target.checked)} />
-            Sekalian buat Ad Set (Indonesia 18–65) &amp; Iklan Link
+            Atur Target Audiens (Set Iklan) &amp; Konten Iklan
           </label>
           {withAd && (
-            <div className="space-y-2.5 rounded-xl bg-slate-50 p-3">
+            <div className="space-y-3 rounded-xl bg-slate-50 p-3.5">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Target &amp; Penempatan (Set Iklan)</p>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold text-slate-600">Usia Min</label>
+                  <input type="number" min={18} max={65} className="input w-full" value={form.age_min} onChange={(e) => setForm({ ...form, age_min: e.target.value })} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold text-slate-600">Usia Max</label>
+                  <input type="number" min={18} max={65} className="input w-full" value={form.age_max} onChange={(e) => setForm({ ...form, age_max: e.target.value })} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold text-slate-600">Gender</label>
+                  <Select className="input w-full" value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })}>
+                    <option value="0">Semua</option>
+                    <option value="1">Pria</option>
+                    <option value="2">Wanita</option>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold text-slate-600">Penempatan</label>
+                  <Select className="input w-full" value={form.placement} onChange={(e) => setForm({ ...form, placement: e.target.value })}>
+                    <option value="auto">Otomatis (Advantage+ FB &amp; IG)</option>
+                    <option value="facebook">Facebook saja</option>
+                    <option value="instagram">Instagram saja</option>
+                  </Select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold text-slate-600">Tombol (CTA)</label>
+                  <Select className="input w-full" value={form.cta} onChange={(e) => setForm({ ...form, cta: e.target.value })}>
+                    <option value="SHOP_NOW">Beli Sekarang</option>
+                    <option value="ORDER_NOW">Pesan Sekarang</option>
+                    <option value="LEARN_MORE">Pelajari Selengkapnya</option>
+                    <option value="SEND_MESSAGE">Kirim Pesan</option>
+                    <option value="SIGN_UP">Daftar</option>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold text-slate-600">Mulai (opsional)</label>
+                  <input type="datetime-local" className="input w-full text-xs" value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold text-slate-600">Selesai (opsional)</label>
+                  <input type="datetime-local" className="input w-full text-xs" value={form.end_time} onChange={(e) => setForm({ ...form, end_time: e.target.value })} />
+                </div>
+              </div>
+
+              <p className="pt-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">Konten Iklan &amp; Tujuan Pesanin</p>
+              {dests && (
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-600">Pilih Halaman / Produk dari Pesanin</label>
+                  <Select className="input w-full" value={destPick} onChange={(e) => applyDestination(e.target.value, dests)}>
+                    <option value="">Input link manual</option>
+                    {dests.landing_pages.length > 0 && (
+                      <optgroup label="Landing Page">
+                        {dests.landing_pages.map((lp) => <option key={`lp-${lp.id}`} value={`landing:${lp.id}`}>{lp.title} (/p/{lp.slug})</option>)}
+                      </optgroup>
+                    )}
+                    {dests.products.length > 0 && (
+                      <optgroup label="Checkout Produk Medsos">
+                        {dests.products.map((pr) => <option key={`pr-${pr.id}`} value={`product:${pr.id}`}>{pr.name} (/c/{pr.slug})</option>)}
+                      </optgroup>
+                    )}
+                    {dests.wa_rotators.length > 0 && (
+                      <optgroup label="WhatsApp Rotator">
+                        {dests.wa_rotators.map((wa) => <option key={`wa-${wa.id}`} value={`wa:${wa.id}`}>{wa.name} (/wa/{wa.slug})</option>)}
+                      </optgroup>
+                    )}
+                  </Select>
+                  {!dests.has_global_fb_pixel && destPick && !destPick.startsWith("wa:") && (
+                    <p className="mt-1 text-[11px] text-amber-700">Meta Pixel global belum aktif — pasang di <a href="/settings/tracking" className="font-semibold underline">Pengaturan → Tracking Pixel</a> agar konversi &amp; retargeting terbaca Meta.</p>
+                  )}
+                </div>
+              )}
               <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-600">Halaman Facebook (Page)</label>
                 {pages.length ? (
@@ -372,6 +513,10 @@ function MetaAds() {
                 )}
               </div>
               <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-600">Gambar Iklan (JPG/PNG)</label>
+                <input type="file" accept="image/*" className="block w-full text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-navy hover:file:bg-slate-100" onChange={(e) => setImageFile(e.target.files?.[0] ?? null)} />
+              </div>
+              <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-600">Link Tujuan (otomatis ditambah UTM Pesanin)</label>
                 <input type="url" required={withAd} className="input w-full" placeholder="https://pesaninn.my.id/toko/..." value={form.link_url} onChange={(e) => setForm({ ...form, link_url: e.target.value })} />
               </div>
@@ -379,9 +524,15 @@ function MetaAds() {
                 <label className="mb-1 block text-xs font-semibold text-slate-600">Teks Utama Iklan</label>
                 <textarea rows={2} className="input w-full py-2" placeholder="Promo hari ini! Gratis ongkir..." value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} />
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">Judul (Headline)</label>
-                <input maxLength={200} className="input w-full" placeholder="Beli Sekarang" value={form.headline} onChange={(e) => setForm({ ...form, headline: e.target.value })} />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-600">Judul (Headline)</label>
+                  <input maxLength={200} className="input w-full" placeholder="Beli Sekarang" value={form.headline} onChange={(e) => setForm({ ...form, headline: e.target.value })} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-600">Deskripsi Singkat</label>
+                  <input maxLength={300} className="input w-full" placeholder="Stok terbatas!" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                </div>
               </div>
             </div>
           )}

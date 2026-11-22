@@ -84,6 +84,7 @@ export default function Products() {
                         <div className="flex gap-2 text-xs">
                           <span className={`badge ${p.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}><span className={`h-1.5 w-1.5 rounded-full ${p.status === "active" ? "bg-emerald-500" : "bg-slate-400"}`} />{p.status === "active" ? "Aktif" : "Draft"}</span>
                           <a href={`/c/${p.slug}`} target="_blank" className="inline-flex items-center gap-1 text-brand-600 hover:underline">/c/{p.slug}<ExternalLink size={11} /></a>
+                          <Link href={`/reports/meta-ads?create=1&type=product&id=${p.id}`} className="inline-flex items-center gap-1 font-semibold text-[#1877f2] hover:underline">Iklankan</Link>
                         </div>
                       </div>
                     </div>

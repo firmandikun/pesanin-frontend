@@ -160,6 +160,7 @@ export default function LandingPages() {
                           <Link href={`/landing-pages/${p.id}`}>Edit with Builder</Link>
                           <button onClick={() => duplicate(p)}>Duplicate</button>
                           <a href={`/p/${p.slug}${p.status === "published" ? "" : "?preview=1"}`} target="_blank">Visit Page</a>
+                          <Link href={`/reports/meta-ads?create=1&type=landing&id=${p.id}`} className="font-semibold text-[#1877f2]">Iklankan di Meta</Link>
                         </div>
                       </div>
                     </div>
