@@ -1,11 +1,11 @@
 "use client";
 import { Check, ChevronDown, ChevronRight, ExternalLink, HelpCircle, Layers, Loader2, Megaphone, Plus, RefreshCcw, Search, ShieldCheck, Wallet } from "lucide-react";
+import Link from "next/link";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DateRange, useDefaultRange } from "@/components/DateRange";
 import { PageHead, Panel } from "@/components/kit";
 import { AdsAiPanel } from "@/components/marketplace/AdsAiPanel";
 import { AdsGuardPanel } from "@/components/marketplace/AdsGuardPanel";
-import { ShopeeAdCreateModal } from "@/components/marketplace/ShopeeAdCreateModal";
 import { Select } from "@/components/Select";
 import { api, ApiError, rupiah } from "@/lib/api";
 
@@ -152,7 +152,6 @@ function CollageThumb({ images, fallbackIcon = "auto" }: { images: (string | nul
 export default function ShopeeAds() {
   const [range, setRange] = useState(useDefaultRange());
   const [guardKey, setGuardKey] = useState(0);
-  const [createOpen, setCreateOpen] = useState(false);
   const [shops, setShops] = useState<Shop[]>([]);
   const [shop, setShop] = useState("");
   const [d, setD] = useState<Data | null>(null);
@@ -340,14 +339,13 @@ export default function ShopeeAds() {
               ))}
             </Select>
           )}
-          <button
-            onClick={() => setCreateOpen(true)}
-            disabled={!shops.length}
-            className="flex h-10 items-center gap-1.5 rounded-lg border border-[#ee4d2d] bg-white px-4 text-sm font-semibold text-[#ee4d2d] hover:bg-orange-50 disabled:opacity-50"
+          <Link
+            href={shop ? `/marketplace/ads/create?shop=${shop}` : "/marketplace/ads/create"}
+            className="flex h-10 items-center gap-1.5 rounded-lg border border-[#ee4d2d] bg-white px-4 text-sm font-semibold text-[#ee4d2d] hover:bg-orange-50"
           >
             <Plus size={16} />
             Buat Iklan
-          </button>
+          </Link>
           <button
             onClick={sync}
             disabled={busy}
@@ -358,17 +356,6 @@ export default function ShopeeAds() {
           </button>
         </div>
       </PageHead>
-
-      <ShopeeAdCreateModal
-        open={createOpen}
-        initialShopId={shop || undefined}
-        onClose={() => setCreateOpen(false)}
-        onCreated={(m) => {
-          setMsg(m);
-          setGuardKey((k) => k + 1);
-          load();
-        }}
-      />
 
       <AdsGuardPanel shopId={shop || undefined} range={range} reloadKey={guardKey} />
       <AdsAiPanel shopId={shop || undefined} range={range} onApplied={() => setGuardKey((k) => k + 1)} />
