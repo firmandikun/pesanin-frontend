@@ -194,7 +194,7 @@ export function FloatingChatDrawer() {
             ) : !msgs.length ? (
               <p className="py-12 text-center text-xs text-slate-400">Belum ada pesan yang bisa ditampilkan.</p>
             ) : (
-              msgs.map((m) => m.system ? (
+              msgs.filter((m) => m.text || m.image || m.video || m.order).map((m) => m.system ? (
                 <div key={m.id} className="flex flex-col items-center gap-1">
                   {m.order && <MiniOrderCard o={m.order} />}
                   {m.text && <p className="max-w-[90%] rounded-lg bg-white/85 px-2.5 py-1 text-center text-[11px] text-slate-500 ring-1 ring-slate-200/70">{m.text}</p>}
