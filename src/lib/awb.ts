@@ -97,7 +97,15 @@ export async function openShopeeAwbMerged({ orders = [], bookings = [], settings
   // "Cetak langsung" (Pengaturan → Cetak Resi & Label): straight to the Bluetooth label printer, no PDF tab.
   const direct = getDirectPrefs().enabled && !!LABEL_MM[printSettings.paper_size];
   const win = direct ? null : window.open("", "_blank");
-  if (win) win.document.write("<p style='font-family:sans-serif;padding:24px;color:#475569'>Menyiapkan resi Shopee…</p>");
+  if (win) {
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Menyiapkan Resi Shopee…</title><style>
+      *{box-sizing:border-box}html,body{margin:0;height:100%;font-family:system-ui,-apple-system,sans-serif;background:#f8fafc;color:#0f172a;display:flex;align-items:center;justify-content:center}
+      .card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:32px 36px;text-align:center;box-shadow:0 8px 30px rgba(15,23,42,.06);max-width:340px;width:90%}
+      .spin{width:38px;height:38px;margin:0 auto 14px;border:3px solid rgba(238,77,45,.2);border-top-color:#ee4d2d;border-radius:9999px;animation:s .8s linear infinite}
+      @keyframes s{to{transform:rotate(360deg)}}
+      h1{margin:0 0 6px;font-size:15px;font-weight:700}p{margin:0;font-size:12px;color:#64748b}
+    </style></head><body><div class="card"><div class="spin"></div><h1>Menyiapkan Resi Shopee…</h1><p>Menggabungkan &amp; memformat label pengiriman Anda.</p></div></body></html>`);
+  }
   try {
     const merged = await PDFDocument.create();
     // Shopee can't mix couriers in one document, so group each kind by shop + courier.
@@ -198,18 +206,23 @@ export async function openShopeeAwbMerged({ orders = [], bookings = [], settings
       win.document.open();
       win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${filename}</title><style>
         *{box-sizing:border-box}html,body{margin:0;height:100%;font-family:system-ui,-apple-system,sans-serif;background:#1e293b;display:flex;flex-direction:column}
-        .bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;background:#0f172a;color:#f8fafc;border-bottom:1px solid #334155}
+        .bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 18px;background:#0f172a;color:#f8fafc;border-bottom:1px solid #334155}
+        .brand{display:flex;align-items:center;gap:10px;min-width:0}
+        .badge{background:rgba(238,77,45,.18);color:#ff7a5c;font-size:11px;font-weight:700;padding:3px 8px;border-radius:9999px;white-space:nowrap}
         .title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .actions{display:flex;gap:8px;flex-shrink:0}
-        .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;cursor:pointer;border:0}
+        .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 15px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;cursor:pointer;border:0;transition:background .15s}
         .dl{background:#ee4d2d;color:#fff}.dl:hover{background:#d73211}
         .pr{background:#334155;color:#f8fafc}.pr:hover{background:#475569}
         iframe{flex:1;width:100%;border:0;background:#334155}
       </style></head><body>
         <div class="bar">
-          <div class="title">${filename} (${merged.getPageCount()} halaman)</div>
+          <div class="brand">
+            <span class="badge">${merged.getPageCount()} halaman</span>
+            <div class="title">Resi Shopee · ${filename}</div>
+          </div>
           <div class="actions">
-            <button class="btn pr" onclick="document.getElementById('pdf').contentWindow.print()">Cetak</button>
+            <button class="btn pr" onclick="document.getElementById('pdf').contentWindow.print()">Cetak Sekarang</button>
             <a class="btn dl" href="${url}" download="${filename}">Unduh PDF</a>
           </div>
         </div>

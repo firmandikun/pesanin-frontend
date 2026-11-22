@@ -13,6 +13,11 @@ export default function Page() {
     if (!getToken()) return setChecking(false);
     api<User>("/me").then((u) => router.replace(landingFor(u))).catch(() => setChecking(false));
   }, [router]);
-  if (checking) return <p className="py-24 text-center text-sm text-slate-400">Memuat…</p>;
+  if (checking) return (
+    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 p-6">
+      <div className="h-8 w-8 animate-spin rounded-full border-[2.5px] border-[#ee4d2d]/20 border-t-[#ee4d2d]" />
+      <p className="text-xs font-medium text-slate-500">Memeriksa sesi login…</p>
+    </div>
+  );
   return <AuthForm mode="login" />;
 }

@@ -64,7 +64,21 @@ export function AuthProvider({ children, loginPath = "/login" }: { children: Rea
   };
 
   if (!user) {
-    return <div className="flex h-screen items-center justify-center text-sm text-slate-400">{offline ? "Tidak bisa terhubung ke server Pesanin. Mencoba lagi…" : "Memuat…"}</div>;
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#f5f6fa] p-6">
+        <div className="flex flex-col items-center gap-3 rounded-2xl bg-white px-8 py-7 shadow-sm ring-1 ring-slate-200/70">
+          <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-[#ee4d2d]/10">
+            <span className="h-6 w-6 animate-spin rounded-full border-[2.5px] border-[#ee4d2d]/25 border-t-[#ee4d2d]" />
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-bold text-slate-800">Pesanin</p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {offline ? "Tidak bisa terhubung ke server Pesanin. Mencoba lagi…" : "Memuat akun & toko Anda…"}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
   }
   return <AuthContext.Provider value={{ user, setUser, logout }}>{children}</AuthContext.Provider>;
 }

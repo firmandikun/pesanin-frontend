@@ -112,9 +112,9 @@ export function NotificationBell({ side = "bottom", openOverride, onToggleOverri
   return (
     <>
       <div className="relative">
-        <button onClick={() => setOpen(!open)} className={`relative flex h-10 w-10 items-center justify-center rounded-xl transition ${open && side === "left" ? "bg-orange-50 text-[#ee4d2d]" : "text-slate-500 hover:bg-slate-100 hover:text-[#ee4d2d]"}`} aria-label="Notifikasi" title="Notifikasi">
+        <button onClick={() => setOpen(!open)} className={`relative flex h-9 w-9 items-center justify-center rounded-xl transition ${open && side === "left" ? "bg-orange-50 text-[#ee4d2d]" : "text-slate-500 hover:bg-slate-100 hover:text-[#ee4d2d]"}`} aria-label="Notifikasi" title="Notifikasi">
           <Bell size={20} />
-          {unread > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[18px] items-center justify-center rounded-full bg-[#ee4d2d] px-1 text-[10px] font-bold text-white">{unread > 99 ? "99+" : unread}</span>}
+          {unread > 0 && <span className="absolute right-0 top-0 flex h-4 min-w-[18px] items-center justify-center rounded-full bg-[#ee4d2d] px-1 text-[10px] font-bold text-white">{unread > 99 ? "99+" : unread}</span>}
         </button>
         {open && side === "left" && (
           <div className="fixed bottom-0 right-0 top-14 z-40 flex w-full flex-col border-l border-slate-200 bg-white text-sm text-slate-700 shadow-xl sm:right-12 sm:w-[340px]">
@@ -137,8 +137,11 @@ export function NotificationBell({ side = "bottom", openOverride, onToggleOverri
               ))}
             </div>
             <div className="no-scrollbar min-h-0 flex-1 divide-y divide-slate-100 overflow-y-auto">
-              {filteredItems.length ? filteredItems.map((i) => (
-                <Link key={i.id} href={i.url ?? "#"} onClick={() => setOpen(false)} className={`block px-4 py-3 transition hover:bg-orange-50/40 ${i.read_at ? "" : "bg-orange-50/30"}`}>
+              {filteredItems.length ? filteredItems.map((i) => {
+                const sn = i.type === "order" ? i.body?.split(" · ")[0]?.trim() : "";
+                const href = i.url === "/marketplace/orders" && sn ? `/marketplace/orders?search=${encodeURIComponent(sn)}` : (i.url ?? "#");
+                return (
+                <Link key={i.id} href={href} onClick={() => setOpen(false)} className={`block px-4 py-3 transition hover:bg-orange-50/40 ${i.read_at ? "" : "bg-orange-50/30"}`}>
                   <div className="flex items-start justify-between gap-2">
                     <b className="line-clamp-1 text-[13px] text-slate-800">{i.title}</b>
                     <span className="shrink-0 text-[10px] text-slate-400">{ago(i.created_at)}</span>
@@ -146,7 +149,8 @@ export function NotificationBell({ side = "bottom", openOverride, onToggleOverri
                   {i.body && <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{i.body}</p>}
                   {i.url && <span className="mt-1 inline-block text-[11px] font-medium text-sky-600">Selengkapnya</span>}
                 </Link>
-              )) : <p className="px-4 py-12 text-center text-xs text-slate-400">Belum ada notifikasi.</p>}
+                );
+              }) : <p className="px-4 py-12 text-center text-xs text-slate-400">Belum ada notifikasi.</p>}
             </div>
             <div className="border-t border-slate-100 bg-slate-50 px-4 py-3">
               <button onClick={togglePush} className="flex w-full items-center justify-between gap-2 text-left">

@@ -1,5 +1,5 @@
 "use client";
-import { AlertCircle, ArrowLeft, Check, CheckCheck, CheckCircle2, Eye, ImagePlus, Info, Loader2, MessageCircle, PanelRight, Pin, RefreshCcw, RotateCcw, Search, Send, Unplug, UserRound, Zap } from "lucide-react";
+import { AlertCircle, ArrowLeft, Check, CheckCheck, CheckCircle2, Eye, ImagePlus, Info, Loader2, MessageCircle, MessageSquareQuote, PanelRight, Pin, RefreshCcw, RotateCcw, Search, Send, Unplug, UserRound } from "lucide-react";
 import Link from "next/link";
 import { askConfirm } from "@/components/Dialogs";
 import { useSearchParams } from "next/navigation";
@@ -294,22 +294,27 @@ function Chat() {
           </Select>
         )}
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <Select className="input h-9 w-52 text-sm" value={view} onChange={(e) => setView(e.target.value as View)} aria-label="Tampilan">
+          <Select className="input h-9 w-36 text-xs font-medium" value={view} onChange={(e) => setView(e.target.value as View)} aria-label="Tampilan">
             {((me ? ["mine", "open", "unread", "unassigned", "done", "all"] : ["open", "unread", "unassigned", "done", "all"]) as View[]).map((v) => <option key={v} value={v}>{VIEW_LABEL[v]} ({viewCount(v)})</option>)}
             {team.length > 0 && <optgroup label="Ditugaskan ke">{team.map((t) => <option key={t.id} value={`cs:${t.id}`}>{t.name} ({viewCount(`cs:${t.id}`)})</option>)}</optgroup>}
           </Select>
           {labels.length > 0 && (
-            <Select className="input h-9 w-44 text-sm" value={labelFilter} onChange={(e) => setLabelFilter(e.target.value)} aria-label="Label">
+            <Select className="input h-9 w-36 text-xs font-medium" value={labelFilter} onChange={(e) => setLabelFilter(e.target.value)} aria-label="Label">
               <option value="">Semua label</option>
               {labels.map((l) => <option key={l.id} value={l.name}>{l.name}</option>)}
             </Select>
           )}
-          <Link href="/chat/quick-replies" title="Balasan cepat & label" className="flex h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-semibold text-slate-600 hover:bg-slate-100"><Zap size={15} />Balasan cepat</Link>
+          <Link href="/chat/quick-replies" title="Balasan cepat & label" className="flex h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-xs font-semibold text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"><MessageSquareQuote size={14} className="text-[#ee4d2d]" />Balasan cepat</Link>
         </div>
       </div>
 
       {notice && <p className={`flex items-start gap-2 rounded-xl p-3 text-sm ${notice.ok ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>{notice.ok ? <CheckCircle2 size={16} className="mt-0.5 shrink-0" /> : <Info size={16} className="mt-0.5 shrink-0" />}{notice.text}</p>}
-      {!preview && meta?.errors && meta.errors.length > 0 && <p className="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-800"><Info size={16} className="mt-0.5 shrink-0" /><span>{meta.errors.join(" · ")}</span></p>}
+      {!preview && meta?.errors && meta.errors.length > 0 && (
+        <div className="flex items-center gap-2 rounded-xl bg-amber-50 px-3.5 py-2 text-xs text-amber-800" title={meta.errors.join(" · ")}>
+          <Info size={14} className="shrink-0" />
+          <span className="min-w-0 flex-1 truncate">{meta.errors.join(" · ")}</span>
+        </div>
+      )}
       {preview ? (
         <p className="flex items-start gap-2 rounded-xl bg-sky-50 p-3 text-sm text-sky-800"><Info size={16} className="mt-0.5 shrink-0" />Mode contoh: percakapan di bawah hanya ilustrasi tampilan (termasuk Facebook & Instagram) dan tidak terkirim ke mana pun.</p>
       ) : list && !list.available && channel === "shopee" ? (
@@ -317,7 +322,7 @@ function Chat() {
           <span>Chat Shopee belum aktif. API chat Shopee perlu izin khusus dari Shopee untuk app live.{list.reason && <span className="mt-0.5 block text-xs text-amber-700">{list.reason}</span>}</span></p>
       ) : null}
 
-      <div className={`relative grid h-[calc(100vh-300px)] min-h-[520px] overflow-hidden rounded-2xl bg-white md:grid-cols-[300px_minmax(0,1fr)] ${active && showProfile && !preview ? "2xl:grid-cols-[320px_minmax(0,1fr)_300px]" : ""}`}>
+      <div className={`relative grid h-[calc(100vh-230px)] min-h-[520px] overflow-hidden rounded-2xl border border-slate-200/80 bg-white md:grid-cols-[300px_minmax(0,1fr)] ${active && showProfile && !preview ? "2xl:grid-cols-[320px_minmax(0,1fr)_300px]" : ""}`}>
         <div className={`flex min-h-0 flex-col border-slate-100 md:border-r ${active ? "hidden md:flex" : "flex"}`}>
           <div className="border-b border-slate-100 p-3">
             <div className="relative"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -444,6 +449,10 @@ function Chat() {
                     <button type="button" onClick={() => fileRef.current?.click()} disabled={busy} title="Kirim gambar (video belum didukung Shopee API, kirim lewat aplikasi Shopee)"
                       className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-brand-600 disabled:opacity-40"><ImagePlus size={17} /></button>
                   </>
+                )}
+                {!preview && (
+                  <button type="button" onClick={() => { setDraft((d) => d.startsWith("/") ? "" : "/"); setPick(0); }} title="Pilih balasan cepat (/)"
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 transition ${slash ? "border-[#ee4d2d] bg-orange-50 text-[#ee4d2d]" : "text-slate-500 hover:bg-slate-50 hover:text-[#ee4d2d]"}`}><MessageSquareQuote size={17} /></button>
                 )}
                 <textarea rows={1} disabled={windowClosed} className="input max-h-32 min-h-10 flex-1 resize-none py-2 text-sm disabled:bg-slate-50" placeholder={windowClosed ? "Balasan ditutup (lewat 24 jam)" : `Balas lewat ${ch(active.channel).label}… (ketik / untuk balasan cepat)`} value={draft} onChange={(e) => { setDraft(e.target.value); setPick(0); }}
                   onKeyDown={(e) => {
