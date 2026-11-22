@@ -23,7 +23,7 @@ function validateResiCode(raw: string): string | null {
   if (code.length < 6 || code.length > 100) {
     return "Kode terlalu pendek/panjang, scan ulang barcode resi.";
   }
-  if (!/^[A-Z0-9\-_]+$/.test(code)) {
+  if (!/^[A-Z0-9\-_|,;]+$/.test(code)) {
     return "Format bukan nomor resi yang valid. Scan ulang barcode resi di label paket.";
   }
   return null;
@@ -128,7 +128,7 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
   };
 
   const stopCam = () => { gen.current++; controls.current?.stop(); controls.current = null; setCamOn(false); };
-  const startCam = useCallback(async () => {
+  const startCam = useCallback(async (mode: "bar" | "qr" = guide) => {
     setCamErr("");
     if (!video.current) return;
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
@@ -144,15 +144,18 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
       v.muted = true;
       const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await Promise.all([import("@zxing/browser"), import("@zxing/library")]);
       const hints = new Map();
-      hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.CODE_128, BarcodeFormat.CODE_39, BarcodeFormat.CODE_93, BarcodeFormat.EAN_13, BarcodeFormat.ITF, BarcodeFormat.CODABAR, BarcodeFormat.QR_CODE, BarcodeFormat.DATA_MATRIX]);
-      const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 120 });
+      const formats = mode === "qr"
+        ? [BarcodeFormat.QR_CODE, BarcodeFormat.DATA_MATRIX]
+        : [BarcodeFormat.CODE_128, BarcodeFormat.CODE_39, BarcodeFormat.CODE_93, BarcodeFormat.EAN_13, BarcodeFormat.ITF, BarcodeFormat.CODABAR];
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, formats);
+      hints.set(DecodeHintType.TRY_HARDER, true);
+      const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: mode === "bar" ? 80 : 110 });
       const c = await reader.decodeFromConstraints(
-        { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } } },
+        { video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } } },
         v,
         (res) => {
           if (!res) return;
           const square = res.getBarcodeFormat() === BarcodeFormat.QR_CODE || res.getBarcodeFormat() === BarcodeFormat.DATA_MATRIX;
-          setGuide(square ? "qr" : "bar");
           markHit(res.getResultPoints().map((p) => [p.getX(), p.getY()] as [number, number]), square);
           send(res.getText());
         },
@@ -164,13 +167,13 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
     } catch (e: any) {
       setCamErr(e?.name === "NotAllowedError" ? "Izin kamera ditolak. Izinkan kamera di pengaturan browser lalu coba lagi." : "Kamera tidak bisa dibuka. Coba lagi atau ketik resi manual.");
     }
-  }, [send]);
+  }, [guide, send]);
 
-  // Open the camera right away once the session is valid and staff name is set.
+  // Open the camera right away once the session is valid and staff name is set (and restart when Barcode/QR mode changes).
   useEffect(() => {
-    if (info?.session.open && !finished && staff) startCam();
+    if (info?.session.open && !finished && staff) startCam(guide);
     return () => { gen.current++; controls.current?.stop(); controls.current = null; };
-  }, [info, finished, staff, startCam]);
+  }, [info, finished, staff, guide, startCam]);
 
   const undo = async () => {
     try {
@@ -253,7 +256,7 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
         {!camOn && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
             {camErr && <p className="text-sm text-white/90">{camErr}</p>}
-            <button type="button" onClick={startCam} className="flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-sm"><Camera size={16} />Buka kamera</button>
+            <button type="button" onClick={() => startCam(guide)} className="flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-sm"><Camera size={16} />Buka kamera</button>
           </div>
         )}
         <div className="absolute left-3 top-3 rounded-full bg-black/65 px-3 py-1 text-xs font-bold text-white backdrop-blur-sm">{summary.total} paket</div>
