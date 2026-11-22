@@ -225,6 +225,8 @@ function Publish() {
     if (!file) return;
     if (file.size > 30 * 1024 * 1024) { setVideoError("Ukuran video maksimal 30 MB."); return; }
     const fd = new FormData(); fd.append("file", file);
+    const targetShopId = picked[0] ?? shops?.[0]?.id;
+    if (targetShopId) fd.append("shop_id", String(targetShopId));
     setUploadingVideo(true); setVideoError(""); setErr("");
     try {
       const result = await api<VideoUpload>("/marketplace/publish/video", { method: "POST", body: fd });
