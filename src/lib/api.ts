@@ -40,9 +40,10 @@ export async function api<T = any>(path: string, options: RequestInit & { json?:
   } else if (res.status === 402 && typeof window !== "undefined") window.dispatchEvent(new CustomEvent("pesanin:upgrade", { detail: data.message }));
   // A non-JSON error page (nginx 502/504, PHP fatal 500): say what happened instead of a bare "Terjadi kesalahan".
   const fallback = [502, 503, 504].includes(res.status) ? `Server tidak menjawab tepat waktu (${res.status}). Coba lagi sebentar lagi.`
-    : res.status === 429 ? "Terlalu sering dicoba. Tunggu sebentar lalu coba lagi."
     : res.status >= 500 ? `Terjadi kesalahan di server (${res.status}). Coba lagi.` : "Terjadi kesalahan";
-  if (!res.ok) throw new ApiError(res.status, data.message || fallback, data.errors, data);
+  const retry = Number(res.headers.get("Retry-After")) || 0;
+  const message = res.status === 429 ? `Terlalu sering dicoba. Tunggu ${retry > 0 ? `${retry} detik` : "sebentar"} lalu coba lagi.` : data.message || fallback;
+  if (!res.ok) throw new ApiError(res.status, message, data.errors, data);
   return data;
 }
 
