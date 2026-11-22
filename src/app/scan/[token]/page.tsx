@@ -13,6 +13,22 @@ import { feedback, scanTime, STATUS_STYLE, type Parcel, type ScanPayload, type S
  */
 const STAFF_KEY = "pesanin_scan_staff";
 
+/** Reject Pesanin dashboard QR links / URLs or malformed strings before hitting the API. */
+function validateResiCode(raw: string): string | null {
+  const code = raw.trim().replace(/\s+/g, "").toUpperCase();
+  if (!code) return "Kode kosong.";
+  if (/^https?:\/\//i.test(code) || code.includes("://") || /\/scan\//i.test(code)) {
+    return "Ini QR link Pesanin / URL, bukan nomor resi. Arahkan kamera ke barcode resi di label paket.";
+  }
+  if (code.length < 6 || code.length > 100) {
+    return "Kode terlalu pendek/panjang, scan ulang barcode resi.";
+  }
+  if (!/^[A-Z0-9\-_]+$/.test(code)) {
+    return "Format bukan nomor resi yang valid. Scan ulang barcode resi di label paket.";
+  }
+  return null;
+}
+
 export default function PhoneScan({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
   const base = `/public/scan-out/${token}`;
@@ -65,6 +81,12 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
     if (!code || busy.current || (seen.current.code === code && now - seen.current.at < (open ? 1500 : 4000))) return;
     seen.current = { code, at: now };
     if (open) { packRef.current.scan(code); return; }
+    const resiErr = validateResiCode(code);
+    if (resiErr) {
+      feedback("invalid");
+      setLast({ status: "invalid", message: resiErr, parcel: null });
+      return;
+    }
     busy.current = true;
     try {
       const r = await api<ScanResult>(`${base}/scan`, { method: "POST", json: { code, by: staffRef.current || undefined } });
@@ -108,6 +130,7 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
   const stopCam = () => { gen.current++; controls.current?.stop(); controls.current = null; setCamOn(false); };
   const startCam = useCallback(async () => {
     setCamErr("");
+    if (!video.current) return;
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
       setCamErr("Kamera hanya bisa dibuka lewat HTTPS. Buka link ini dari alamat https:// (domain Pesanin), atau ketik resi manual di bawah.");
       return;
@@ -115,13 +138,17 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
     const my = ++gen.current;
     controls.current?.stop();
     try {
+      const v = video.current;
+      v.setAttribute("playsinline", "true");
+      v.setAttribute("autoplay", "true");
+      v.muted = true;
       const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await Promise.all([import("@zxing/browser"), import("@zxing/library")]);
       const hints = new Map();
       hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.CODE_128, BarcodeFormat.CODE_39, BarcodeFormat.CODE_93, BarcodeFormat.EAN_13, BarcodeFormat.ITF, BarcodeFormat.CODABAR, BarcodeFormat.QR_CODE, BarcodeFormat.DATA_MATRIX]);
       const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 120 });
       const c = await reader.decodeFromConstraints(
         { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } } },
-        video.current!,
+        v,
         (res) => {
           if (!res) return;
           const square = res.getBarcodeFormat() === BarcodeFormat.QR_CODE || res.getBarcodeFormat() === BarcodeFormat.DATA_MATRIX;
@@ -132,17 +159,18 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
       );
       if (my !== gen.current) { c.stop(); return; } // closed/restarted meanwhile
       controls.current = c;
+      v.play().catch(() => {});
       setCamOn(true);
     } catch (e: any) {
       setCamErr(e?.name === "NotAllowedError" ? "Izin kamera ditolak. Izinkan kamera di pengaturan browser lalu coba lagi." : "Kamera tidak bisa dibuka. Coba lagi atau ketik resi manual.");
     }
   }, [send]);
 
-  // Open the camera right away once the session is valid.
+  // Open the camera right away once the session is valid and staff name is set.
   useEffect(() => {
-    if (info?.session.open && !finished) startCam();
+    if (info?.session.open && !finished && staff) startCam();
     return () => { gen.current++; controls.current?.stop(); controls.current = null; };
-  }, [info, finished, startCam]);
+  }, [info, finished, staff, startCam]);
 
   const undo = async () => {
     try {
@@ -209,26 +237,26 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
 
   return (
     <Shell store={info.store_name}>
-      <div className="relative overflow-hidden rounded-2xl bg-black">
-        <video ref={video} className="aspect-[4/3] w-full object-cover" muted playsInline />
+      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-slate-900">
+        <video ref={video} className="h-full w-full object-cover" autoPlay muted playsInline style={{ transform: "translateZ(0)" }} />
         {camOn && (
-          <div className={`pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl border-2 border-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)] transition-all duration-300 ${guide === "qr" ? "aspect-square w-[58%]" : "h-24 w-[85%]"}`} />
+          <div className={`pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl border-2 border-white/85 bg-white/5 transition-all duration-300 ${guide === "qr" ? "aspect-square w-[56%]" : "h-24 w-[84%]"}`} />
         )}
         {camOn && hit && <div className="pointer-events-none absolute rounded-lg border-[3px] border-emerald-400 bg-emerald-400/15 transition-all duration-150" style={hit} />}
         {camOn && (
-          <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 overflow-hidden rounded-full bg-black/60 text-xs font-semibold text-white">
+          <div className="absolute bottom-2.5 left-1/2 flex -translate-x-1/2 overflow-hidden rounded-full bg-black/65 p-0.5 text-xs font-semibold text-white shadow-sm backdrop-blur-sm">
             {(["bar", "qr"] as const).map((g) => (
-              <button key={g} onClick={() => setGuide(g)} className={`px-3 py-1.5 ${guide === g ? "bg-white text-slate-800" : ""}`}>{g === "bar" ? "Barcode" : "QR / kotak"}</button>
+              <button key={g} type="button" onClick={() => setGuide(g)} className={`whitespace-nowrap rounded-full px-3.5 py-1 transition-colors ${guide === g ? "bg-white text-slate-800" : "text-white/90"}`}>{g === "bar" ? "Barcode" : "QR / kotak"}</button>
             ))}
           </div>
         )}
         {!camOn && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
             {camErr && <p className="text-sm text-white/90">{camErr}</p>}
-            <button onClick={startCam} className="flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-slate-800"><Camera size={16} />Buka kamera</button>
+            <button type="button" onClick={startCam} className="flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-sm"><Camera size={16} />Buka kamera</button>
           </div>
         )}
-        <div className="absolute left-3 top-3 rounded-full bg-black/60 px-3 py-1 text-sm font-bold text-white">{summary.total} paket</div>
+        <div className="absolute left-3 top-3 rounded-full bg-black/65 px-3 py-1 text-xs font-bold text-white backdrop-blur-sm">{summary.total} paket</div>
       </div>
 
       <div className="space-y-2 rounded-2xl bg-white px-4 py-2.5 shadow-sm">
@@ -241,41 +269,41 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
 
       {!pack.order && pack.msg?.ok && pack.msg.text.startsWith("Paket ") && <div className="rounded-2xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-800 ring-1 ring-emerald-200">{pack.msg.text}</div>}
       {last && !pack.order && (
-        <div className={`rounded-2xl p-4 ring-1 ${STATUS_STYLE[last.status].box}`}>
+        <div className={`overflow-hidden rounded-2xl p-4 ring-1 ${STATUS_STYLE[last.status].box}`}>
           <div className="text-xs font-bold uppercase">{STATUS_STYLE[last.status].label}</div>
-          {last.parcel?.code && <div className="font-mono text-base font-bold">{last.parcel.code}</div>}
-          <div className="text-sm">{last.message}</div>
+          {last.parcel?.code && <div className="mt-0.5 break-all font-mono text-base font-bold">{last.parcel.code}</div>}
+          <div className="mt-0.5 break-words text-sm">{last.message}</div>
         </div>
       )}
 
       <form onSubmit={(e) => { e.preventDefault(); seen.current = { code: "", at: 0 }; send(manual); setManual(""); }} className="flex gap-2">
-        <div className="relative flex-1">
+        <div className="relative min-w-0 flex-1">
           <Keyboard size={16} className="absolute left-3 top-3 text-slate-400" />
           <input value={manual} onChange={(e) => setManual(e.target.value)} placeholder="Ketik resi manual" className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 font-mono text-sm outline-none focus:border-brand-500" />
         </div>
-        <button className="rounded-xl bg-slate-800 px-4 text-sm font-semibold text-white">Kirim</button>
+        <button className="shrink-0 rounded-xl bg-slate-800 px-4 text-sm font-semibold text-white">Kirim</button>
       </form>
 
       <div className="grid grid-cols-2 gap-2">
-        <button onClick={undo} disabled={!summary.total} className="flex h-12 items-center justify-center gap-2 rounded-xl bg-white text-sm font-semibold text-slate-700 ring-1 ring-slate-200 disabled:opacity-40"><Undo2 size={16} />Batal scan terakhir</button>
-        <button onClick={finish} className="flex h-12 items-center justify-center gap-2 rounded-xl bg-brand-600 text-sm font-semibold text-white"><CheckCircle2 size={16} />Selesai</button>
+        <button type="button" onClick={undo} disabled={!summary.total} className="flex h-12 items-center justify-center gap-1.5 rounded-xl bg-white px-3 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 disabled:opacity-40 sm:text-sm"><Undo2 size={16} className="shrink-0" /><span>Batal scan terakhir</span></button>
+        <button type="button" onClick={finish} className="flex h-12 items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-3 text-xs font-semibold text-white sm:text-sm"><CheckCircle2 size={16} className="shrink-0" /><span>Selesai</span></button>
       </div>
 
-      <div className="rounded-2xl bg-white p-4 shadow-sm">
+      <div className="overflow-hidden rounded-2xl bg-white p-4 shadow-sm">
         <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Per ekspedisi</div>
-        {summary.by_expedition.map((s) => <div key={s.name} className="flex justify-between py-1 text-sm"><span className="text-slate-600">{s.name}</span><b>{s.count}</b></div>)}
+        {summary.by_expedition.map((s) => <div key={s.name} className="flex justify-between gap-2 py-1 text-sm"><span className="min-w-0 truncate text-slate-600">{s.name}</span><b className="shrink-0">{s.count}</b></div>)}
         <div className="mb-2 mt-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Per toko</div>
-        {summary.by_shop.map((s) => <div key={s.name} className="flex justify-between py-1 text-sm"><span className="text-slate-600">{s.name}</span><b>{s.count}</b></div>)}
+        {summary.by_shop.map((s) => <div key={s.name} className="flex justify-between gap-2 py-1 text-sm"><span className="min-w-0 truncate text-slate-600">{s.name}</span><b className="shrink-0">{s.count}</b></div>)}
         {(summary.by_staff?.length ?? 0) > 0 && <div className="mb-2 mt-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Per petugas</div>}
-        {summary.by_staff?.map((s) => <div key={s.name} className="flex justify-between py-1 text-sm"><span className="text-slate-600">{s.name}</span><b>{s.count}</b></div>)}
+        {summary.by_staff?.map((s) => <div key={s.name} className="flex justify-between gap-2 py-1 text-sm"><span className="min-w-0 truncate text-slate-600">{s.name}</span><b className="shrink-0">{s.count}</b></div>)}
         {!summary.by_shop.length && <p className="text-sm text-slate-400">Belum ada paket.</p>}
         {recent.length > 0 && (
           <>
             <div className="mb-1 mt-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Terakhir di-scan</div>
             {recent.slice(0, 10).map((p) => (
               <div key={p.id} className="flex items-center justify-between gap-2 border-t border-slate-100 py-1.5 text-xs">
-                <span className="font-mono font-semibold text-slate-700">{p.code}</span>
-                <span className={`truncate ${p.matched ? "text-slate-500" : "text-amber-600"}`}>{p.shop_name ?? "Tidak dikenal"}{p.expedition ? ` · ${p.expedition}` : ""} · {scanTime(p.scanned_at).slice(0, 5)}</span>
+                <span className="min-w-0 flex-1 break-all font-mono font-semibold text-slate-700">{p.code}</span>
+                <span className={`max-w-[52%] shrink-0 truncate text-right ${p.matched ? "text-slate-500" : "text-amber-600"}`}>{p.shop_name ?? "Tidak dikenal"}{p.expedition ? ` · ${p.expedition}` : ""} · {scanTime(p.scanned_at).slice(0, 5)}</span>
               </div>
             ))}
           </>
@@ -287,11 +315,11 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
 
 function Shell({ children, store }: { children: React.ReactNode; store?: string | null }) {
   return (
-    <div className="min-h-screen bg-slate-100">
-      <div className="mx-auto max-w-md space-y-3 p-3 pb-10">
-        <div className="flex items-center justify-between px-1 pt-1">
-          <div className="text-base font-bold text-slate-800">Scan Out</div>
-          {store && <div className="truncate text-xs text-slate-500">{store}</div>}
+    <div className="min-h-screen overflow-x-hidden bg-slate-100">
+      <div className="mx-auto w-full min-w-0 max-w-md space-y-3 p-3 pb-10">
+        <div className="flex items-center justify-between gap-2 px-1 pt-1">
+          <div className="shrink-0 text-base font-bold text-slate-800">Scan Out</div>
+          {store && <div className="min-w-0 truncate text-xs text-slate-500">{store}</div>}
         </div>
         {children}
       </div>
