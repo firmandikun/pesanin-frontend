@@ -6,6 +6,7 @@ import Link from "next/link";
 import { NotificationBell } from "@/components/NotificationBell";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { FloatingChatDrawer } from "@/components/inbox/FloatingChatDrawer";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { loadSiteConfig, SidebarMenuItem } from "@/lib/site";
@@ -197,25 +198,25 @@ function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="app-shell-chrome fixed inset-x-0 top-0 z-40 flex h-16 items-center bg-navy pr-6 text-white">
-        <div className={`flex h-full shrink-0 items-center overflow-hidden pl-4 transition-[width,padding] duration-300 ${collapsed ? "lg:w-[100px] lg:justify-center lg:pl-0" : "lg:w-[330px] lg:pl-[60px]"}`}>
-          <Link href="/dashboard" aria-label="Pesanin">
-            <span className={collapsed ? "lg:hidden" : ""}><Logo light /></span>
+      <header className="app-shell-chrome fixed inset-x-0 top-0 z-40 flex h-14 items-center border-b border-slate-200 bg-white pr-4 text-slate-700">
+        <div className={`flex h-full shrink-0 items-center overflow-hidden pl-4 transition-[width,padding] duration-300 ${collapsed ? "lg:w-[68px] lg:justify-center lg:pl-0" : "lg:w-[230px] lg:pl-5"}`}>
+          <Link href="/dashboard" aria-label="Pesanin" className="flex items-center gap-2">
+            <span className={collapsed ? "lg:hidden" : ""}><Logo /></span>
             {collapsed && <span className="hidden lg:block"><LogoMark /></span>}
           </Link>
         </div>
-        <button onClick={toggleSidebar} className="ml-2 rounded-lg p-2 text-white/80 hover:bg-white/10" aria-label="Menu"><Menu size={22} /></button>
-        <div className="ml-auto flex items-center gap-6 text-sm">
-          <NotificationBell />
-          {!member && <Link href="/settings/billing" className="hidden items-center gap-2 rounded-full bg-white/10 py-1 pl-1 pr-3 text-xs font-semibold transition hover:bg-white/15 md:flex">
-            <span className="flex items-center gap-1 rounded-full bg-brand-500 px-2 py-0.5 text-white"><Crown size={12} />{PLAN_NAME[user!.active_plan ?? "gratis"]}{sub?.status === "trial" && " · Trial"}</span>
+        <button onClick={toggleSidebar} className="ml-1 rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-[#ee4d2d]" aria-label="Menu"><Menu size={20} /></button>
+        <div className="ml-auto flex items-center gap-4 text-sm">
+          <span className={pathname?.startsWith("/chat") ? "" : "sm:hidden"}><NotificationBell /></span>
+          {!member && <Link href="/settings/billing" className="hidden items-center gap-1.5 rounded-full bg-orange-50 py-1 pl-1 pr-3 text-xs font-semibold text-[#ee4d2d] ring-1 ring-orange-200/70 transition hover:bg-orange-100 md:flex">
+            <span className="flex items-center gap-1 rounded-full bg-[#ee4d2d] px-2 py-0.5 text-white"><Crown size={12} />{PLAN_NAME[user!.active_plan ?? "gratis"]}{sub?.status === "trial" && " · Trial"}</span>
             {sub?.status === "trial" ? `${sub.days_left} hari lagi` : user!.active_plan === "pro" ? "Kelola paket" : "Upgrade"}
           </Link>}
           {!member && <HeaderBalance />}
           <div className="relative">
-            <button onClick={() => setMenu(!menu)} className="flex items-center gap-2 font-medium"><User size={20} className="rounded-full border-2 border-white/90 p-0.5" /><span className="hidden sm:inline">{member?.name ?? user!.name}</span><ChevronDown size={16} /></button>
+            <button onClick={() => setMenu(!menu)} className="flex items-center gap-2 font-medium text-slate-700 hover:text-[#ee4d2d]"><User size={19} className="rounded-full border border-slate-300 p-0.5 text-slate-600" /><span className="hidden sm:inline">{member?.name ?? user!.name}</span><ChevronDown size={15} className="text-slate-400" /></button>
             {menu && (
-              <div className="absolute right-0 mt-3 w-52 rounded-xl bg-white p-1 text-sm text-slate-700 shadow-xl" onMouseLeave={() => setMenu(false)}>
+              <div className="absolute right-0 mt-3 w-52 rounded-xl border border-slate-200 bg-white p-1 text-sm text-slate-700 shadow-xl" onMouseLeave={() => setMenu(false)}>
                 <div className="border-b border-slate-100 px-3 py-2"><b className="block text-slate-800">{user!.store_name}</b>
                   <span className="text-xs text-slate-500">{member ? `${member.name} · ${member.role_label}` : user!.email}</span></div>
                 {!member && <>
@@ -227,24 +228,22 @@ function Shell({ children }: { children: React.ReactNode }) {
               </div>
             )}
           </div>
-          <span className="relative h-7 w-12 rounded-full bg-white" title="Tema gelap (segera)"><span className="absolute left-1 top-1 h-5 w-5 rounded-full bg-brand-600" /></span>
         </div>
       </header>
 
-      <aside className={`app-shell-chrome fixed bottom-0 left-0 top-16 z-30 overflow-y-auto bg-[#f5f6fa] pb-24 pt-6 transition-[width,transform] duration-300 ease-out
-        ${mobile ? "translate-x-0 shadow-xl" : "-translate-x-full"} lg:translate-x-0 lg:shadow-none ${collapsed ? "w-[100px]" : "w-[330px]"}`}>
-        <nav className={`space-y-1.5 text-[15px] transition-[padding] duration-300 ${collapsed ? "px-[21px]" : "pl-10 pr-4"}`}>
+      <aside className={`app-shell-chrome no-scrollbar fixed bottom-0 left-0 top-14 z-30 overflow-y-auto bg-white pb-24 pt-3 transition-[width,transform] duration-300 ease-out
+        ${mobile ? "translate-x-0 shadow-xl" : "-translate-x-full"} lg:translate-x-0 lg:shadow-none ${collapsed ? "w-[68px]" : "w-[230px]"}`}>
+        <nav className={`space-y-0.5 text-[13px] transition-[padding] duration-300 ${collapsed ? "px-2.5" : "px-3"}`}>
           {NAV.map((item) => {
             const Icon = item.icon;
             const childActive = item.children?.some((c) => isActive(c.href));
             const active = item.href ? isActive(item.href) : false;
-            const isOpen = open[item.label] ?? childActive;
+            const isOpen = open[item.label] ?? true;
             const row = (
-              <span className={`group relative flex items-center gap-4 rounded-xl px-2 py-2 font-medium transition-all duration-200 ease-out ${active ? "bg-white text-brand-600" : childActive ? "text-brand-600" : "text-slate-700 hover:bg-white/70 hover:text-brand-600"}`}>
-                <span className={`flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[10px] transition-all duration-200 ease-out ${active ? "bg-brand-600 text-white" : childActive ? "bg-brand-50 text-brand-600" : "text-slate-600 group-hover:bg-brand-50 group-hover:text-brand-600"}`}><Icon size={20} strokeWidth={1.8} className="transition-transform duration-200 group-hover:scale-105" /></span>
+              <span className={`group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 font-medium transition-colors ${active ? "bg-orange-50 text-[#ee4d2d]" : childActive ? "text-[#ee4d2d]" : "text-slate-700 hover:bg-slate-50 hover:text-[#ee4d2d]"}`}>
+                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors ${active ? "text-[#ee4d2d]" : childActive ? "text-[#ee4d2d]" : "text-slate-500 group-hover:text-[#ee4d2d]"}`}><Icon size={17} strokeWidth={1.8} /></span>
                 {!collapsed && <span className="flex-1 truncate leading-tight">{item.label}</span>}
-                {!collapsed && item.children && <ChevronDown size={16} className={`text-slate-500 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`} />}
-                <span className={`absolute -right-3 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-full bg-brand-600 transition-all duration-300 ease-out ${active || (collapsed && childActive) ? "scale-y-100 opacity-100" : "scale-y-0 opacity-0"}`} />
+                {!collapsed && item.children && <ChevronDown size={14} className={`text-slate-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />}
               </span>
             );
             return (
@@ -253,15 +252,14 @@ function Shell({ children }: { children: React.ReactNode }) {
                   : item.href ? <Link href={item.href} onClick={() => setMobile(false)} title={item.label}>{row}</Link>
                   : <button className="w-full text-left" title={item.label} onClick={() => { setCollapsed(false); setOpen({ ...open, [item.label]: !isOpen }); }}>{row}</button>}
                 {item.children && (
-                  <div className={`grid transition-[grid-template-rows,opacity,visibility] duration-300 ease-out ${isOpen && !collapsed ? "visible grid-rows-[1fr] opacity-100" : "invisible grid-rows-[0fr] opacity-0"}`}>
+                  <div className={`grid transition-[grid-template-rows,opacity,visibility] duration-200 ease-out ${isOpen && !collapsed ? "visible grid-rows-[1fr] opacity-100" : "invisible grid-rows-[0fr] opacity-0"}`}>
                     <div className="overflow-hidden">
-                      <div className="relative mb-2 ml-[58px] mt-1 space-y-0.5 before:absolute before:-left-[9px] before:bottom-2 before:top-2 before:w-px before:bg-slate-200">
+                      <div className="mb-1.5 ml-8 mt-0.5 space-y-0.5">
                         {item.children.map((c) => {
                           const on = isActive(c.href);
                           return (
                             <Link key={c.href} href={c.href} onClick={() => setMobile(false)} tabIndex={isOpen && !collapsed ? 0 : -1}
-                              className={`relative flex items-center rounded-lg px-3 py-2 text-[14px] transition-all duration-200 ${on ? "bg-white font-medium text-brand-600" : "text-slate-500 hover:translate-x-0.5 hover:bg-white/60 hover:text-brand-600"}`}>
-                              <span className={`absolute -left-[11px] h-[5px] w-[5px] rounded-full transition-all duration-200 ${on ? "bg-brand-600 ring-4 ring-brand-600/15" : "bg-transparent"}`} />
+                              className={`flex items-center rounded-md px-2.5 py-1.5 text-[13px] transition-colors ${on ? "bg-orange-50/80 font-semibold text-[#ee4d2d]" : "text-slate-600 hover:bg-slate-50 hover:text-[#ee4d2d]"}`}>
                               {c.label}
                               {c.lock && <span title={`Tersedia mulai paket ${c.lock}`} className="ml-auto rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200">{c.lock}</span>}
                             </Link>
@@ -274,8 +272,8 @@ function Shell({ children }: { children: React.ReactNode }) {
               </div>
             );
           })}
-          <button onClick={() => setWide(!wide)} className="group flex w-full items-center gap-4 rounded-xl px-2 py-2 font-medium text-slate-700 transition-all duration-200 hover:bg-white/70 hover:text-brand-600" title="Wide Screen">
-            <span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[10px] text-slate-600 transition-all duration-200 group-hover:bg-brand-50 group-hover:text-brand-600"><Maximize2 size={20} strokeWidth={1.8} /></span>{!collapsed && "Wide Screen"}
+          <button onClick={() => setWide(!wide)} className="group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-[#ee4d2d]" title="Wide Screen">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center text-slate-500 group-hover:text-[#ee4d2d]"><Maximize2 size={17} strokeWidth={1.8} /></span>{!collapsed && "Wide Screen"}
           </button>
         </nav>
       </aside>
@@ -295,7 +293,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       )}
       {mobile && <div className="fixed inset-0 top-16 z-20 bg-slate-900/30 lg:hidden" onClick={() => setMobile(false)} />}
 
-      <main className={`app-shell flex-1 pt-16 transition-[padding] duration-300 ease-out ${collapsed ? "lg:pl-[100px]" : "lg:pl-[330px]"}`}>
+      <main className={`app-shell flex-1 pt-14 sm:pr-12 transition-[padding] duration-300 ease-out ${collapsed ? "lg:pl-[68px]" : "lg:pl-[230px]"}`}>
         <div className={`mx-auto px-4 py-8 md:px-8 ${wide ? "max-w-none" : "max-w-[1180px]"}`}>
           {sub?.status === "trial" && <SubBanner tone="brand" icon={<Gift size={18} />} cta={member ? null : ["Pilih paket", "/langganan"]}
             text={<><b>Masa trial paket Bisnis {sub.days_left === 0 ? "berakhir hari ini" : `tersisa ${sub.days_left} hari`}.</b> {member ? "Minta pemilik toko memilih paket sebelum trial berakhir." : "Pilih paket sebelum trial berakhir agar sinkron pesanan dan laporan tetap berjalan."}</>} />}
@@ -320,6 +318,7 @@ function Shell({ children }: { children: React.ReactNode }) {
           )}
         </div>
       </main>
+      <FloatingChatDrawer />
       <button className="print:hidden fixed bottom-5 left-5 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-brand-600 text-white shadow-lg" aria-label="Bantuan"><MessageSquareMore size={22} /></button>
     </div>
   );

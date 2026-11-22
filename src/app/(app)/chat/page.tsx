@@ -268,9 +268,6 @@ function Chat() {
   return (
     <div className="space-y-4">
       <PageHead title="Chat" tutorial={false} crumbs={[["Chat"]]}>
-        <button onClick={() => { setPreview(!preview); setActive(null); setMsgs(null); pickChannel(""); }} className={`flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-semibold ${preview ? "bg-navy text-white" : "bg-white text-navy"}`}>
-          <Eye size={16} />{preview ? "Tutup contoh" : "Lihat contoh"}
-        </button>
         {!preview && meta?.configured && !meta.connected && (
           <button onClick={connectMeta} className="flex h-10 items-center gap-2 rounded-lg bg-[#1877f2] px-4 text-sm font-semibold text-white"><span className="text-base font-black">f</span>Hubungkan Facebook & Instagram</button>
         )}
@@ -388,9 +385,13 @@ function Chat() {
               </div>
               <div className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-slate-50 px-4 py-4">
                 {!msgs ? <p className="flex items-center justify-center gap-2 py-10 text-sm text-slate-400"><Loader2 size={15} className="animate-spin" />Memuat pesan…</p>
+                  : !msgs.length ? <p className="py-10 text-center text-xs text-slate-400">Belum ada pesan yang bisa ditampilkan dari Shopee untuk percakapan ini.</p>
                   : msgs.map((m, i) => m.system ? (
                     // Shopee notice (AI assistant paused, etc.): a small centred note, like in Seller Centre.
-                    <div key={m.id} className="flex justify-center"><p className="max-w-[85%] rounded-lg bg-white/80 px-3 py-1.5 text-center text-xs text-slate-500 ring-1 ring-slate-200/70">{m.text}</p></div>
+                    <div key={m.id} className="flex flex-col items-center gap-1.5">
+                      {m.order && <div className="max-w-[85%] rounded-2xl bg-white p-3 ring-1 ring-slate-200/70"><OrderCard o={m.order} /></div>}
+                      {m.text && <p className="max-w-[85%] rounded-lg bg-white/80 px-3 py-1.5 text-center text-xs text-slate-500 ring-1 ring-slate-200/70">{m.text}</p>}
+                    </div>
                   ) : (
                     <div key={m.id} className={`flex ${m.from_me ? "justify-end" : "justify-start"}`}>
                       <div className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-sm ${m.from_me ? "rounded-br-md bg-brand-600 text-white" : "rounded-bl-md bg-white text-slate-700"}`}>

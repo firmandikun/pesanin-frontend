@@ -1,5 +1,5 @@
 "use client";
-import { Bell, BellRing, Check, MessageCircle, ShoppingBag, X } from "lucide-react";
+import { Bell, BellRing, Check, ChevronsRight, MessageCircle, RefreshCcw, ShoppingBag, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
@@ -27,10 +27,13 @@ const TypeIcon = ({ type }: { type: string }) => (type === "chat" ? <MessageCirc
  * order lists. "Notifikasi browser" subscribes this browser to Web Push (VAPID), so new orders
  * still pop up when the Pesanin tab is closed.
  */
-export function NotificationBell() {
+export function NotificationBell({ side = "bottom", openOverride, onToggleOverride }: { side?: "bottom" | "left"; openOverride?: boolean; onToggleOverride?: (next: boolean) => void }) {
   const [items, setItems] = useState<Item[]>([]);
   const [unread, setUnread] = useState(0);
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = openOverride !== undefined ? openOverride : internalOpen;
+  const setOpen = (v: boolean) => { if (onToggleOverride) onToggleOverride(v); else setInternalOpen(v); };
+  const [notifTab, setNotifTab] = useState<"all" | "order" | "other">("all");
   const [toasts, setToasts] = useState<Item[]>([]);
   const [push, setPush] = useState<{ key: string | null; enabled: boolean }>({ key: null, enabled: false });
   const [pushOn, setPushOn] = useState(false);
@@ -100,17 +103,64 @@ export function NotificationBell() {
     await api("/notifications/read", { method: "POST" }).catch(() => {});
   }
 
+  const filteredItems = items.filter((i) => {
+    if (notifTab === "order") return i.type === "order";
+    if (notifTab === "other") return i.type !== "order";
+    return true;
+  });
+
   return (
     <>
       <div className="relative">
-        <button onClick={() => setOpen(!open)} className="relative flex items-center" aria-label="Notifikasi">
-          <Bell size={22} />
-          {unread > 0 && <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold">{unread > 99 ? "99+" : unread}</span>}
+        <button onClick={() => setOpen(!open)} className={`relative flex h-10 w-10 items-center justify-center rounded-xl transition ${open && side === "left" ? "bg-orange-50 text-[#ee4d2d]" : "text-slate-500 hover:bg-slate-100 hover:text-[#ee4d2d]"}`} aria-label="Notifikasi" title="Notifikasi">
+          <Bell size={20} />
+          {unread > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[18px] items-center justify-center rounded-full bg-[#ee4d2d] px-1 text-[10px] font-bold text-white">{unread > 99 ? "99+" : unread}</span>}
         </button>
-        {open && (
+        {open && side === "left" && (
+          <div className="fixed bottom-0 right-0 top-14 z-40 flex w-full flex-col border-l border-slate-200 bg-white text-sm text-slate-700 shadow-xl sm:right-12 sm:w-[340px]">
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
+              <div className="flex items-center gap-2">
+                <span className="text-base font-bold text-[#ee4d2d]">Notifikasi</span>
+                {unread > 0 && <span className="rounded-full bg-[#ee4d2d] px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{unread > 99 ? "99+" : unread}</span>}
+              </div>
+              <div className="flex items-center gap-1.5">
+                {unread > 0 && (
+                  <button onClick={markRead} title="Tandai semua dibaca" className="rounded p-1.5 text-slate-500 hover:bg-slate-100 hover:text-[#ee4d2d]"><Check size={15} /></button>
+                )}
+                <button onClick={poll} title="Muat ulang" className="rounded p-1.5 text-slate-500 hover:bg-slate-100 hover:text-[#ee4d2d]"><RefreshCcw size={14} /></button>
+                <button onClick={() => setOpen(false)} title="Tutup" className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><ChevronsRight size={16} /></button>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 border-b border-slate-100 px-2 pt-2 text-center text-xs font-semibold">
+              {([["all", "Semua"], ["order", "Pesanan"], ["other", "Toko & Info"]] as const).map(([k, label]) => (
+                <button key={k} type="button" onClick={() => setNotifTab(k)} className={`pb-2 ${notifTab === k ? "border-b-2 border-[#ee4d2d] text-[#ee4d2d]" : "text-slate-500 hover:text-slate-700"}`}>{label}</button>
+              ))}
+            </div>
+            <div className="no-scrollbar min-h-0 flex-1 divide-y divide-slate-100 overflow-y-auto">
+              {filteredItems.length ? filteredItems.map((i) => (
+                <Link key={i.id} href={i.url ?? "#"} onClick={() => setOpen(false)} className={`block px-4 py-3 transition hover:bg-orange-50/40 ${i.read_at ? "" : "bg-orange-50/30"}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <b className="line-clamp-1 text-[13px] text-slate-800">{i.title}</b>
+                    <span className="shrink-0 text-[10px] text-slate-400">{ago(i.created_at)}</span>
+                  </div>
+                  {i.body && <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{i.body}</p>}
+                  {i.url && <span className="mt-1 inline-block text-[11px] font-medium text-sky-600">Selengkapnya</span>}
+                </Link>
+              )) : <p className="px-4 py-12 text-center text-xs text-slate-400">Belum ada notifikasi.</p>}
+            </div>
+            <div className="border-t border-slate-100 bg-slate-50 px-4 py-3">
+              <button onClick={togglePush} className="flex w-full items-center justify-between gap-2 text-left">
+                <span><b className="flex items-center gap-1.5 text-xs text-slate-800"><BellRing size={13} />Notifikasi browser</b><span className="text-[11px] text-slate-500">Muncul walau tab Pesanin tertutup</span></span>
+                <span className={`relative h-5 w-9 shrink-0 rounded-full transition ${pushOn ? "bg-[#ee4d2d]" : "bg-slate-300"}`}><span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${pushOn ? "left-[18px]" : "left-0.5"}`} /></span>
+              </button>
+              {pushMsg && <p className="mt-1.5 text-[11px] text-slate-500">{pushMsg}</p>}
+            </div>
+          </div>
+        )}
+        {open && side !== "left" && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-            <div className="absolute right-0 z-50 mt-3 w-[340px] max-w-[calc(100vw-24px)] overflow-hidden rounded-xl bg-white text-sm text-slate-700 shadow-xl">
+            <div className="absolute right-0 z-50 mt-3 w-[340px] max-w-[calc(100vw-24px)] overflow-hidden rounded-xl border border-slate-200 bg-white text-sm text-slate-700 shadow-xl">
               <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                 <b className="text-navy">Notifikasi</b>
                 {unread > 0 && <button onClick={markRead} className="flex items-center gap-1 text-xs font-semibold text-brand-600"><Check size={13} />Tandai dibaca</button>}

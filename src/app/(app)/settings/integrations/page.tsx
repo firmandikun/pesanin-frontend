@@ -50,17 +50,6 @@ export default function Integrations() {
             <p className="text-slate-500">QRIS, Virtual Account, dan e-wallet lewat akun Midtrans Pesanin. Dana pembeli tercatat di <a href="/settings/balance" className="font-semibold text-brand-700">Saldo</a>.</p>
           </Panel>
           </>}
-          {showMp && <>
-          <div className="pt-3"><h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">Riset Pasar (opsional)</h2><p className="text-xs text-slate-500">Riset Pasar sudah bisa dipakai tanpa daftar apa pun (kuota harian sesuai paket). Hubungkan akun sendiri kalau ingin tanpa batas.</p></div>
-          <KeyCard provider="shopee_affiliate" icon={ShoppingBag} title="Shopee Affiliate" state={data.shopee_affiliate} onChange={load} link="https://affiliate.shopee.co.id"
-            desc="Data produk Shopee untuk Riset Pasar: produk terlaris per kata kunci, harga, terjual, rating, toko."
-            help="affiliate.shopee.co.id → Open API (setelah akun affiliate disetujui) → AppId & Secret."
-            fields={[["app_id", "AppId"], ["secret", "Secret"]]} />
-          <KeyCard provider="serpapi" icon={TrendingUp} title="SerpApi (Google Trends)" state={data.serpapi} onChange={load} link="https://serpapi.com/manage-api-key"
-            desc="Minat pencarian Google per kata kunci, kata kunci yang sedang naik, dan minat per provinsi."
-            help="serpapi.com → Dashboard → API Key. Paket gratis punya kuota pencarian per bulan; hasil disimpan 12 jam agar hemat."
-            fields={[["api_key", "API key"]]} />
-          </>}
           {showSocial && <>
           <div className="pt-3"><h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">Chat</h2><p className="text-xs text-slate-500">Pesan pelanggan masuk ke menu Chat. Facebook & Instagram dihubungkan langsung dari menu Chat.</p></div>
           <WhatsAppCard state={data.whatsapp_cloud} onChange={load} />

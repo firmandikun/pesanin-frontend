@@ -116,3 +116,19 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--color-brand-60
   --color-navy: #0f172a;
   --color-ink: #0f172a;
 }
+
+html, body, * {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+html::-webkit-scrollbar, body::-webkit-scrollbar, *::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
