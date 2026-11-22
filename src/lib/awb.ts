@@ -188,9 +188,42 @@ export async function openShopeeAwbMerged({ orders = [], bookings = [], settings
       result.printed = await printPdfDirect(pdf, printSettings.paper_size);
       return result;
     }
-    const url = URL.createObjectURL(new Blob([pdf.slice().buffer as ArrayBuffer], { type: "application/pdf" }));
-    if (win) win.location.href = url;
-    else window.open(url, "_blank");
+    const blob = new Blob([pdf.slice().buffer as ArrayBuffer], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
+    const filename = `resi-shopee-${stamp}.pdf`;
+    if (win) {
+      // Wrap the blob PDF in an HTML page with a direct <a download> button: Chrome's built-in PDF viewer
+      // fails with "Check internet connection" when downloading a navigated blob: URL directly.
+      win.document.open();
+      win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${filename}</title><style>
+        *{box-sizing:border-box}html,body{margin:0;height:100%;font-family:system-ui,-apple-system,sans-serif;background:#1e293b;display:flex;flex-direction:column}
+        .bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;background:#0f172a;color:#f8fafc;border-bottom:1px solid #334155}
+        .title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .actions{display:flex;gap:8px;flex-shrink:0}
+        .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;cursor:pointer;border:0}
+        .dl{background:#ee4d2d;color:#fff}.dl:hover{background:#d73211}
+        .pr{background:#334155;color:#f8fafc}.pr:hover{background:#475569}
+        iframe{flex:1;width:100%;border:0;background:#334155}
+      </style></head><body>
+        <div class="bar">
+          <div class="title">${filename} (${merged.getPageCount()} halaman)</div>
+          <div class="actions">
+            <button class="btn pr" onclick="document.getElementById('pdf').contentWindow.print()">Cetak</button>
+            <a class="btn dl" href="${url}" download="${filename}">Unduh PDF</a>
+          </div>
+        </div>
+        <iframe id="pdf" src="${url}"></iframe>
+      </body></html>`);
+      win.document.close();
+    } else {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
     return result;
   } catch (e) {
     win?.close();
