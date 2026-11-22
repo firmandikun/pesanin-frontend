@@ -11,7 +11,7 @@ import { DateRangePicker, todayRange } from "@/components/DatePicker";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import {
-  api, ApiError, download, fmtDate, isoDate, Order, Paginated, PAY_STATUS_COLOR, PAY_STATUS_LABEL,
+  api, ApiError, type CodRisk, download, fmtDate, isoDate, Order, Paginated, PAY_STATUS_COLOR, PAY_STATUS_LABEL,
   PAYMENT_LABEL, Product, rupiah, SHIPPING_LABEL, STATUS_COLOR, STATUS_LABEL,
 } from "@/lib/api";
 import { CheckoutExtras, CheckoutForm, Store } from "@/components/CheckoutForm";
@@ -246,7 +246,7 @@ function Orders() {
                     : <>{o.product?.name}{o.variant ? ` (${o.variant})` : ""} × {o.quantity}</>}</td>
                   <td className="td font-medium">{rupiah(o.total)}</td>
                   <td className="td">{o.is_abandoned ? <span className="badge bg-orange-100 text-orange-700">Abandoned</span> : <span className={`badge ${STATUS_COLOR[o.status]}`}>{STATUS_LABEL[o.status]}</span>}</td>
-                  <td className="td"><span className={`badge ${PAY_STATUS_COLOR[o.payment_status]}`}>{PAY_STATUS_LABEL[o.payment_status]}</span><div className="text-xs text-slate-500">{o.payment_method ? PAYMENT_LABEL[o.payment_method] : "-"}</div></td>
+                  <td className="td"><span className={`badge ${PAY_STATUS_COLOR[o.payment_status]}`}>{PAY_STATUS_LABEL[o.payment_status]}</span><div className="text-xs text-slate-500">{o.payment_method ? PAYMENT_LABEL[o.payment_method] : "-"}</div>{o.cod_risk && o.cod_risk.level !== "low" && <CodRiskBadge risk={o.cod_risk} />}</td>
                   {type === "physical" && (
                     <td className="td" onClick={(e) => e.stopPropagation()}>
                       {o.courier ? <ShippingStatus status={o.shipping_status} compact /> : <span className="text-xs text-slate-400">-</span>}
@@ -277,6 +277,28 @@ function Orders() {
       {track && <TrackingModal orderId={track.id} title={`Lacak resi · ${track.code}`} onClose={() => setTrack(null)} />}
       {detail && <OrderDetail order={detail} onClose={() => setDetail(null)} onSaved={() => { setDetail(null); load(); }} />}
       {creating && <InputOrder onClose={() => setCreating(false)} onDone={() => { setCreating(false); load(); }} />}
+    </div>
+  );
+}
+
+const RISK = {
+  high: { label: "Risiko COD tinggi", cls: "bg-rose-100 text-rose-700", box: "bg-rose-50 text-rose-800 ring-rose-200", tip: "Konfirmasi lewat WhatsApp dulu; kalau tidak dibalas, minta transfer/DP atau batalkan sebelum dikirim." },
+  medium: { label: "Risiko COD sedang", cls: "bg-amber-100 text-amber-700", box: "bg-amber-50 text-amber-800 ring-amber-200", tip: "Konfirmasi pesanan & alamat lewat WhatsApp sebelum dikirim." },
+  low: { label: "Risiko COD rendah", cls: "bg-emerald-100 text-emerald-700", box: "bg-emerald-50 text-emerald-800 ring-emerald-200", tip: "Aman dikirim." },
+} as const;
+
+/** COD orders not shipped yet: how likely the parcel comes back (RTS), from this store's history with the number. */
+function CodRiskBadge({ risk }: { risk: CodRisk }) {
+  return <span title={risk.reasons.join(" · ")} className={`mt-1 inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold ${RISK[risk.level].cls}`}>{RISK[risk.level].label}</span>;
+}
+
+function CodRiskCard({ risk }: { risk: CodRisk }) {
+  const r = RISK[risk.level];
+  return (
+    <div className={`mb-5 rounded-xl p-4 text-sm ring-1 ${r.box}`}>
+      <p className="flex items-center justify-between gap-2 font-semibold"><span>{r.label}</span><span className="text-xs">skor {risk.score}/100</span></p>
+      {risk.reasons.length > 0 && <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-xs">{risk.reasons.map((x) => <li key={x}>{x}</li>)}</ul>}
+      <p className="mt-2 text-xs font-semibold">{r.tip}</p>
     </div>
   );
 }
@@ -330,6 +352,7 @@ function OrderDetail({ order, onClose, onSaved }: { order: Order; onClose: () =>
 
   return (
     <Modal open onClose={onClose} title={`Pesanan ${o.code}`} icon={Receipt} wide>
+      {o.cod_risk && <CodRiskCard risk={o.cod_risk} />}
       {o.product?.type === "digital" && (
         <div className="mb-5 space-y-2 rounded-xl bg-violet-50 p-4 text-sm">
           <p className="font-semibold text-navy">Produk digital</p>

@@ -125,7 +125,9 @@ export type Quote = {
   rates: Rate[]; shipping: Rate | null; shipping_cost: number; shipping_error?: string | null; cod_fee: number; total: number;
   discount?: number; coupon?: { code: string | null; kind: string; method: string } | null; coupon_error?: string | null;
 };
+export type CodRisk = { score: number; level: "low" | "medium" | "high"; reasons: string[] };
 export type Order = {
+  cod_risk?: CodRisk | null;
   id: number; code: string; customer_name: string; phone: string; email?: string; address?: string;
   province?: string; city?: string; district?: string; variant?: string; quantity: number; unit_price: number;
   bump_selected: boolean; bump_price: number; subtotal: number; shipping_cost: number; cod_fee: number; discount: number;

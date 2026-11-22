@@ -6,13 +6,13 @@ export type Parcel = {
   customer_name: string | null; items_summary: string | null; scanned_by: string | null; scanned_at: string; expedition?: string;
 };
 export type Count = { name: string; count: number };
-export type Summary = { total: number; unknown: number; by_shop: Count[]; by_expedition: Count[] };
+export type Summary = { total: number; unknown: number; by_shop: Count[]; by_expedition: Count[]; by_staff?: Count[] };
 export type ScanSession = {
   id: number; status: "open" | "closed"; scanned_by: string | null; started_at: string; finished_at: string | null;
   expires_at: string; open: boolean; token?: string;
 };
 export type ScanPayload = { session: ScanSession; store_name: string | null; parcels: Parcel[]; summary: Summary };
-export type ScanResult = { status: ScanStatus; message: string; parcel: Parcel | null; summary?: Summary };
+export type ScanResult = { status: ScanStatus; message: string; parcel: Parcel | null; summary?: Summary; order?: import("@/components/scanout/PackCheck").PackOrder | null };
 
 export const scanTime = (s: string, withDate = false) =>
   new Date(s).toLocaleString("id-ID", withDate ? { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" } : { hour: "2-digit", minute: "2-digit", second: "2-digit" });

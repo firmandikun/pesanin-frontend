@@ -22,14 +22,43 @@ const day = (s: string | null) => (s ? new Date(s).toLocaleDateString("id-ID", {
 const fmt = (v: number | null, unit: string) => (v === null || v === undefined ? "-" : `${Number.isInteger(v) ? v : Number(v).toFixed(2)}${unit}`);
 
 /** Marketplace → Kesehatan Akun: Shopee account health per shop. */
+type Due = { order_id: number; order_sn: string; shop: string | null; ship_by: string; hours_left: number; late: boolean; status: string; resi: string | null };
+
+const left = (h: number) => (h <= 0 ? `lewat ${h > -1 ? `${Math.max(1, Math.round(-h * 60))} menit` : `${Math.floor(-h)} jam`}` : h >= 1 ? `sisa ${Math.floor(h)} jam` : `sisa ${Math.max(1, Math.round(h * 60))} menit`);
+
+/** Orders not yet with the courier whose Shopee ship-by deadline is close or passed (Pesanin also notifies every 30 minutes). */
+function DueSoon({ due, multi }: { due: Due[]; multi: boolean }) {
+  const urgent = due.filter((x) => x.hours_left <= 6).length;
+  return (
+    <Panel className="overflow-hidden">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-5 py-3">
+        <Clock size={16} className={urgent ? "text-rose-600" : "text-amber-500"} />
+        <p className="font-semibold text-navy">Batas kirim 24 jam ke depan</p>
+        <span className="text-xs text-slate-500">{due.length} pesanan belum di kurir{urgent ? ` · ${urgent} mendesak` : ""}. Kirim sebelum batas agar tidak kena poin penalti.</span>
+      </div>
+      <div className="max-h-80 divide-y divide-slate-100 overflow-y-auto">
+        {due.map((x) => (
+          <Link key={x.order_id} href={`/marketplace/orders/${x.order_id}`} className={`flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-2.5 text-sm hover:bg-slate-50 ${x.late ? "bg-rose-50/60" : x.hours_left <= 6 ? "bg-amber-50/50" : ""}`}>
+            <span className="font-mono font-semibold text-navy">{x.order_sn}</span>
+            <span className="flex-1 text-xs text-slate-500">{[multi ? x.shop : null, x.status].filter(Boolean).join(" · ")}</span>
+            <span className="text-xs text-slate-500">batas {new Date(x.ship_by).toLocaleString("id-ID", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+            <span className={`w-28 text-right text-xs font-bold ${x.late ? "text-rose-600" : x.hours_left <= 6 ? "text-amber-600" : "text-slate-600"}`}>{left(x.hours_left)}</span>
+          </Link>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
 export default function HealthPage() {
   const [d, setD] = useState<Health[] | null>(null);
+  const [due, setDue] = useState<Due[]>([]);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [shop, setShop] = useState("");
   const load = useCallback((fresh = false) => {
     setBusy(true); setErr("");
-    api<{ shops: Health[] }>(`/marketplace/health${fresh ? "?fresh=1" : ""}`).then((r) => setD(r.shops))
+    api<{ shops: Health[]; due?: Due[] }>(`/marketplace/health${fresh ? "?fresh=1" : ""}`).then((r) => { setD(r.shops); setDue(r.due ?? []); })
       .catch((e) => setErr(e instanceof ApiError ? e.message : "Gagal memuat kesehatan akun")).finally(() => setBusy(false));
   }, []);
   useEffect(() => load(), [load]);
@@ -49,8 +78,9 @@ export default function HealthPage() {
           {busy ? <Loader2 size={16} className="animate-spin" /> : <RefreshCcw size={16} />}Cek ulang
         </button>
       </PageHead>
-      <p className="text-sm text-slate-500">Diambil langsung dari Shopee (diperbarui tiap 30 menit). Setiap pagi Pesanin mengirim peringatan kalau ada poin penalti baru, pesanan terlambat, atau performa toko turun.</p>
+      <p className="text-sm text-slate-500">Diambil langsung dari Shopee (diperbarui tiap 30 menit). Setiap pagi Pesanin mengirim peringatan kalau ada poin penalti baru, pesanan terlambat, atau performa toko turun; dan tiap 30 menit kalau ada pesanan yang hampir lewat batas kirim.</p>
       {err && <p className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{err}</p>}
+      {due.length > 0 && <DueSoon due={due} multi={(d?.length ?? 0) > 1} />}
       {!d && !err && <p className="flex items-center gap-2 text-sm text-slate-400"><Loader2 size={15} className="animate-spin" />Mengambil data dari Shopee…</p>}
       {d && !d.length && <Panel className="p-8 text-center text-sm text-slate-500">Belum ada toko Shopee aktif. <Link href="/marketplace/shops" className="font-semibold text-[#ee4d2d]">Hubungkan toko</Link></Panel>}
       {d && d.length > 1 && !shop && <Summary shops={d} onPick={(id) => setShop(String(id))} />}

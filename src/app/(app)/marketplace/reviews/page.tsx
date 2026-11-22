@@ -39,13 +39,15 @@ function Reviews() {
   const [busy, setBusy] = useState("");
   const [notice, setNotice] = useState("");
   const [cfgOpen, setCfgOpen] = useState(false);
+  const [view, setView] = useState<"list" | "products">(sp.get("view") === "products" ? "products" : "list");
+  const [productFilter, setProductFilter] = useState<{ item_id: number; name: string } | null>(null);
 
   useEffect(() => {
     api<{ shops: Shop[] }>("/marketplace/shops").then((r) => setShops(r.shops.filter((x) => (x.platform ?? "shopee") === "shopee" && x.status === "active" && !x.is_demo))).catch(() => {});
   }, []);
   const load = useCallback(() => {
-    api<Data>(`/marketplace/reviews?${new URLSearchParams({ rating, replied, search, shop, page: String(page), per_page: "20" })}`).then((r) => { setD(r); setPicked([]); }).catch(() => setD(null));
-  }, [rating, replied, search, shop, page]);
+    api<Data>(`/marketplace/reviews?${new URLSearchParams({ rating, replied, search, shop, page: String(page), per_page: "20", ...(productFilter ? { item: String(productFilter.item_id) } : {}) })}`).then((r) => { setD(r); setPicked([]); }).catch(() => setD(null));
+  }, [rating, replied, search, shop, page, productFilter]);
   useEffect(() => { const t = setTimeout(load, 200); return () => clearTimeout(t); }, [load]);
 
   const sync = async () => {
@@ -96,38 +98,46 @@ function Reviews() {
 
       <p className="flex items-start gap-2 rounded-xl bg-sky-50 p-3 text-xs text-sky-800"><AlertTriangle size={14} className="mt-0.5 shrink-0" />Balasan ulasan hanya bisa dikirim sekali dan tampil publik. Jangan menulis nomor HP, alamat, atau ajakan transaksi di luar Shopee: Shopee memberi poin penalti untuk balasan kasar atau yang membocorkan data pembeli.</p>
 
+      <div className="flex flex-wrap gap-2">
+        {([["list", "Semua ulasan"], ["products", "Rating per produk"]] as const).map(([id, label]) => (
+          <button key={id} onClick={() => setView(id)} className={`h-9 rounded-lg px-4 text-sm font-semibold ${view === id ? "bg-navy text-white" : "bg-white text-slate-600 hover:bg-slate-100"}`}>{label}</button>
+        ))}
+      </div>
+      {view === "products" ? <ProductRatings shop={shop} shops={shops} onShop={setShop} onOpen={(q) => { setView("list"); setSearch(""); setRating("low"); setReplied(""); setPage(1); setProductFilter(q); }} /> : (
       <Panel>
-        <div className="flex flex-wrap items-center gap-2 p-4">
-          <SearchBox value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Cari isi ulasan, pembeli, no. pesanan" />
-          {shops.length > 1 && (
-            <Select className="input w-48" value={shop} onChange={(e) => { setShop(e.target.value); setPage(1); }}>
-              <option value="">Semua toko ({shops.length})</option>{shops.map((x) => <option key={x.id} value={x.id}>{x.shop_name}</option>)}
+          <div className="flex flex-wrap items-center gap-2 p-4">
+            <SearchBox value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Cari isi ulasan, pembeli, no. pesanan" />
+            {productFilter && <button onClick={() => { setProductFilter(null); setPage(1); }} className="flex h-10 max-w-64 items-center gap-1.5 rounded-lg bg-amber-50 px-3 text-sm font-semibold text-amber-800" title="Hapus filter produk"><span className="truncate">Produk: {productFilter.name}</span><X size={14} className="shrink-0" /></button>}
+            {shops.length > 1 && (
+              <Select className="input w-48" value={shop} onChange={(e) => { setShop(e.target.value); setPage(1); }}>
+                <option value="">Semua toko ({shops.length})</option>{shops.map((x) => <option key={x.id} value={x.id}>{x.shop_name}</option>)}
+              </Select>
+            )}
+            <Select className="input w-40" value={rating} onChange={(e) => { setRating(e.target.value); setPage(1); }}>
+              <option value="">Semua bintang</option><option value="low">Bintang ≤3</option>{[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>Bintang {n}</option>)}
             </Select>
-          )}
-          <Select className="input w-40" value={rating} onChange={(e) => { setRating(e.target.value); setPage(1); }}>
-            <option value="">Semua bintang</option><option value="low">Bintang ≤3</option>{[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>Bintang {n}</option>)}
-          </Select>
-          <Select className="input w-40" value={replied} onChange={(e) => { setReplied(e.target.value); setPage(1); }}>
-            <option value="no">Belum dibalas</option><option value="yes">Sudah dibalas</option><option value="">Semua</option>
-          </Select>
-          {open.length > 0 && (
-            <label className="ml-auto flex items-center gap-2 text-sm text-slate-600">
-              <input type="checkbox" checked={picked.length === open.length} onChange={(e) => setPicked(e.target.checked ? open.map((r) => r.id) : [])} />Pilih semua di halaman ini
-            </label>
-          )}
-          {picked.length > 0 && (
-            <button onClick={bulk} disabled={busy === "bulk"} className="flex h-10 items-center gap-2 rounded-lg bg-navy px-4 text-sm font-semibold text-white disabled:opacity-60">
-              {busy === "bulk" ? <Loader2 size={15} className="animate-spin" /> : <MessageSquareReply size={15} />}Balas {picked.length} dengan template
-            </button>
-          )}
-        </div>
-        <div className="divide-y divide-slate-100">
-          {!d && <p className="py-14 text-center text-slate-400"><Loader2 size={18} className="mx-auto animate-spin" /></p>}
-          {rows.map((r) => <ReviewRow key={r.id} r={r} settings={d!.settings} picked={picked.includes(r.id)} onPick={(v) => setPicked(v ? [...picked, r.id] : picked.filter((x) => x !== r.id))} onReplied={load} />)}
-          {d && !rows.length && <p className="py-14 text-center text-sm text-slate-500">{d.stats.total ? "Tidak ada ulasan yang cocok dengan filter." : "Belum ada ulasan. Klik \"Ambil ulasan\" untuk mengambil dari Shopee."}</p>}
-        </div>
-        {d && d.reviews.last_page > 1 && <Pager page={d.reviews.current_page} last={d.reviews.last_page} onPage={setPage} total={d.reviews.total} />}
-      </Panel>
+            <Select className="input w-40" value={replied} onChange={(e) => { setReplied(e.target.value); setPage(1); }}>
+              <option value="no">Belum dibalas</option><option value="yes">Sudah dibalas</option><option value="">Semua</option>
+            </Select>
+            {open.length > 0 && (
+              <label className="ml-auto flex items-center gap-2 text-sm text-slate-600">
+                <input type="checkbox" checked={picked.length === open.length} onChange={(e) => setPicked(e.target.checked ? open.map((r) => r.id) : [])} />Pilih semua di halaman ini
+              </label>
+            )}
+            {picked.length > 0 && (
+              <button onClick={bulk} disabled={busy === "bulk"} className="flex h-10 items-center gap-2 rounded-lg bg-navy px-4 text-sm font-semibold text-white disabled:opacity-60">
+                {busy === "bulk" ? <Loader2 size={15} className="animate-spin" /> : <MessageSquareReply size={15} />}Balas {picked.length} dengan template
+              </button>
+            )}
+          </div>
+          <div className="divide-y divide-slate-100">
+            {!d && <p className="py-14 text-center text-slate-400"><Loader2 size={18} className="mx-auto animate-spin" /></p>}
+            {rows.map((r) => <ReviewRow key={r.id} r={r} settings={d!.settings} picked={picked.includes(r.id)} onPick={(v) => setPicked(v ? [...picked, r.id] : picked.filter((x) => x !== r.id))} onReplied={load} />)}
+            {d && !rows.length && <p className="py-14 text-center text-sm text-slate-500">{d.stats.total ? "Tidak ada ulasan yang cocok dengan filter." : "Belum ada ulasan. Klik \"Ambil ulasan\" untuk mengambil dari Shopee."}</p>}
+          </div>
+          {d && d.reviews.last_page > 1 && <Pager page={d.reviews.current_page} last={d.reviews.last_page} onPage={setPage} total={d.reviews.total} />}
+        </Panel>
+      )}
     </div>
   );
 }
@@ -202,6 +212,62 @@ function ReviewSettings({ value, onSaved }: { value: Settings; onSaved: (v: Sett
           <Select className="input h-9" value={v.alert_max_rating} onChange={(e) => setV({ ...v, alert_max_rating: Number(e.target.value) })}><option value={3}>Bintang ≤3</option><option value={2}>Bintang ≤2</option><option value={1}>Bintang 1</option><option value={0}>Matikan</option></Select></label>
       </div>
       <div className="flex justify-end"><button onClick={save} disabled={busy} className="flex h-9 items-center gap-1.5 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white disabled:opacity-50">{busy && <Loader2 size={14} className="animate-spin" />}Simpan</button></div>
+    </Panel>
+  );
+}
+
+type ProductRating = {
+  shop_id: number; shop_name: string | null; item_id: number; name: string; image: string | null; total: number; average: number;
+  low: number; low_pct: number; low_unreplied: number; complaints: { rating: number; comment: string; at: string }[];
+};
+
+/** Rating per product: products that collect bad reviews first, with what buyers complain about. */
+function ProductRatings({ shop, shops, onShop, onOpen }: { shop: string; shops: Shop[]; onShop: (v: string) => void; onOpen: (p: { item_id: number; name: string }) => void }) {
+  const [days, setDays] = useState("90");
+  const [d, setD] = useState<{ products: ProductRating[]; summary: { products: number; with_low: number; below_4: number } } | null>(null);
+  useEffect(() => {
+    setD(null);
+    api<{ products: ProductRating[]; summary: { products: number; with_low: number; below_4: number } }>(`/marketplace/reviews/products?${new URLSearchParams({ days, shop })}`).then(setD).catch(() => setD({ products: [], summary: { products: 0, with_low: 0, below_4: 0 } }));
+  }, [days, shop]);
+
+  return (
+    <Panel>
+      <div className="flex flex-wrap items-center gap-2 p-4">
+        <Select className="input w-44" value={days} onChange={(e) => setDays(e.target.value)}>
+          {[["30", "30 hari terakhir"], ["90", "90 hari terakhir"], ["180", "6 bulan terakhir"], ["365", "1 tahun terakhir"]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </Select>
+        {shops.length > 1 && (
+          <Select className="input w-48" value={shop} onChange={(e) => onShop(e.target.value)}>
+            <option value="">Semua toko ({shops.length})</option>{shops.map((x) => <option key={x.id} value={x.id}>{x.shop_name}</option>)}
+          </Select>
+        )}
+        {d && <p className="ml-auto text-sm text-slate-500"><b className="text-navy">{d.summary.with_low}</b> dari {d.summary.products} produk punya ulasan bintang ≤3{d.summary.below_4 ? <> · <b className="text-rose-600">{d.summary.below_4}</b> produk rata-rata di bawah 4</> : null}</p>}
+      </div>
+      {!d && <p className="py-14 text-center text-slate-400"><Loader2 size={18} className="mx-auto animate-spin" /></p>}
+      {d && !d.products.length && <p className="py-14 text-center text-sm text-slate-500">Belum ada ulasan di periode ini. Klik &quot;Ambil ulasan&quot; untuk mengambil dari Shopee.</p>}
+      <div className="divide-y divide-slate-100">
+        {d?.products.map((p) => (
+          <div key={`${p.shop_id}:${p.item_id}`} className={`flex gap-3 px-4 py-4 ${p.total >= 3 && p.average < 4 ? "bg-rose-50/30" : ""}`}>
+            {p.image ? <img src={p.image} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" /> : <div className="h-14 w-14 shrink-0 rounded-lg bg-slate-100" />}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-navy">{p.name}</p>
+              <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                <span className="flex items-center gap-1 font-semibold text-navy"><Star size={12} className="fill-amber-400 text-amber-400" />{p.average.toFixed(1)}</span>
+                <span>{p.total} ulasan</span>
+                {p.low > 0 && <span className="font-semibold text-rose-600">{p.low} bintang ≤3 ({p.low_pct}%)</span>}
+                {p.low_unreplied > 0 && <span className="rounded bg-amber-50 px-1.5 py-0.5 font-semibold text-amber-700">{p.low_unreplied} belum dibalas</span>}
+                {shops.length > 1 && p.shop_name && <span>{p.shop_name}</span>}
+              </p>
+              {p.complaints.length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {p.complaints.map((c, i) => <li key={i} className="flex gap-2 text-xs text-slate-600"><span className="shrink-0 text-amber-500">{"★".repeat(c.rating)}</span><span className="line-clamp-2">&ldquo;{c.comment}&rdquo;</span></li>)}
+                </ul>
+              )}
+            </div>
+            {p.low > 0 && <button onClick={() => onOpen({ item_id: p.item_id, name: p.name })} className="h-9 shrink-0 self-center rounded-lg border border-slate-200 px-3 text-xs font-semibold text-navy hover:bg-slate-50">Lihat ulasan buruk</button>}
+          </div>
+        ))}
+      </div>
     </Panel>
   );
 }

@@ -1,5 +1,5 @@
 "use client";
-import { ArrowLeft, ClipboardList, Hash, Loader2, MapPin, Megaphone, PackageX, Receipt, RotateCcw, Truck, User, Wallet } from "lucide-react";
+import { ArrowLeft, ClipboardList, Hash, Loader2, MapPin, Megaphone, PackageCheck, PackageX, Receipt, RotateCcw, Truck, User, Wallet } from "lucide-react";
 import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
 import { ShopeeMark } from "@/components/ChannelBadge";
@@ -16,6 +16,7 @@ type Detail = {
   profit: number | null;
   cancelled: boolean;
   ads: { date: string; per_conversion: number; net_after_ads: number | null; lines: { item_id: number; name: string; campaign: string; expense: number; conversions: number; per_conversion: number | null }[] } | null;
+  packing: { at: string; by: string | null; photo: string | null; complete: boolean } | null;
   return: { id: number; return_sn: string; status: string; refund_amount: number; reason: string | null; text_reason: string | null; due_at: string | null; requested_at: string | null; tracking_number: string | null } | null;
 };
 type Track = { events: { time: string | null; text: string; location: string | null }[]; status: string | null };
@@ -233,6 +234,13 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
         <div className="space-y-4 xl:sticky xl:top-20">
           {!demo && <Card><SellerNote order={o} onSaved={(note) => setD({ ...d, order: { ...o, seller_note: note } })} /></Card>}
+          {d.packing && (
+            <Card>
+              <p className="flex items-center gap-2 text-[15px] font-semibold text-slate-800"><PackageCheck size={16} className="text-emerald-600" />Bukti Packing</p>
+              <p className="mt-1 text-xs text-slate-500">Dipacking {when(d.packing.at)}{d.packing.by ? ` oleh ${d.packing.by}` : ""} · {d.packing.complete ? "semua produk dicek lengkap" : "dicek sebagian"}</p>
+              {d.packing.photo ? <a href={d.packing.photo} target="_blank" rel="noreferrer"><img src={d.packing.photo} alt="Foto packing" className="mt-3 max-h-64 w-full rounded-lg object-cover ring-1 ring-slate-200" /></a> : <p className="mt-2 text-xs text-slate-400">Tanpa foto.</p>}
+            </Card>
+          )}
           {canCancel && (
             <Card className="space-y-2">
               {canCancel && <button onClick={() => setCancel(true)} className="flex w-full items-center gap-2 rounded-lg border border-slate-200 px-3 py-2.5 text-left text-sm font-semibold text-rose-600 hover:bg-rose-50"><PackageX size={15} />Batalkan pesanan (stok habis)</button>}

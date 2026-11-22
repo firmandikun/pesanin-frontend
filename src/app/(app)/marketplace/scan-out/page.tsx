@@ -6,6 +6,7 @@ import { askConfirm } from "@/components/Dialogs";
 import { PageHead, Panel } from "@/components/kit";
 import { Modal, Pagination } from "@/components/ui";
 import { api, ApiError, type Paginated } from "@/lib/api";
+import { CheckToggle, PackPanel, useCheckToggle, usePackCheck } from "@/components/scanout/PackCheck";
 import { downloadScanPdf, scanTime, STATUS_STYLE, type Count, type ScanPayload, type ScanResult, type Summary } from "@/lib/scanOut";
 
 type HistoryRow = { id: number; status: string; scanned_by: string | null; parcels_count: number; started_at: string; finished_at: string | null; open: boolean };
@@ -227,30 +228,55 @@ function Totals({ summary }: { summary: Summary }) {
       </div>
       {list("Per ekspedisi", summary.by_expedition)}
       {list("Per toko", summary.by_shop)}
+      {(summary.by_staff?.length ?? 0) > 1 && <div className="sm:col-start-2 sm:col-end-4">{list("Per petugas", summary.by_staff!)}</div>}
     </div>
   );
 }
 
-/** USB barcode scanners type the code + Enter, so a focused input is enough. */
+/**
+ * USB barcode scanners type the code + Enter, so a focused input is enough. With "Cek isi paket" on, a scanned
+ * resi opens its products: scan each product (wrong/extra is refused with a sound), photo, then Enter on the
+ * empty box (or Selesai paket) saves it and the next resi can be scanned.
+ */
 function ManualScan({ sessionId, onResult }: { sessionId: number; onResult: (r: ScanResult) => void }) {
   const [code, setCode] = useState("");
   const [last, setLast] = useState<ScanResult | null>(null);
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLInputElement>(null);
+  const [check, setCheck] = useCheckToggle();
+  const pack = usePackCheck((id, fd) => api(`/scan-out/sessions/${sessionId}/pack/${id}`, { method: "POST", body: fd }));
+  const focus = () => setTimeout(() => ref.current?.focus(), 0);
+  useEffect(() => { focus(); }, [pack.order]);
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!code.trim() || busy) return;
+    if (busy || pack.saving) return;
+    if (pack.order) {
+      if (!code.trim()) { if (pack.complete) pack.finish().then(focus); return; }
+      pack.scan(code); setCode(""); return;
+    }
+    if (!code.trim()) return;
     setBusy(true);
     api<ScanResult>(`/scan-out/sessions/${sessionId}/scan`, { method: "POST", json: { code } })
-      .then((r) => { setLast(r); onResult(r); setCode(""); })
+      .then((r) => {
+        setLast(r); onResult(r); setCode(""); pack.setMsg(null);
+        if (r.status === "ok" && r.order && check) pack.start(r.order);
+      })
       .catch((e) => setLast({ status: "invalid", message: e instanceof ApiError ? e.message : "Gagal", parcel: null }))
-      .finally(() => { setBusy(false); ref.current?.focus(); });
+      .finally(() => { setBusy(false); focus(); });
   };
   return (
-    <form onSubmit={submit} className="space-y-2 border-t border-slate-100 pt-4">
-      <label className="text-xs font-semibold text-slate-600">Scanner USB / ketik resi</label>
-      <input ref={ref} value={code} onChange={(e) => setCode(e.target.value)} placeholder="Scan / ketik resi lalu Enter" className="h-10 w-full rounded-lg border border-slate-200 px-3 font-mono text-sm outline-none focus:border-brand-500" />
-      {last && <p className={`rounded-lg px-3 py-2 text-xs ring-1 ${STATUS_STYLE[last.status].box}`}><b>{STATUS_STYLE[last.status].label}</b> {last.message}</p>}
-    </form>
+    <div className="space-y-2 border-t border-slate-100 pt-4">
+      <form onSubmit={submit} className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <label className="text-xs font-semibold text-slate-600">{pack.order ? "Scan barcode produk (Enter kosong = Selesai paket)" : "Scanner USB / ketik resi"}</label>
+        </div>
+        <input ref={ref} value={code} onChange={(e) => setCode(e.target.value)} placeholder={pack.order ? "Scan barcode produk / SKU" : "Scan / ketik resi lalu Enter"} className="h-10 w-full rounded-lg border border-slate-200 px-3 font-mono text-sm outline-none focus:border-brand-500" />
+      </form>
+      <CheckToggle on={check} onChange={(v) => { setCheck(v); if (!v) pack.cancel(); focus(); }} />
+      {pack.msg && <p className={`rounded-lg px-3 py-2 text-xs font-semibold ring-1 ${pack.msg.ok ? "bg-emerald-50 text-emerald-800 ring-emerald-200" : "bg-rose-50 text-rose-800 ring-rose-200"}`}>{pack.msg.text}</p>}
+      {last && !pack.order && !pack.msg && <p className={`rounded-lg px-3 py-2 text-xs ring-1 ${STATUS_STYLE[last.status].box}`}><b>{STATUS_STYLE[last.status].label}</b> {last.message}</p>}
+      {pack.order && <PackPanel pack={pack} onAction={focus} />}
+    </div>
   );
 }

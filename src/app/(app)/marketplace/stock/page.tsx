@@ -9,8 +9,10 @@ import { api, ApiError, Paginated, rupiah } from "@/lib/api";
 
 type Linked = { id: number; marketplace_shop_id: number; item_id: number; model_id: number; name: string; model_name: string | null; sku: string | null; stock: number; stock_push_error: string | null; image: string | null; status: string;
   shop: { id: number; shop_name: string; is_demo: boolean; status: string } | null };
-type Master = { id: number; sku: string; name: string | null; image: string | null; stock: number; hpp?: number; sell_price?: number; push_pending: boolean; pushed_at: string | null; listings: Linked[] };
-type Stats = { stock_value: number; stock_units: number; sell_value: number; no_hpp: number; masters: number; linked: number; unlinked_with_sku: number; without_sku: number; candidates: number; empty: number; errors: number };
+type Forecast = { sold_30d: number; per_day: number; days_left: number | null; run_out_at: string | null; restock_qty: number; status: "habis" | "kritis" | "segera" | "aman" | "mati" | "tanpa_data" };
+type ForecastStats = { habis: number; kritis: number; segera: number; mati: number; dead_units: number; dead_value: number; lead_days: number; cover_days: number };
+type Master = { forecast?: Forecast; id: number; sku: string; name: string | null; image: string | null; stock: number; hpp?: number; sell_price?: number; push_pending: boolean; pushed_at: string | null; listings: Linked[] };
+type Stats = { stock_value: number; stock_units: number; sell_value: number; no_hpp: number; masters: number; linked: number; unlinked_with_sku: number; without_sku: number; candidates: number; empty: number; errors: number; forecast?: ForecastStats };
 type Movement = { id: number; kind: "sale" | "restore" | "adjust"; qty: number; stock_after: number; note: string | null; created_at: string };
 type ListingRow = { id: number; name: string; model_name: string | null; sku: string | null; stock: number; image: string | null; stock_master_id: number | null; shop: { shop_name: string } };
 
@@ -22,7 +24,7 @@ const KIND: Record<Movement["kind"], string> = { sale: "Terjual", restore: "Bata
 export default function StockMasterPage() {
   const [d, setD] = useState<{ masters: Paginated<Master>; stats: Stats } | null>(null);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("");
+  const [filter, setFilter] = useState(() => (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("filter") ?? "" : ""));
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState("");
   const [notice, setNotice] = useState("");
@@ -106,6 +108,7 @@ export default function StockMasterPage() {
           ))}
         </div>
       )}
+      {s?.forecast && <RestockCards f={s.forecast} filter={filter} onFilter={(v) => { setFilter(v); setPage(1); }} onSaved={load} />}
       {s && s.without_sku > 0 && (
         <p className="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
           <AlertTriangle size={16} className="mt-0.5 shrink-0" /><span>{s.without_sku.toLocaleString("id-ID")} listing belum punya SKU, jadi tidak bisa disatukan otomatis. Isi SKU yang sama untuk produk yang sama di Seller Centre, sinkronkan produk, lalu klik &quot;Buat dari SKU yang sama&quot;. Atau hubungkan manual lewat ikon <b>Hubungkan</b> di baris stok master.{" "}
@@ -117,16 +120,16 @@ export default function StockMasterPage() {
         <div className="flex flex-wrap items-center gap-2 p-4">
           <SearchBox value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Cari SKU atau nama" />
           <Select className="input w-52" value={filter} onChange={(e) => { setFilter(e.target.value); setPage(1); }}>
-            <option value="">Semua stok master</option><option value="empty">Stok habis</option><option value="error">Gagal dikirim ke Shopee</option>
+            <option value="">Semua stok master</option><option value="restock">Perlu restock</option><option value="dead">Stok mati (tidak laku 30 hari)</option><option value="empty">Stok habis</option><option value="error">Gagal dikirim ke Shopee</option>
           </Select>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[920px] text-sm">
             <thead className="bg-slate-50/60 text-left text-xs uppercase tracking-wide text-slate-500">
-              <tr>{["Produk / SKU", "Stok master", "HPP / Modal", "Listing di toko", "Terakhir dikirim", ""].map((h) => <th key={h} className="px-3 py-3 font-semibold">{h}</th>)}</tr>
+              <tr>{["Produk / SKU", "Stok master", "Prediksi", "HPP / Modal", "Listing di toko", "Terakhir dikirim", ""].map((h) => <th key={h} className="px-3 py-3 font-semibold">{h}</th>)}</tr>
             </thead>
             <tbody>
-              {!d && <tr><td colSpan={6} className="py-14 text-center text-slate-400"><Loader2 size={18} className="mx-auto animate-spin" /></td></tr>}
+              {!d && <tr><td colSpan={7} className="py-14 text-center text-slate-400"><Loader2 size={18} className="mx-auto animate-spin" /></td></tr>}
               {masters.map((m) => (
                 <tr key={m.id} className="border-t border-slate-100 align-top hover:bg-slate-50/50">
                   <td className="px-3 py-3">
@@ -136,6 +139,7 @@ export default function StockMasterPage() {
                     </div>
                   </td>
                   <td className="px-3 py-3"><StockEdit m={m} onSaved={replace} /></td>
+                  <td className="whitespace-nowrap px-3 py-3">{m.forecast ? <ForecastCell f={m.forecast} /> : "-"}</td>
                   <td className="whitespace-nowrap px-3 py-3">
                     {m.hpp && m.hpp > 0 ? (
                       <div>
@@ -301,5 +305,62 @@ function LinkDialog({ target, onClose, onDone }: { target: Master | "new"; onClo
         {rows && !rows.length && <li className="py-6 text-center text-sm text-slate-500">Tidak ada listing yang cocok.</li>}
       </ul>
     </Dialog>
+  );
+}
+
+const FC: Record<Forecast["status"], { label: string; cls: string }> = {
+  habis: { label: "Habis", cls: "bg-rose-100 text-rose-700" },
+  kritis: { label: "Kritis", cls: "bg-rose-100 text-rose-700" },
+  segera: { label: "Restock segera", cls: "bg-amber-100 text-amber-700" },
+  aman: { label: "Aman", cls: "bg-emerald-100 text-emerald-700" },
+  mati: { label: "Stok mati", cls: "bg-slate-200 text-slate-700" },
+  tanpa_data: { label: "Belum ada data", cls: "bg-slate-100 text-slate-500" },
+};
+
+/** Sales speed, when the stock runs out and how many to restock. */
+function ForecastCell({ f }: { f: Forecast }) {
+  return (
+    <div className="space-y-0.5">
+      <span className={`inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold ${FC[f.status].cls}`}>{FC[f.status].label}</span>
+      {f.per_day > 0 && <p className="text-[11px] text-slate-500">{f.per_day.toLocaleString("id-ID")}/hari · {f.status === "habis" ? "sudah habis" : `habis ±${f.days_left} hari`}</p>}
+      {f.status === "mati" && <p className="text-[11px] text-slate-500">0 terjual 30 hari</p>}
+      {f.restock_qty > 0 && <p className="text-[11px] font-semibold text-navy">Restock {f.restock_qty.toLocaleString("id-ID")} pcs</p>}
+    </div>
+  );
+}
+
+/** Restock & dead-stock summary, with the lead time / cover period the suggestion uses. */
+function RestockCards({ f, filter, onFilter, onSaved }: { f: ForecastStats; filter: string; onFilter: (v: string) => void; onSaved: () => void }) {
+  const [lead, setLead] = useState(f.lead_days);
+  const [cover, setCover] = useState(f.cover_days);
+  const save = async (l: number, c: number) => {
+    setLead(l); setCover(c);
+    await api("/user-settings", { method: "PUT", json: { key: "restock", value: { lead_days: l, cover_days: c } } }).catch(() => {});
+    onSaved();
+  };
+  const need = f.habis + f.kritis + f.segera;
+  return (
+    <div className="grid gap-4 lg:grid-cols-[1fr_1fr_1.2fr]">
+      <button onClick={() => onFilter(filter === "restock" ? "" : "restock")} className={`surface p-4 text-left hover:ring-2 hover:ring-rose-100 ${filter === "restock" ? "ring-2 ring-rose-200" : ""}`}>
+        <p className="text-xs font-medium text-slate-500">Perlu restock</p>
+        <p className={`mt-1 text-xl font-bold ${need ? "text-rose-600" : "text-navy"}`}>{need} SKU</p>
+        <p className="text-[11px] text-slate-400">{f.habis} habis · {f.kritis} kritis · {f.segera} segera</p>
+      </button>
+      <button onClick={() => onFilter(filter === "dead" ? "" : "dead")} className={`surface p-4 text-left hover:ring-2 hover:ring-slate-200 ${filter === "dead" ? "ring-2 ring-slate-300" : ""}`}>
+        <p className="text-xs font-medium text-slate-500">Stok mati (tidak laku 30 hari)</p>
+        <p className="mt-1 text-xl font-bold text-navy">{f.mati} SKU{f.dead_value > 0 ? ` · ${rupiah(f.dead_value)}` : ""}</p>
+        <p className="text-[11px] text-slate-400">{f.dead_units.toLocaleString("id-ID")} pcs modal mengendap: pertimbangkan promo/bundling</p>
+      </button>
+      <div className="surface space-y-2 p-4 text-xs text-slate-600">
+        <p className="font-medium text-slate-500">Hitungan saran restock</p>
+        <label className="flex items-center justify-between gap-2">Lama barang datang dari supplier
+          <Select className="input h-8 w-28" value={String(lead)} onChange={(e) => save(Number(e.target.value), cover)}>{[1, 2, 3, 5, 7, 10, 14, 21, 30].map((v) => <option key={v} value={v}>{v} hari</option>)}</Select>
+        </label>
+        <label className="flex items-center justify-between gap-2">Stok cukup untuk
+          <Select className="input h-8 w-28" value={String(cover)} onChange={(e) => save(lead, Number(e.target.value))}>{[7, 14, 21, 30, 45, 60].map((v) => <option key={v} value={v}>{v} hari</option>)}</Select>
+        </label>
+        <p className="text-[11px] text-slate-400">Kecepatan jual dari penjualan 30 hari terakhir. Notifikasi tiap pagi kalau ada SKU yang baru habis/kritis.</p>
+      </div>
+    </div>
   );
 }

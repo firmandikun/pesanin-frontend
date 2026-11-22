@@ -203,7 +203,21 @@ function Chat() {
   // "/" in the composer opens quick replies: "/rek" filters by shortcut, Enter or Tab inserts.
   const slash = /^\/(\S*)$/.exec(draft);
   const matches = slash ? replies.filter((r) => r.shortcut.toLowerCase().startsWith(slash[1].toLowerCase()) || r.body.toLowerCase().includes(slash[1].toLowerCase())).slice(0, 6) : [];
-  const insertReply = (r: QuickReply) => { setDraft(r.body.replace(/\{nama\}/gi, active?.name ?? "")); setPick(0); };
+  // Variables in a quick reply: {nama} from the conversation; {toko}, {order_sn}, {resi}, {kurir}, {status} from the
+  // buyer's latest Shopee order (asked from the server only when the reply uses them).
+  const insertReply = async (r: QuickReply) => {
+    setPick(0);
+    const fill = (vars: Record<string, string | null | undefined>) => r.body.replace(/\{(nama|toko|order_sn|no_pesanan|resi|kurir|status)\}/gi, (_, k: string) => {
+      const key = k.toLowerCase() === "no_pesanan" ? "order_sn" : k.toLowerCase();
+      return vars[key] || (key === "resi" ? "belum terbit" : key === "nama" ? "Kak" : "-");
+    });
+    setDraft(fill({ nama: active?.name }));
+    if (!active || preview || active.channel !== "shopee" || !/\{(toko|order_sn|no_pesanan|resi|kurir|status)\}/i.test(r.body)) return;
+    try {
+      const res = await api<{ vars: Record<string, string | null> }>(`/chat/shopee/${active.source_id}/buyer/${active.to_id}?name=${encodeURIComponent(active.name)}`);
+      setDraft(fill({ ...res.vars, nama: active.name }));
+    } catch { /* keep the {nama}-only text */ }
+  };
 
   // Meta only allows free replies within 24h of the buyer's last message (Shopee has no such rule).
   const lastBuyerAt = (msgs ?? []).filter((m) => !m.from_me && m.at).map((m) => new Date(m.at!).getTime()).sort((a, b) => b - a)[0];

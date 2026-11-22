@@ -4,12 +4,15 @@ import { Camera, CheckCircle2, Keyboard, Loader2, PackageCheck, Undo2 } from "lu
 import { use, useCallback, useEffect, useRef, useState } from "react";
 import { askConfirm } from "@/components/Dialogs";
 import { api, ApiError } from "@/lib/api";
+import { CheckToggle, PackPanel, useCheckToggle, usePackCheck } from "@/components/scanout/PackCheck";
 import { feedback, scanTime, STATUS_STYLE, type Parcel, type ScanPayload, type ScanResult, type Summary } from "@/lib/scanOut";
 
 /**
  * Phone scanner opened from the Scan Out QR on the dashboard (no login: the session token is the access).
  * Back camera reads the resi barcode, each code is sent once, and Selesai shows the count per shop + total.
  */
+const STAFF_KEY = "pesanin_scan_staff";
+
 export default function PhoneScan({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
   const base = `/public/scan-out/${token}`;
@@ -31,6 +34,20 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
   const [hit, setHit] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   const hitTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const seen = useRef<{ code: string; at: number }>({ code: "", at: 0 });
+  // "Cek isi paket": after a resi, scan each product + photo before the next resi.
+  const [check, setCheck] = useCheckToggle();
+  // Several warehouse staff can scan with the same QR: each phone remembers whose it is.
+  const [staff, setStaffState] = useState<string | null>(null);
+  const [staffDraft, setStaffDraft] = useState("");
+  const staffRef = useRef<string | null>(null);
+  staffRef.current = staff;
+  useEffect(() => { try { const n = localStorage.getItem(STAFF_KEY); setStaffState(n || ""); setStaffDraft(n || ""); } catch { setStaffState(""); } }, []);
+  const setStaff = (n: string) => { const v = n.trim().slice(0, 60); setStaffState(v); try { localStorage.setItem(STAFF_KEY, v); } catch { /* private mode */ } };
+  const pack = usePackCheck((id, fd) => { if (staffRef.current) fd.append("by", staffRef.current); return api(`${base}/pack/${id}`, { method: "POST", body: fd }); });
+  const packRef = useRef(pack);
+  packRef.current = pack;
+  const checkRef = useRef(check);
+  checkRef.current = check;
 
   useEffect(() => {
     api<ScanPayload>(base).then((p) => {
@@ -42,16 +59,21 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
   const send = useCallback(async (raw: string) => {
     const code = raw.trim();
     const now = Date.now();
-    // The camera reads the same label many times a second: ignore repeats for a few seconds.
-    if (!code || busy.current || (seen.current.code === code && now - seen.current.at < 4000)) return;
+    // The camera reads the same label many times a second: ignore repeats for a few seconds
+    // (1.5 s while checking products, so two units of the same product can be scanned one after another).
+    const open = packRef.current.order;
+    if (!code || busy.current || (seen.current.code === code && now - seen.current.at < (open ? 1500 : 4000))) return;
     seen.current = { code, at: now };
+    if (open) { packRef.current.scan(code); return; }
     busy.current = true;
     try {
-      const r = await api<ScanResult>(`${base}/scan`, { method: "POST", json: { code } });
+      const r = await api<ScanResult>(`${base}/scan`, { method: "POST", json: { code, by: staffRef.current || undefined } });
       feedback(r.status);
       setLast({ ...r, parcel: r.parcel ?? ({ code } as Parcel) });
       if (r.summary) setSummary(r.summary);
       if (r.parcel && (r.status === "ok" || r.status === "unknown")) setRecent((x) => [r.parcel!, ...x].slice(0, 30));
+      packRef.current.setMsg(null);
+      if (r.status === "ok" && r.order && checkRef.current) packRef.current.start(r.order);
     } catch (e) {
       feedback("invalid");
       const msg = e instanceof ApiError ? e.message : "Gagal mengirim, cek koneksi.";
@@ -132,11 +154,21 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
     } catch (e) { setLast({ status: "invalid", message: e instanceof ApiError ? e.message : "Gagal membatalkan", parcel: null }); }
   };
   const finish = async () => {
-    if (!(await askConfirm(`Selesai scan? Total ${summary?.total ?? 0} paket. Setelah selesai, link ini tidak bisa dipakai lagi.`, { title: "Selesai scan", confirmLabel: "Selesai" }))) return;
+    if (!(await askConfirm(`Selesai scan? Total ${summary?.total ?? 0} paket. Sesi ditutup untuk SEMUA petugas dan link ini tidak bisa dipakai lagi. Kalau hanya kamu yang selesai, cukup tutup halaman ini.`, { title: "Selesai scan", confirmLabel: "Selesai" }))) return;
     try {
       const r = await api<{ summary: Summary }>(`${base}/finish`, { method: "POST" });
       stopCam(); setSummary(r.summary); setFinished(true);
     } catch (e) { setLast({ status: "invalid", message: e instanceof ApiError ? e.message : "Gagal", parcel: null }); }
+  };
+
+  // Photo of the open parcel from the running camera.
+  const snap = async (): Promise<Blob | null> => {
+    const v = video.current;
+    if (!v || !v.videoWidth) return null;
+    const c = document.createElement("canvas");
+    c.width = v.videoWidth; c.height = v.videoHeight;
+    c.getContext("2d")!.drawImage(v, 0, 0);
+    return new Promise((res) => c.toBlob(res, "image/jpeg", 0.85));
   };
 
   if (err) return <Shell><p className="rounded-2xl bg-rose-50 p-5 text-center text-sm text-rose-700">{err}</p></Shell>;
@@ -164,6 +196,17 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
     </Shell>
   );
 
+  if (staff === "") return (
+    <Shell store={info.store_name}>
+      <form onSubmit={(e) => { e.preventDefault(); if (staffDraft.trim()) setStaff(staffDraft); }} className="space-y-3 rounded-2xl bg-white p-5 shadow-sm">
+        <h1 className="text-base font-bold text-slate-800">Siapa yang scan?</h1>
+        <p className="text-xs text-slate-500">Tulis nama kamu sekali saja (tersimpan di HP ini). Beberapa petugas gudang bisa scan bersamaan pakai QR yang sama, dan tiap paket tercatat atas nama yang scan.</p>
+        <input autoFocus value={staffDraft} onChange={(e) => setStaffDraft(e.target.value)} maxLength={60} placeholder="Nama petugas, mis. Rina" className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-brand-500" />
+        <button disabled={!staffDraft.trim()} className="h-11 w-full rounded-xl bg-brand-600 text-sm font-semibold text-white disabled:opacity-50">Mulai scan</button>
+      </form>
+    </Shell>
+  );
+
   return (
     <Shell store={info.store_name}>
       <div className="relative overflow-hidden rounded-2xl bg-black">
@@ -188,7 +231,16 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
         <div className="absolute left-3 top-3 rounded-full bg-black/60 px-3 py-1 text-sm font-bold text-white">{summary.total} paket</div>
       </div>
 
-      {last && (
+      <div className="space-y-2 rounded-2xl bg-white px-4 py-2.5 shadow-sm">
+        <div className="flex items-center justify-between gap-2 text-xs text-slate-500"><span>Petugas: <b className="text-slate-700">{staff}</b></span><button onClick={() => setStaffState("")} className="font-semibold text-brand-600">Ganti</button></div>
+        <CheckToggle on={check} onChange={(v) => { setCheck(v); if (!v) pack.cancel(); }} />
+      </div>
+
+      {pack.order && pack.msg && <div className={`rounded-2xl p-3 text-sm font-semibold ring-1 ${pack.msg.ok ? "bg-emerald-50 text-emerald-800 ring-emerald-200" : "bg-rose-50 text-rose-800 ring-rose-200"}`}>{pack.msg.text}</div>}
+      {pack.order && <PackPanel pack={pack} snap={camOn ? snap : undefined} compact />}
+
+      {!pack.order && pack.msg?.ok && pack.msg.text.startsWith("Paket ") && <div className="rounded-2xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-800 ring-1 ring-emerald-200">{pack.msg.text}</div>}
+      {last && !pack.order && (
         <div className={`rounded-2xl p-4 ring-1 ${STATUS_STYLE[last.status].box}`}>
           <div className="text-xs font-bold uppercase">{STATUS_STYLE[last.status].label}</div>
           {last.parcel?.code && <div className="font-mono text-base font-bold">{last.parcel.code}</div>}
@@ -214,6 +266,8 @@ export default function PhoneScan({ params }: { params: Promise<{ token: string 
         {summary.by_expedition.map((s) => <div key={s.name} className="flex justify-between py-1 text-sm"><span className="text-slate-600">{s.name}</span><b>{s.count}</b></div>)}
         <div className="mb-2 mt-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Per toko</div>
         {summary.by_shop.map((s) => <div key={s.name} className="flex justify-between py-1 text-sm"><span className="text-slate-600">{s.name}</span><b>{s.count}</b></div>)}
+        {(summary.by_staff?.length ?? 0) > 0 && <div className="mb-2 mt-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Per petugas</div>}
+        {summary.by_staff?.map((s) => <div key={s.name} className="flex justify-between py-1 text-sm"><span className="text-slate-600">{s.name}</span><b>{s.count}</b></div>)}
         {!summary.by_shop.length && <p className="text-sm text-slate-400">Belum ada paket.</p>}
         {recent.length > 0 && (
           <>

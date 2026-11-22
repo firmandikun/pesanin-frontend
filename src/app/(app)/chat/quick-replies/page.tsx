@@ -1,9 +1,10 @@
 "use client";
-import { Bot, CheckCircle2, Loader2, MessageSquare, Pencil, Plus, Star, Tag, Trash2, Zap } from "lucide-react";
+import { Bot, CheckCircle2, Loader2, MessageSquare, Pencil, Plus, ShieldCheck, Star, Tag, Trash2, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { askConfirm } from "@/components/Dialogs";
 import { ShopeeMark } from "@/components/ChannelBadge";
-import { Dialog, DialogActions, EmptyState, FieldLabel, PageHead, Panel, PrimaryBtn, SearchBox } from "@/components/kit";
+import { Dialog, DialogActions, EmptyState, FieldLabel, PageHead, Panel, PrimaryBtn, SearchBox, Toggle } from "@/components/kit";
+import { Select } from "@/components/Select";
 import { api, ApiError } from "@/lib/api";
 import { ChatLabel, LABEL_COLORS, labelDot, QuickReply } from "@/lib/inbox";
 
@@ -61,7 +62,7 @@ function Replies() {
     <Panel>
       <div className="flex flex-wrap items-center gap-2 p-4">
         <SearchBox value={q} onChange={setQ} placeholder="Cari pintasan atau isi" />
-        <p className="text-xs text-slate-500">Di kolom chat, ketik <b className="text-brand-600">/pintasan</b> lalu Enter. Tulis <b>{"{nama}"}</b> untuk nama pembeli.</p>
+        <p className="text-xs text-slate-500">Di kolom chat, ketik <b className="text-brand-600">/pintasan</b> lalu Enter. Tulis <b>{"{nama}"}</b> untuk nama pembeli; khusus chat Shopee juga <b>{"{order_sn}"}</b>, <b>{"{resi}"}</b>, <b>{"{kurir}"}</b>, <b>{"{status}"}</b> dari pesanan terakhirnya.</p>
         <div className="ml-auto"><PrimaryBtn onClick={() => { setErr(""); setEdit({ shortcut: "", category: "", body: "" }); }}>Tambah Balasan</PrimaryBtn></div>
       </div>
       {!rows ? <p className="p-8 text-center text-sm text-slate-400">Memuat…</p> : !shown.length ? <EmptyState text={rows.length ? "Tidak ada yang cocok" : "Belum ada balasan cepat"} sub="Simpan jawaban yang sering dipakai, misalnya nomor rekening, cara order, atau info ongkir." /> : (
@@ -142,162 +143,118 @@ function Labels() {
   );
 }
 
-const DEFAULT_UNPAID = "Halo Kak {nama}, pesananmu ({order_sn}) sudah kami siapkan ya kak. Yuk segera selesaikan pembayarannya agar paket bisa langsung kami kirimkan hari ini ya kak 🙏";
-const DEFAULT_DELIVERED = "Halo Kak {nama}, pesananmu ({order_sn}) sudah sampai ya. Mohon periksa kelengkapan produknya. Jika sudah sesuai, mohon bantu klik 'Pesanan Diterima' dan berikan ulasan bintang 5 ⭐⭐⭐⭐⭐ ya kak. Terima kasih banyak! 🙏";
+const DEFAULT_AWAY = "Halo Kak {nama}, terima kasih sudah menghubungi {toko} 🙏 Saat ini di luar jam operasional kami. Pesan Kakak akan kami balas besok pagi mulai pukul 08.00 ya kak.";
+const DEFAULT_KEYWORDS: Keyword[] = [
+  { words: "resi, no resi, nomor resi", text: "Halo Kak {nama}, pesanan {order_sn} saat ini {status}. Resi: {resi} ({kurir}). Bisa dicek di menu Pesanan Saya ya kak 🙏" },
+  { words: "kapan dikirim, kapan dikirimnya, belum dikirim", text: "Halo Kak {nama}, pesanan {order_sn} saat ini {status}. Pesanan dikirim maksimal 1×24 jam hari kerja ya kak 🙏" },
+];
+const VARS = ["{nama}", "{toko}", "{order_sn}", "{resi}", "{kurir}", "{status}"];
+const HOURS = Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, "0")}:${i % 2 ? "30" : "00"}`);
+
+type Keyword = { words: string; text: string };
+type ChatAuto = {
+  away: { enabled: boolean; start: string; end: string; text: string };
+  keywords_enabled: boolean; keywords: Keyword[];
+};
+
+function VarHint() {
+  return <p className="mb-1.5 text-[11px] text-slate-400">Variabel: {VARS.map((v) => <b key={v} className="mr-1.5 text-navy">{v}</b>)}<span className="text-slate-400">· resi/kurir/status diambil dari pesanan terakhir pembeli</span></p>;
+}
+
+function Section({ n, title, desc, on, setOn, children }: { n: number; title: string; desc: string; on: boolean; setOn: (v: boolean) => void; children: React.ReactNode }) {
+  return (
+    <div className="space-y-3 pt-6 first:pt-2">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <b className="block text-sm text-navy">{n}. {title}</b>
+          <p className="mt-0.5 text-xs text-slate-500">{desc}</p>
+        </div>
+        <Toggle checked={on} onChange={setOn} />
+      </div>
+      {on && children}
+    </div>
+  );
+}
 
 function ShopeeAutomation() {
-  const [loading, setLoading] = useState(true);
+  const [cfg, setCfg] = useState<ChatAuto | null>(null);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
   const [err, setErr] = useState("");
 
-  const [unpaidReminder, setUnpaidReminder] = useState(false);
-  const [unpaidText, setUnpaidText] = useState(DEFAULT_UNPAID);
-
-  const [deliveredReview, setDeliveredReview] = useState(false);
-  const [deliveredText, setDeliveredText] = useState(DEFAULT_DELIVERED);
-
   useEffect(() => {
     api<Record<string, any>>("/user-settings")
-      .then((cfg) => {
-        const s = cfg?.shopee_chat_automation ?? {};
-        setUnpaidReminder(Boolean(s.unpaid_reminder));
-        setUnpaidText(s.unpaid_text || DEFAULT_UNPAID);
-        setDeliveredReview(Boolean(s.delivered_review));
-        setDeliveredText(s.delivered_text || DEFAULT_DELIVERED);
+      .then((all) => {
+        const s = all?.shopee_chat_automation ?? {};
+        setCfg({
+          away: { enabled: Boolean(s.away?.enabled), start: s.away?.start || "21:00", end: s.away?.end || "08:00", text: s.away?.text || DEFAULT_AWAY },
+          keywords_enabled: Boolean(s.keywords_enabled), keywords: Array.isArray(s.keywords) && s.keywords.length ? s.keywords : DEFAULT_KEYWORDS,
+        });
       })
-      .catch(() => setErr("Gagal memuat pengaturan"))
-      .finally(() => setLoading(false));
+      .catch(() => setErr("Gagal memuat pengaturan"));
   }, []);
 
+  const set = (p: Partial<ChatAuto>) => setCfg((c) => (c ? { ...c, ...p } : c));
+  const setKw = (i: number, p: Partial<Keyword>) => set({ keywords: cfg!.keywords.map((k, j) => (j === i ? { ...k, ...p } : k)) });
+
   const save = async () => {
-    setSaving(true);
-    setNotice("");
-    setErr("");
+    if (!cfg) return;
+    setSaving(true); setNotice(""); setErr("");
     try {
-      await api("/user-settings", {
-        method: "PUT",
-        json: {
-          key: "shopee_chat_automation",
-          value: {
-            unpaid_reminder: unpaidReminder,
-            unpaid_text: unpaidText,
-            delivered_review: deliveredReview,
-            delivered_text: deliveredText,
-          },
-        },
-      });
-      setNotice("Pengaturan otomatisasi Shopee Chat berhasil disimpan.");
+      const keywords = cfg.keywords.filter((k) => k.words.trim() && k.text.trim());
+      await api("/user-settings", { method: "PUT", json: { key: "shopee_chat_automation", value: { ...cfg, keywords } } });
+      setCfg({ ...cfg, keywords });
+      setNotice("Tersimpan. Pesan otomatis mulai berjalan dalam 1 menit.");
     } catch (e) {
-      setErr(e instanceof ApiError ? e.message : "Gagal menyimpan");
-    } finally {
-      setSaving(false);
-    }
+      setErr(e instanceof ApiError ? Object.values(e.errors ?? {})[0]?.[0] ?? e.message : "Gagal menyimpan");
+    } finally { setSaving(false); }
   };
 
-  if (loading) return <Panel className="p-8 text-center text-sm text-slate-400">Memuat pengaturan…</Panel>;
+  if (!cfg) return <Panel className="p-8 text-center text-sm text-slate-400">{err || "Memuat pengaturan…"}</Panel>;
 
   return (
     <Panel className="space-y-6 p-6">
       <div>
-        <div className="flex items-center gap-2">
-          <ShopeeMark size={20} />
-          <h3 className="font-bold text-navy">Follow-up Otomatis Shopee Chat</h3>
-        </div>
-        <p className="mt-1 text-xs text-slate-500">
-          Kirim pesan chat otomatis ke pembeli Shopee berdasarkan status pesanan terkini untuk meningkatkan konversi dan rating toko.
-        </p>
+        <div className="flex items-center gap-2"><ShopeeMark size={20} /><h3 className="font-bold text-navy">Chat Otomatis Shopee</h3></div>
+        <p className="mt-1 text-xs text-slate-500">Pesanin membalas chat pembeli otomatis (dicek setiap menit). Tiap chat pembeli dibalas paling banyak sekali, jadi tidak berulang.</p>
       </div>
-
-      {notice && (
-        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-medium text-emerald-800">
-          <CheckCircle2 size={15} className="shrink-0 text-emerald-600" />
-          {notice}
-        </div>
-      )}
+      <p className="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-800"><ShieldCheck size={15} className="mt-0.5 shrink-0" />
+        Sesuai aturan Shopee, Pesanin <b className="mx-0.5">hanya membalas chat yang dikirim pembeli</b> dan tidak pernah chat duluan. Chat dari penjual lebih dulu, pesan berulang, promosi, atau meminta rating bintang 5 bisa dianggap spam dan berujung penalti atau chat diblokir.
+      </p>
+      {notice && <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-medium text-emerald-800"><CheckCircle2 size={15} className="shrink-0 text-emerald-600" />{notice}</div>}
       {err && <div className="rounded-xl bg-rose-50 p-3 text-xs text-rose-700">{err}</div>}
 
       <div className="space-y-6 divide-y divide-slate-100">
-        {/* 1. Unpaid Reminder */}
-        <div className="space-y-3 pt-2">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <b className="text-sm text-navy block">1. Pengingat Pesanan Belum Bayar (Unpaid Reminder)</b>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Kirim pesan otomatis via Shopee Chat saat ada pesanan baru yang belum selesai dibayar, sebelum batas waktu Shopee habis.
-              </p>
-            </div>
-            <label className="relative inline-flex cursor-pointer items-center">
-              <input
-                type="checkbox"
-                checked={unpaidReminder}
-                onChange={(e) => setUnpaidReminder(e.target.checked)}
-                className="peer sr-only"
-              />
-              <div className="peer h-6 w-11 rounded-full bg-slate-200 after:absolute after:top-[2px] after:left-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-navy peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none"></div>
-            </label>
+        <Section n={1} title="Balasan otomatis kata kunci" desc="Kalau chat pembeli mengandung kata kunci (mis. &quot;resi&quot;), langsung dibalas dengan jawaban yang sudah diisi data pesanannya." on={cfg.keywords_enabled} setOn={(v) => set({ keywords_enabled: v })}>
+          <VarHint />
+          <div className="space-y-3">
+            {cfg.keywords.map((k, i) => (
+              <div key={i} className="space-y-2 rounded-xl border border-slate-200 p-3">
+                <div className="flex items-center gap-2">
+                  <input className="input h-9 flex-1 text-xs" placeholder="Kata kunci, pisahkan dengan koma: resi, no resi" maxLength={200} value={k.words} onChange={(e) => setKw(i, { words: e.target.value })} />
+                  <button onClick={() => set({ keywords: cfg.keywords.filter((_, j) => j !== i) })} className="grid h-9 w-9 place-items-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Hapus"><Trash2 size={15} /></button>
+                </div>
+                <textarea className="input min-h-16 py-2 text-xs" placeholder="Jawaban otomatis" maxLength={1000} value={k.text} onChange={(e) => setKw(i, { text: e.target.value })} />
+              </div>
+            ))}
+            {cfg.keywords.length < 20 && <button onClick={() => set({ keywords: [...cfg.keywords, { words: "", text: "" }] })} className="flex items-center gap-1.5 text-sm font-semibold text-brand-600"><Plus size={15} />Tambah kata kunci</button>}
           </div>
+        </Section>
 
-          <div>
-            <FieldLabel>Template pesan pengingat pembayaran</FieldLabel>
-            <p className="text-[11px] text-slate-400 mb-1.5">
-              Gunakan tag <b className="text-navy">{"{nama}"}</b> untuk nama pembeli dan <b className="text-navy">{"{order_sn}"}</b> untuk nomor pesanan.
-            </p>
-            <textarea
-              className="input min-h-24 py-2 text-xs"
-              value={unpaidText}
-              onChange={(e) => setUnpaidText(e.target.value)}
-              disabled={!unpaidReminder}
-            />
+        <Section n={2} title="Pesan di luar jam kerja" desc="Pembeli yang chat di luar jam kerja langsung mendapat balasan (sekali per pembeli per malam)." on={cfg.away.enabled} setOn={(v) => set({ away: { ...cfg.away, enabled: v } })}>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+            Di luar jam kerja dari
+            <Select className="input w-28" value={cfg.away.start} onChange={(e) => set({ away: { ...cfg.away, start: e.target.value } })}>{HOURS.map((h) => <option key={h}>{h}</option>)}</Select>
+            sampai
+            <Select className="input w-28" value={cfg.away.end} onChange={(e) => set({ away: { ...cfg.away, end: e.target.value } })}>{HOURS.map((h) => <option key={h}>{h}</option>)}</Select>
+            WIB
           </div>
-        </div>
-
-        {/* 2. Delivered / Completed Review */}
-        <div className="space-y-3 pt-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <b className="text-sm text-navy block">2. Permintaan Ulasan Bintang 5 & Ucapan Terima Kasih</b>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Kirim pesan otomatis saat paket terkirim atau pesanan selesai untuk mengingatkan konfirmasi terima dan meminta rating 5 bintang.
-              </p>
-            </div>
-            <label className="relative inline-flex cursor-pointer items-center">
-              <input
-                type="checkbox"
-                checked={deliveredReview}
-                onChange={(e) => setDeliveredReview(e.target.checked)}
-                className="peer sr-only"
-              />
-              <div className="peer h-6 w-11 rounded-full bg-slate-200 after:absolute after:top-[2px] after:left-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-navy peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none"></div>
-            </label>
-          </div>
-
-          <div>
-            <FieldLabel>Template pesan ulasan & terima kasih</FieldLabel>
-            <p className="text-[11px] text-slate-400 mb-1.5">
-              Gunakan tag <b className="text-navy">{"{nama}"}</b> untuk nama pembeli dan <b className="text-navy">{"{order_sn}"}</b> untuk nomor pesanan.
-            </p>
-            <textarea
-              className="input min-h-24 py-2 text-xs"
-              value={deliveredText}
-              onChange={(e) => setDeliveredText(e.target.value)}
-              disabled={!deliveredReview}
-            />
-          </div>
-        </div>
+          <div><VarHint /><textarea className="input min-h-20 py-2 text-xs" maxLength={1000} value={cfg.away.text} onChange={(e) => set({ away: { ...cfg.away, text: e.target.value } })} /></div>
+        </Section>
       </div>
 
-      <div className="flex justify-end pt-4 border-t border-slate-100">
-        <PrimaryBtn onClick={save} disabled={saving}>
-          {saving ? (
-            <>
-              <Loader2 size={15} className="animate-spin" />
-              Menyimpan…
-            </>
-          ) : (
-            "Simpan Pengaturan"
-          )}
-        </PrimaryBtn>
+      <div className="flex justify-end border-t border-slate-100 pt-4">
+        <PrimaryBtn onClick={save} disabled={saving}>{saving ? <><Loader2 size={15} className="animate-spin" />Menyimpan…</> : "Simpan Pengaturan"}</PrimaryBtn>
       </div>
     </Panel>
   );
