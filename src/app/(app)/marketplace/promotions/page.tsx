@@ -34,7 +34,7 @@ export default function Promotions() {
   const [form, setForm] = useState(false);
   const [busy, setBusy] = useState("");
   const [notice, setNotice] = useState("");
-  const [showExpired, setShowExpired] = useState(false);
+  const [showExpired, setShowExpired] = useState(true);
 
   useEffect(() => {
     api<{ shops: { id: number; shop_name: string; is_demo: boolean; status: string }[] }>("/marketplace/shops").then((r) => {
@@ -101,7 +101,7 @@ export default function Promotions() {
           </div>
           {err && <p className="mx-5 mb-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{err}</p>}
           {rows === null ? <p className="flex items-center gap-2 px-5 pb-6 text-sm text-slate-400"><Loader2 size={15} className="animate-spin" />Mengambil dari Shopee…</p>
-            : !visible.length ? <p className="px-5 pb-10 pt-4 text-center text-sm text-slate-400">Belum ada {t.label.toLowerCase()} yang berjalan atau akan datang.</p>
+            : !visible.length ? <p className="px-5 pb-10 pt-4 text-center text-sm text-slate-400">{showExpired ? `Belum ada ${t.label.toLowerCase()}.` : `Belum ada ${t.label.toLowerCase()} yang berjalan atau akan datang.`}</p>
             : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[760px] text-sm">
