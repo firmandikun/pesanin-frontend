@@ -2,6 +2,7 @@
 import { Check, Lightbulb, RotateCcw, Store, TrendingUp, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Panel } from "@/components/kit";
+import { Select } from "@/components/Select";
 import { rupiah } from "@/lib/api";
 
 export type CalcProduct = {
@@ -118,7 +119,7 @@ export function RoasCalculatorSection({ products, shopFeePct, suggests, onApplyR
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-sm">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-[#ee4d2d]">
             <TrendingUp size={18} />
           </span>
           <div>
@@ -131,15 +132,15 @@ export function RoasCalculatorSection({ products, shopFeePct, suggests, onApplyR
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {products.length > 1 && (
-            <select
+            <Select
               value={activeProduct?.item_id ?? ""}
               onChange={(e) => setActiveId(Number(e.target.value))}
-              className="input h-8 max-w-[220px] bg-white text-xs"
+              className="h-8 max-w-[220px] text-xs"
             >
               {products.map((p) => (
                 <option key={p.item_id} value={p.item_id}>{p.name}</option>
               ))}
-            </select>
+            </Select>
           )}
           <button
             type="button"
@@ -231,8 +232,8 @@ export function RoasCalculatorSection({ products, shopFeePct, suggests, onApplyR
         </div>
         <div className="mt-2 flex h-2.5 w-full overflow-hidden rounded-full bg-slate-200">
           <div style={{ width: `${calc.hppBar}%` }} className="bg-slate-500" />
-          <div style={{ width: `${calc.mktBar}%` }} className="bg-indigo-500" />
-          <div style={{ width: `${calc.opsBar}%` }} className="bg-violet-500" />
+          <div style={{ width: `${calc.mktBar}%` }} className="bg-[#ee4d2d]" />
+          <div style={{ width: `${calc.opsBar}%` }} className="bg-amber-400" />
           <div style={{ width: `${calc.profitBar}%` }} className="bg-emerald-500" />
         </div>
         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-600">
@@ -248,7 +249,7 @@ export function RoasCalculatorSection({ products, shopFeePct, suggests, onApplyR
         {/* Col 1: Modal & Penjualan */}
         <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/40 p-4">
           <h3 className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-            <Wallet size={14} className="text-indigo-500" /> Modal &amp; Penjualan
+            <Wallet size={14} className="text-[#ee4d2d]" /> Modal &amp; Penjualan
           </h3>
           <label className="block rounded-lg border border-slate-200 bg-white p-3">
             <span className="text-[11px] text-slate-500">Harga Jual</span>
@@ -268,9 +269,9 @@ export function RoasCalculatorSection({ products, shopFeePct, suggests, onApplyR
         <div className="space-y-2.5 rounded-xl border border-slate-200 bg-slate-50/40 p-4">
           <div className="flex items-center justify-between">
             <h3 className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-              <Store size={14} className="text-indigo-500" /> Potongan Marketplace
+              <Store size={14} className="text-[#ee4d2d]" /> Potongan Marketplace
             </h3>
-            {sg?.category_name && <span className="max-w-[140px] truncate rounded bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-700">{sg.category_name}</span>}
+            {sg?.category_name && <span className="max-w-[140px] truncate rounded bg-orange-50 px-2 py-0.5 text-[10px] font-medium text-[#ee4d2d]">{sg.category_name}</span>}
           </div>
 
           <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2">
@@ -286,12 +287,12 @@ export function RoasCalculatorSection({ products, shopFeePct, suggests, onApplyR
               <p className="text-[11px] text-slate-500">Gratis Ongkir Xtra ({ongkirPct}%)</p>
               <p className="text-sm font-bold text-slate-900">{rupiah(calc.ongkirFee)}</p>
             </div>
-            <select value={ongkirPct} onChange={(e) => setOngkirPct(Number(e.target.value))} className="input h-8 w-24 text-xs">
+            <Select value={ongkirPct} onChange={(e) => setOngkirPct(Number(e.target.value))} className="h-8 w-24 text-xs">
               <option value={0}>0%</option>
               <option value={4}>4%</option>
               <option value={5.5}>5.5%</option>
               <option value={6}>6%</option>
-            </select>
+            </Select>
           </div>
 
           <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2">
@@ -310,25 +311,25 @@ export function RoasCalculatorSection({ products, shopFeePct, suggests, onApplyR
             <button
               type="button"
               onClick={() => setTaxPct((v) => (v > 0 ? 0 : 0.5))}
-              className={`rounded-md px-2.5 py-1 text-[11px] font-semibold ${taxPct > 0 ? "bg-indigo-50 text-indigo-700" : "bg-slate-100 text-slate-500"}`}
+              className={`rounded-md px-2.5 py-1 text-[11px] font-semibold ${taxPct > 0 ? "bg-orange-50 text-[#ee4d2d]" : "bg-slate-100 text-slate-500"}`}
             >
               {taxPct > 0 ? "PPh 22" : "Nonaktif"}
             </button>
           </div>
 
-          <select
+          <Select
             value={storeIdx}
             onChange={(e) => {
               const i = Number(e.target.value);
               setStoreIdx(i);
               setAdminPct(STORE_TYPES[i].adminPct);
             }}
-            className="w-full rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white outline-none"
+            className="w-full text-xs font-semibold"
           >
             {STORE_TYPES.map((t, i) => (
               <option key={t.label} value={i}>{t.label}</option>
             ))}
-          </select>
+          </Select>
         </div>
 
         {/* Col 3: Rekomendasi Iklan & Margin */}
@@ -365,8 +366,8 @@ export function RoasCalculatorSection({ products, shopFeePct, suggests, onApplyR
               </button>
             ))}
           </div>
-          <div className="flex items-start gap-2 rounded-lg border border-indigo-100 bg-indigo-50/60 p-2.5 text-[11px] text-indigo-800">
-            <Lightbulb size={14} className="mt-0.5 shrink-0 text-indigo-500" />
+          <div className="flex items-start gap-2 rounded-lg border border-orange-100 bg-orange-50/70 p-2.5 text-[11px] text-orange-900">
+            <Lightbulb size={14} className="mt-0.5 shrink-0 text-[#ee4d2d]" />
             <span>Tips: Targetkan ROAS minimal <b>{calc.konsRoas > 0 ? `${calc.konsRoas}x` : "—"}</b> untuk profit konsisten.</span>
           </div>
         </div>

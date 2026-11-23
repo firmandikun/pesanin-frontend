@@ -205,7 +205,18 @@ function CreateShopeeAdPage() {
         </div>
       </Panel>
 
-      {/* Panel 2: Strategi Iklan */}
+      {/* Panel 2: Kalkulator ROAS & Simulasi Margin Cuan */}
+      <RoasCalculatorSection
+        products={selectedProducts}
+        shopFeePct={shopFeePct}
+        suggests={suggests}
+        onApplyRoas={(itemId, roas) => {
+          setBidding("roas");
+          setTargets((cur) => ({ ...cur, [itemId]: String(roas) }));
+        }}
+      />
+
+      {/* Panel 3: Strategi Iklan */}
       <Panel className="space-y-5 p-5 sm:p-6">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <h2 className="text-[15px] font-bold text-slate-800">Strategi Iklan</h2>
@@ -387,17 +398,6 @@ function CreateShopeeAdPage() {
           </div>
         </div>
       </Panel>
-
-      {/* Panel 4: Kalkulator ROAS & Simulasi Margin Cuan */}
-      <RoasCalculatorSection
-        products={selectedProducts}
-        shopFeePct={shopFeePct}
-        suggests={suggests}
-        onApplyRoas={(itemId, roas) => {
-          setBidding("roas");
-          setTargets((cur) => ({ ...cur, [itemId]: String(roas) }));
-        }}
-      />
 
       {/* Bottom Action Bar */}
       <div className="flex items-center justify-end gap-3 pt-1">
