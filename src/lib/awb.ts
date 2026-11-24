@@ -49,14 +49,36 @@ async function hideProductNames(bytes: Uint8Array, group: AwbOrder[] = [], print
   // Shopee doesn't always return pages in the order requested, so find each page's order by the number printed on it.
   const keyed = group.flatMap((o) => [o.external_order_sn, o.booking_sn, o.order_sn, o.tracking_number].filter((sn): sn is string => !!sn).map((sn) => [sn.toUpperCase(), o] as const));
 
+  const pagesData: { items: TextItem[]; minY: number; match?: AwbOrder }[] = [];
   for (let i = 0; i < doc.numPages; i++) {
     const items = (await (await doc.getPage(i + 1)).getTextContent()).items.filter((it): it is TextItem & typeof it => "str" in it) as unknown as TextItem[];
     const ys = items.filter((it) => it.str.trim()).map((it) => it.transform[5]);
     const minY = ys.length ? Math.min(...ys) : 0;
-    cropBottoms.push(Math.max(0, minY - 12));
     const text = items.map((it) => it.str).join("").replace(/\s+/g, "").toUpperCase();
     const match = keyed.find(([sn]) => text.includes(sn))?.[1] ?? (group.length === doc.numPages ? group[i] : undefined);
-    if (redrawItemTable(out.getPage(i), items, fonts, match ? skuRows(match) : undefined, printSettings)) continue;
+    pagesData.push({ items, minY, match });
+  }
+
+  const offsetByOrder = new Map<AwbOrder, number>();
+  let outIdx = 0;
+
+  for (let i = 0; i < pagesData.length; i++) {
+    const { items, minY, match } = pagesData[i];
+    cropBottoms.push(Math.max(0, minY - 12));
+    const startIndex = match ? (offsetByOrder.get(match) ?? 0) : 0;
+    const hasNextPage = !!match && pagesData.slice(i + 1).some((p) => p.match === match);
+    const res = redrawItemTable(out.getPage(outIdx), items, fonts, match ? skuRows(match) : undefined, printSettings, { startIndex, hasNextPage });
+    outIdx++;
+    if (res.ok) {
+      if (match) offsetByOrder.set(match, startIndex + res.renderedCount);
+      if (res.drawOverflow) {
+        const orderSn = match?.external_order_sn ?? match?.order_sn ?? match?.booking_sn ?? undefined;
+        const added = res.drawOverflow(out, outIdx, orderSn);
+        for (let k = 0; k < added; k++) cropBottoms.push(0);
+        outIdx += added;
+      }
+      continue;
+    }
     const header = items.find((it) => /^Nama\s*Produk/i.test(it.str.trim()) || /^Product\s*Name/i.test(it.str.trim()));
     if (!header) continue;
     if (printSettings?.product_text_mode === "name_only") continue; // Never cover names when name_only mode is chosen
@@ -65,7 +87,7 @@ async function hideProductNames(bytes: Uint8Array, group: AwbOrder[] = [], print
     if (!sku) continue; // Never erase product names when there is no SKU on the label
     const x0 = header.transform[4] - 1;
     const x1 = sku.transform[4] - 2;
-    const page = out.getPage(i);
+    const page = out.getPage(outIdx - 1);
     for (const it of items) {
       const [, , , d, x, y] = it.transform;
       if (!it.str.trim() || x < x0 || x >= x1 || y > hy + 1) continue;

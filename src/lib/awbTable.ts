@@ -1,5 +1,5 @@
-import { PDFFont, PDFPage, rgb } from "pdf-lib";
-import { type PrintSettings, DEFAULT_PRINT_SETTINGS } from "@/lib/printSettings";
+import { PDFDocument, PDFFont, PDFPage, rgb } from "pdf-lib";
+import { type PrintSettings } from "@/lib/printSettings";
 
 export type TextItem = { str: string; transform: number[]; width: number; height: number };
 type Fonts = { regular: PDFFont; bold: PDFFont };
@@ -14,15 +14,31 @@ const HEADER = /^(Nama\s*Produk|Product\s*Name)$/i;
 /** Per-row SKU data from Pesanin's order, used to print "SKU Induk" and "SKU Variasi" separately. */
 export type SkuRow = { parent: string; variant: string; /** Product and variation names, printed when the item has no SKU. */ name?: string; varName?: string; qty?: number | string };
 
-export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, rowData?: SkuRow[], settings?: Partial<PrintSettings>): boolean {
+export type RedrawOptions = {
+  /** Zero-based item offset for continuation pages of the same order. */
+  startIndex?: number;
+  /** True when the source PDF already has a subsequent page for this same order. */
+  hasNextPage?: boolean;
+};
+
+export type RedrawResult = {
+  ok: boolean;
+  renderedCount: number;
+  drawOverflow?: (doc: PDFDocument, insertAt: number, orderSn?: string) => number;
+};
+
+export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, rowData?: SkuRow[], settings?: Partial<PrintSettings>, opts?: RedrawOptions): RedrawResult {
+  const fail: RedrawResult = { ok: false, renderedCount: 0 };
   const name = items.find((i) => HEADER.test(i.str.trim()));
-  if (!name) return false;
+  if (!name) return fail;
   const hy = name.transform[5];
   const onHeader = (re: RegExp) => items.find((i) => re.test(i.str.trim()) && Math.abs(i.transform[5] - hy) < 12);
   const hash = onHeader(/^#$|^No\.?$/i), sku = onHeader(/^SKU$/i), variant = onHeader(/^(Variasi|Variation)$/i), qty = onHeader(/^(Qty|Jumlah|Total)$/i);
-  if (!qty) return false;
+  if (!qty) return fail;
 
-  const { width: pw } = page.getSize();
+  const { width: pw, height: ph } = page.getSize();
+  const startIndex = opts?.startIndex ?? 0;
+  const hasNextPage = opts?.hasNextPage ?? false;
 
   // Content frame borders (outer box of Shopee label: 5mm = 14.17pt margin)
   const detectedLeft = hash ? hash.transform[4] : name.transform[4] - 20;
@@ -47,8 +63,9 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
   );
   const body = below.filter((i) => !stop || i.transform[5] > stop.transform[5] + 1);
   const numericCandidates = body.filter((i) => i.transform[4] < x.name && /^\d+$/.test(i.str.trim()));
-  const numbers = rowData?.length ? numericCandidates.slice(0, rowData.length) : numericCandidates;
-  if (!numbers.length && (!rowData || !rowData.length)) return false;
+  const remainingCount = rowData ? Math.max(0, rowData.length - startIndex) : undefined;
+  const numbers = remainingCount !== undefined ? numericCandidates.slice(0, remainingCount) : numericCandidates;
+  if (!numbers.length && (!rowData || remainingCount === 0)) return fail;
 
   // Split each run into characters positioned with Helvetica metrics scaled to the run's real width.
   const cells = numbers.map((n) => ({ y: n.transform[5], no: n.str.trim(), name: [] as [number, string][], sku: [] as [number, string][], vname: [] as [number, string][], qty: [] as [number, string][] }));
@@ -87,13 +104,16 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
   };
   const rows: Row[] = cells.map((c) => ({ no: c.no, sku: join(c.sku) || "-", qty: join(c.qty) || "1", name: join(c.name), vname: join(c.vname) }));
 
-  // With Pesanin's own order items, show all items from the order.
+  // With Pesanin's own order items, show remaining items from the order (or only this page's count if Shopee already split into multiple pages).
   const own = !!rowData && rowData.length > 0;
   const has = (s?: string) => !!s && s.trim() !== "" && s.trim() !== "-";
   const textMode = settings?.product_text_mode || "sku_first";
+  const pageSlice = own
+    ? (hasNextPage && rows.length > 0 ? rowData!.slice(startIndex, startIndex + rows.length) : rowData!.slice(startIndex))
+    : [];
 
   const info = own
-    ? rowData!.map((d, i) => {
+    ? pageSlice.map((d, i) => {
         const skuVal = has(d.variant) ? d.variant : has(d.parent) ? d.parent : "";
         let primary = "";
         let variant = (d.varName || "").trim();
@@ -109,7 +129,7 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
         }
 
         return {
-          no: String(i + 1),
+          no: String(startIndex + i + 1),
           sku: textMode === "name_only" ? "" : skuVal,
           name: (d.name || "").trim(),
           variant,
@@ -281,11 +301,14 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
   }
 
   let y = headerBottomY;
+  let renderedCount = 0;
 
-  // Draw each row
-  rowsWithLines.forEach((r, i) => {
+  // Draw each row sequentially; stop before crossing minSafeY so overflowing rows can continue onto the next page.
+  for (let i = 0; i < rowsWithLines.length; i++) {
+    const r = rowsWithLines[i];
     const first = y - fitSize - padTop;
-    if (first - (r.n - 1) * lh < minSafeY) return;
+    if (first - (r.n - 1) * lh < minSafeY) break;
+    renderedCount++;
     page.drawText(r.no, { x: frameLeft + 3, y: first, size: Math.min(headerSize, fitSize), font: fonts.regular, color: ink });
     const qtyText = sanitize(fonts.regular, r.qty);
     page.drawText(qtyText, { x: qtyX, y: first, size: Math.max(fitSize, 6), font: fonts.bold, color: ink });
@@ -300,7 +323,7 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
     } else if (i < rowsWithLines.length - 1) {
       page.drawLine({ start: { x: frameLeft, y }, end: { x: frameRight, y }, thickness: 0.5, color: rule });
     }
-  });
+  }
 
   const bottomY = y;
 
@@ -328,7 +351,76 @@ export function redrawItemTable(page: PDFPage, items: TextItem[], fonts: Fonts, 
     });
   }
 
-  return true;
+  const leftover = !hasNextPage ? rowsWithLines.slice(renderedCount) : [];
+  const drawOverflow = leftover.length
+    ? (doc: PDFDocument, insertAt: number, orderSn?: string): number => {
+        let added = 0;
+        let idx = 0;
+        while (idx < leftover.length) {
+          const cont = doc.insertPage(insertAt + added, [pw, ph]);
+          added++;
+          const cLine = (yy: number) => cont.drawLine({ start: { x: frameLeft, y: yy }, end: { x: frameRight, y: yy }, thickness: stroke, color: rule });
+          const cVLine = (vx: number, y1: number, y2: number) => cont.drawLine({ start: { x: vx, y: y1 }, end: { x: vx, y: y2 }, thickness: stroke, color: rule });
+
+          let cyTop = ph - 18;
+          if (orderSn) {
+            cont.drawText(sanitize(fonts.bold, `Lanjutan Pesanan: ${orderSn}`), {
+              x: frameLeft,
+              y: cyTop,
+              size: Math.min(headerSize + 1, 9),
+              font: fonts.bold,
+              color: ink,
+            });
+            cyTop -= 14;
+          }
+          const cTopY = cyTop + 6;
+          const cHeaderY = cyTop - 3;
+          const cHeaderBottomY = cHeaderY - 3.5;
+
+          cont.drawText("#", { x: frameLeft + 3, y: cHeaderY, size: headerSize, font: fonts.bold, color: ink });
+          heads.forEach((t, k) => cont.drawText(t, { x: headX[k], y: cHeaderY, size: headerSize, font: fonts.bold, color: ink }));
+          if (showBorders) {
+            cLine(cTopY);
+            cLine(cHeaderBottomY);
+          } else {
+            cont.drawLine({ start: { x: frameLeft, y: cHeaderBottomY }, end: { x: frameRight, y: cHeaderBottomY }, thickness: 0.5, color: rule });
+          }
+
+          let cy = cHeaderBottomY;
+          const pageStartIdx = idx;
+          while (idx < leftover.length) {
+            const r = leftover[idx];
+            const first = cy - fitSize - padTop;
+            if (first - (r.n - 1) * lh < minSafeY && idx > pageStartIdx) break;
+            cont.drawText(r.no, { x: frameLeft + 3, y: first, size: Math.min(headerSize, fitSize), font: fonts.regular, color: ink });
+            const qtyText = sanitize(fonts.regular, r.qty);
+            cont.drawText(qtyText, { x: qtyX, y: first, size: Math.max(fitSize, 6), font: fonts.bold, color: ink });
+            if ((parseInt(r.qty, 10) || 1) > 1) {
+              const tw = safeWidth(fonts.bold, qtyText, fitSize);
+              cont.drawEllipse({ x: qtyX + tw / 2, y: first + fitSize * 0.33, xScale: tw / 2 + 4, yScale: fitSize * 0.72, borderColor: ink, borderWidth: 1.1 });
+            }
+            r.lines.forEach((col, k) => col.forEach((ln, j) => cont.drawText(ln, { x: colX[k], y: first - j * lh, size: fitSize, font: fonts.bold, color: ink })));
+            cy = first - (r.n - 1) * lh - padBot;
+            idx++;
+            if (showBorders) {
+              cLine(cy);
+            } else if (idx < leftover.length) {
+              cont.drawLine({ start: { x: frameLeft, y: cy }, end: { x: frameRight, y: cy }, thickness: 0.5, color: rule });
+            }
+          }
+          if (showBorders) {
+            cVLine(frameLeft, cTopY, cy);
+            cVLine(frameRight, cTopY, cy);
+            cVLine(divHash, cTopY, cy);
+            if (divVar !== null) cVLine(divVar, cTopY, cy);
+            cVLine(divQty, cTopY, cy);
+          }
+        }
+        return added;
+      }
+    : undefined;
+
+  return { ok: true, renderedCount, drawOverflow };
 }
 
 /** Standard PDF fonts only encode WinAnsi; anything else becomes "?". */
