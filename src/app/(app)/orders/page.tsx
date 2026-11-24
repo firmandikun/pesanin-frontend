@@ -426,6 +426,22 @@ function OrderDetail({ order, onClose, onSaved }: { order: Order; onClose: () =>
                   </Select>
                 </Field>
               </div>
+              {o.product?.type !== "digital" && (
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Status Pengiriman">
+                    <Select className="input" value={o.shipping_status} onChange={(e) => set("shipping_status", e.target.value)}>
+                      <option value="not_shipped">Belum Dikirim</option>
+                      <option value="picked_up">Sudah Dijemput</option>
+                      <option value="in_transit">Dalam Pengiriman</option>
+                      <option value="delivered">Diterima</option>
+                      <option value="returned">Dikembalikan</option>
+                    </Select>
+                  </Field>
+                  <Field label="Nomor Resi">
+                    <input className="input font-mono text-xs" placeholder="Masukkan no. resi" value={o.tracking_number ?? ""} onChange={(e) => set("tracking_number", e.target.value)} />
+                  </Field>
+                </div>
+              )}
               <p className="text-xs text-slate-500">Menandai <b>Paid</b> pada pesanan Pending otomatis memindahkannya ke <b>Processing</b>. Cancelled/Refunded mengembalikan stok.</p>
               <Field label="Catatan Internal"><textarea className="textarea" rows={2} value={o.notes ?? ""} onChange={(e) => set("notes", e.target.value)} /></Field>
             </>
