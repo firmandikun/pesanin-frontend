@@ -621,7 +621,7 @@ export default function AdminDropshipEditor({ params }: { params: Promise<{ id: 
                         placeholder="Cari kecamatan / kota gudang"
                         onChange={(r) => setForm({ ...form, warehouse_region_id: r.id, warehouse_region: r.label, warehouse_city: `${r.district}, ${r.city}` })}
                       />
-                      <p className="mt-1 text-[11px] text-slate-500">Ongkir di checkout dihitung asli dari wilayah ini lewat RajaOngkir.</p>
+                      <p className="mt-1 text-[11px] text-slate-500">Ongkir di checkout dihitung asli dari wilayah ini lewat KiriminAja.</p>
                     </Field>
                     <div className="grid grid-cols-2 gap-3">
                       <Field label="Berat (gram)">

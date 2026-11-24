@@ -14,7 +14,7 @@ import { WaLink } from "@/components/marketing/Contact";
 
 const FAQ: [string, string][] = [
   ["Apa itu Pesanin dan cara kerjanya?", "Pesanin adalah dashboard untuk seller online: pesanan dari Shopee, checkout web, dan input manual masuk ke satu tempat. Pesanin membaca penghasilan Shopee per pesanan, menghitung HPP, biaya iklan, dan pengeluaran, lalu menampilkan laba bersih yang sebenarnya. Untuk jualan di media sosial, Pesanin juga menyediakan link checkout dan landing page dengan ongkir otomatis dan COD."],
-  ["Platform apa saja yang didukung?", "Shopee terhubung resmi lewat Shopee Open Platform (pesanan, produk, stok, chat, dan Shopee Ads). Untuk penjualan di Instagram, TikTok, Facebook, dan WhatsApp, kamu memakai link checkout/landing page Pesanin. WhatsApp Business (Cloud API) terhubung untuk inbox dan broadcast, Meta Ads untuk laporan iklan, dan RajaOngkir untuk ongkir & lacak resi. TikTok Shop dan Lazada sedang kami siapkan."],
+  ["Platform apa saja yang didukung?", "Shopee terhubung resmi lewat Shopee Open Platform (pesanan, produk, stok, chat, dan Shopee Ads). Untuk penjualan di Instagram, TikTok, Facebook, dan WhatsApp, kamu memakai link checkout/landing page Pesanin. WhatsApp Business (Cloud API) terhubung untuk inbox dan broadcast, Meta Ads untuk laporan iklan, dan KiriminAja untuk ongkir & lacak resi. TikTok Shop dan Lazada sedang kami siapkan."],
   ["Apakah potongan Shopee terbaca otomatis?", "Ya. Pesanin mengambil rincian penghasilan tiap pesanan langsung dari API Shopee: biaya admin, biaya layanan, biaya pemrosesan pesanan Rp1.250, ongkir aktual dan subsidinya, komisi AMS, pajak, sampai ongkir retur. Sebelum dana cair angkanya ditandai \"Estimasi\", dan otomatis diperbarui menjadi final begitu Shopee melepas dana."],
   ["Bagaimana cara menghitung HPP dan laba bersih?", "Isi HPP (modal) per produk atau per SKU sekali saja, termasuk massal. Laba bersih = omzet − potongan marketplace − HPP − biaya iklan (Shopee Ads sudah termasuk PPN 11%) − biaya operasional. Pesanan batal tidak dihitung, retur dicatat sebagai kerugian."],
   ["Bisakah input pengeluaran manual atau transaksi di luar marketplace?", "Bisa. Menu Pengeluaran untuk gaji, sewa, packing, pembelian stok, dan aset. Pesanan dari luar marketplace bisa masuk lewat checkout web atau dicatat manual, lalu ikut terhitung di laporan."],
@@ -57,7 +57,7 @@ const ALL_FEATURES: [React.ElementType, string, string][] = [
   [FileSpreadsheet, "Laba rugi & arus kas", "Ekspor Excel & PDF, siap untuk pembukuan"],
   [Link2, "Link checkout", "Ongkir otomatis 7+ kurir, COD, transfer & e-payment"],
   [Globe, "Landing page builder", "Block editor, domain sendiri, pixel Meta/TikTok/Google"],
-  [Truck, "Ongkir & lacak resi", "Ongkir asli RajaOngkir, resi dilacak otomatis"],
+  [Truck, "Ongkir & lacak resi", "Ongkir asli KiriminAja, resi dilacak otomatis"],
   [FileDown, "Produk digital otomatis", "Link akses terkirim via WhatsApp & email setelah bayar"],
   [Inbox, "Inbox + CRM", "Chat WhatsApp & Shopee, label, catatan, riwayat pelanggan"],
   [Send, "Broadcast WhatsApp", "Kirim template resmi Meta ke ribuan kontak"],
@@ -149,7 +149,7 @@ export default function Home() {
           </div>
           <Feature tag="Checkout & Landing Page" icon={Link2} title="Jualan di media sosial dengan checkout yang rapi"
             desc="Bagikan link checkout atau landing page ke Instagram, TikTok, WhatsApp, dan iklan. Ongkir muncul otomatis, pembeli bisa COD, dan resi terbit sendiri setelah lunas."
-            bullets={["Tarif real-time JNE, J&T, SiCepat, SPX, AnterAja, POS, SAP", "COD, transfer bank, dan e-payment (QRIS, VA, e-wallet)", "Ongkir asli RajaOngkir & resi dilacak otomatis; produk digital terkirim otomatis", "Landing page builder dengan domain sendiri & pixel iklan"]}
+            bullets={["Tarif real-time JNE, J&T, SiCepat, SPX, AnterAja, POS, SAP", "COD, transfer bank, dan e-payment (QRIS, VA, e-wallet)", "Ongkir asli KiriminAja & resi dilacak otomatis; produk digital terkirim otomatis", "Landing page builder dengan domain sendiri & pixel iklan"]}
             mockup={<CheckoutMockup />} />
           <div className="bg-[#fbfaf8]">
             <Feature tag="Inbox, CRM & Broadcast" icon={MessageCircle} flip title="Semua chat pelanggan di satu inbox"

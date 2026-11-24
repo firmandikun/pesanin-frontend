@@ -64,8 +64,8 @@ function Orders() {
   const load = useCallback(() => { api(`/orders?${query()}`).then(setData); setSelected([]); }, [query]);
   useEffect(() => { window.addEventListener(ORDERS_EVENT, load); return () => window.removeEventListener(ORDERS_EVENT, load); }, [load]);
   const [booking, setBooking] = useState(false);
-  useEffect(() => { api("/integrations").then((d) => setBooking(!!d.rajaongkir?.settings?.delivery?.enabled)).catch(() => {}); }, []);
-  /** "Pesan kurir": Komerce Delivery books the courier pickup and returns the real waybill. */
+  useEffect(() => { api("/integrations").then((d) => setBooking(!!(d.kiriminaja ?? d.rajaongkir)?.settings?.delivery?.enabled)).catch(() => {}); }, []);
+  /** "Pesan kurir": KiriminAja books the courier pickup and returns the real waybill. */
   async function bookCourier(ids: number[]) {
     setShipping(ids); setNotice("");
     try {

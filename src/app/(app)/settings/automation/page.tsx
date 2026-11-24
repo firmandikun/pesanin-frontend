@@ -114,7 +114,7 @@ export default function AutomationSettings() {
     Promise.all([api<any>("/integrations"), api<any>("/addresses").catch(() => []), api<any>("/marketplace/shops").catch(() => ({ shops: [] }))]).then(([i, addr, m]) => {
       const list: unknown[] = Array.isArray(addr) ? addr : addr?.data ?? [];
       const shops: any[] = m?.shops ?? [];
-      setReady({ delivery: !!i.rajaongkir?.settings?.delivery?.enabled, whatsapp: !!i.whatsapp_cloud?.connected, pickup: list.length > 0, shopee: shops.some((s) => s.status !== "disconnected" && !s.is_demo) });
+      setReady({ delivery: !!(i.kiriminaja ?? i.rajaongkir)?.settings?.delivery?.enabled, whatsapp: !!i.whatsapp_cloud?.connected, pickup: list.length > 0, shopee: shops.some((s) => s.status !== "disconnected" && !s.is_demo) });
       if (i.whatsapp_cloud?.connected) api<{ data: WaTemplate[] }>("/whatsapp/templates").then((r) => setTemplates(r.data)).catch(() => setTemplates([]));
       else setTemplates([]);
     });
@@ -135,7 +135,7 @@ export default function AutomationSettings() {
   return (
     <div className="max-w-3xl space-y-5">
       <PageHead title="Otomatisasi Pesanan" tutorial={false} crumbs={[["Pengaturan"], ["Otomatisasi Pesanan"]]} />
-      <p className="-mt-2 text-sm text-slate-500">{showSocial && showMp ? "Pesanan web dan manual diproses sendiri setelah lunas (resi otomatis & produk digital), dan pesanan Shopee bisa diatur pengirimannya otomatis." : showMp ? "Pesanan Shopee diatur pengirimannya otomatis dan resinya bisa dikirim ke Telegram sesuai jadwal." : "Pesanan web dan manual diproses sendiri setelah lunas: kurir dipesan lewat Komerce dan resi asli terbit untuk produk fisik, produk digital langsung dikirim ke pembeli."}</p>
+      <p className="-mt-2 text-sm text-slate-500">{showSocial && showMp ? "Pesanan web dan manual diproses sendiri setelah lunas (resi otomatis & produk digital), dan pesanan Shopee bisa diatur pengirimannya otomatis." : showMp ? "Pesanan Shopee diatur pengirimannya otomatis dan resinya bisa dikirim ke Telegram sesuai jadwal." : "Pesanan web dan manual diproses sendiri setelah lunas: kurir dipesan lewat KiriminAja dan resi asli terbit untuk produk fisik, produk digital langsung dikirim ke pembeli."}</p>
       {msg && <p className={`rounded-lg p-2.5 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>{msg.text}</p>}
       {!a || !ready ? <p className="flex items-center gap-2 text-sm text-slate-500"><Loader2 size={16} className="animate-spin" />Memuat…</p> : (
         <>
@@ -144,7 +144,7 @@ export default function AutomationSettings() {
             <div className="flex items-start gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600"><Truck size={20} /></span>
               <div className="flex-1"><b className="text-slate-800">Resi otomatis (produk fisik)</b>
-                <p className="text-sm text-slate-500">Begitu pesanan lunas, Pesanin memesan kurir lewat Komerce Delivery (RajaOngkir) dan resi asli langsung terbit. Kurir menjemput di alamat pickup-mu. Pesanan dropship dilewati karena dikirim gudang Pesanin.</p></div>
+                <p className="text-sm text-slate-500">Begitu pesanan lunas, Pesanin memesan kurir lewat KiriminAja dan resi asli langsung terbit. Kurir menjemput di alamat pickup-mu. Pesanan dropship dilewati karena dikirim gudang Pesanin.</p></div>
               <Toggle checked={a.auto_ship} onChange={(v) => save({ ...a, auto_ship: v })} />
             </div>
             {a.auto_ship && (

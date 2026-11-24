@@ -133,7 +133,7 @@ export function CheckoutMockup() {
       </div>
       <div className="mt-3 flex items-center justify-between border-t border-dashed border-slate-200 pt-3"><span className="text-sm text-slate-500">Total</span><span className="text-xl font-extrabold text-navy">Rp161.000</span></div>
       <div className="mt-3 flex h-11 items-center justify-center rounded-xl bg-brand-500 text-sm font-bold text-white">Pesan Sekarang</div>
-      <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-slate-500"><Truck size={13} />Resi dilacak otomatis lewat RajaOngkir</p>
+      <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-slate-500"><Truck size={13} />Resi dilacak otomatis lewat KiriminAja</p>
     </Frame>
   );
 }

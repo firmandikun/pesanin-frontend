@@ -42,7 +42,7 @@ export const CATALOG: Record<Track, Plan[]> = {
   ],
   social: [
     { id: "gratis", name: "Gratis", tagline: "Pemula jualan WA / IG", monthly: 0, orders: 50, features: ["1 link checkout & 1 landing page", "Cek ongkir otomatis & COD", "Watermark Pesanin"] },
-    { id: "starter", name: "Starter", tagline: "Pengiklan pemula & dropshipper", monthly: 99000, orders: 1000, features: ["5 landing page · 1 custom domain", "QRIS / VA & COD RajaOngkir", "Pixel Meta, TikTok & Google", "WhatsApp Rotator", "2 anggota tim"] },
+    { id: "starter", name: "Starter", tagline: "Pengiklan pemula & dropshipper", monthly: 99000, orders: 1000, features: ["5 landing page · 1 custom domain", "QRIS / VA & COD KiriminAja", "Pixel Meta, TikTok & Google", "WhatsApp Rotator", "2 anggota tim"] },
     { id: "bisnis", name: "Bisnis", tagline: "Pemain Meta Ads aktif & tim CS", monthly: 199000, orders: 10000, highlight: true, features: ["Landing page tanpa batas · 3 domain", "Kupon, order bump & afiliasi", "Laporan Meta Ads & laba", "5 anggota tim", "Tanpa watermark"] },
     { id: "pro", name: "Pro", tagline: "Brand DTC & tim scale ads", monthly: 399000, orders: 30000, features: ["10 custom domain", "20 anggota tim", "Broadcast WhatsApp resmi Meta", "Multi-gudang", "Semua fitur Bisnis"] },
   ],

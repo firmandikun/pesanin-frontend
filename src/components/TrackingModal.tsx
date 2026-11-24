@@ -6,11 +6,11 @@ import { cleanCourier } from "@/lib/courier";
 import { api, ApiError } from "@/lib/api";
 
 type Tracking = {
-  tracking_number: string | null; courier: string | null; status: string | null; source: "shopee" | "binderbyte" | "biteship" | "rajaongkir" | "pesanin";
+  tracking_number: string | null; courier: string | null; status: string | null; source: "shopee" | "binderbyte" | "biteship" | "kiriminaja" | "rajaongkir" | "pesanin";
   track_url: string | null; note: string | null; events: { time: string | null; text: string; location: string | null }[];
 };
 
-const SOURCE = { shopee: "Data dari Shopee", binderbyte: "Data langsung dari ekspedisi", biteship: "Data dari Biteship", rajaongkir: "Data dari RajaOngkir", pesanin: "Riwayat status di Pesanin" };
+const SOURCE = { shopee: "Data dari Shopee", binderbyte: "Data langsung dari ekspedisi", biteship: "Data dari Biteship", kiriminaja: "Data dari KiriminAja", rajaongkir: "Data dari RajaOngkir", pesanin: "Riwayat status di Pesanin" };
 const when = (t: string | null) => t ? new Date(t).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
 
 /** "Cek resi" for any order: courier checkpoints, copyable AWB and the courier's own tracking page. */

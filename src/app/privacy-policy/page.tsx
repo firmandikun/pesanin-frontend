@@ -44,7 +44,7 @@ export default function PrivacyPolicyPage() {
             <b>Data Otorisasi Toko Marketplace:</b> Token otorisasi API resmi saat Anda menghubungkan toko Shopee atau TikTok Shop. Kami tidak pernah meminta atau menyimpan username dan kata sandi akun marketplace Anda.
           </li>
           <li>
-            <b>Data Integrasi Pihak Ketiga:</b> Kunci API Midtrans atau RajaOngkir yang Anda konfigurasi di dashboard untuk memproses pembayaran dan ongkir otomatis.
+            <b>Data Integrasi Pihak Ketiga:</b> Kunci API Midtrans atau KiriminAja yang Anda konfigurasi di dashboard untuk memproses pembayaran dan ongkir otomatis.
           </li>
           <li>
             <b>Data Perangkat & Penggunaan:</b> Alamat IP, jenis peramban, log akses, dan data performa teknis untuk menjaga keamanan sistem dari aktivitas mencurigakan.

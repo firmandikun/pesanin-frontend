@@ -9,9 +9,9 @@ import Link from "next/link";
 import { ShopeeMark } from "@/components/ChannelBadge";
 
 type State = { connected: boolean; is_production?: boolean; verified_at?: string; last_error?: string | null; settings?: { cod_type?: string; delivery?: { enabled?: boolean; sandbox?: boolean; vehicle?: string } } | null; keys?: Record<string, string | null>; webhook_url?: string | null; verify_token?: string | null; details?: { display_phone?: string; verified_name?: string; quality?: string } | null; from_env?: boolean };
-type All = { rajaongkir: State; midtrans: State; shopee_affiliate: State; serpapi: State; whatsapp_cloud: State; gemini?: State };
+type All = { kiriminaja?: State; rajaongkir?: State; midtrans: State; shopee_affiliate: State; serpapi: State; whatsapp_cloud: State; gemini?: State };
 
-/** Pengaturan → Integrasi: the seller connects their own RajaOngkir (ongkir, regions, tracking) and Midtrans (online payment) accounts. */
+/** Pengaturan → Integrasi: status KiriminAja (ongkir, wilayah, lacak resi) dan integrasi seller. */
 export default function Integrations() {
   // Only the integrations of the store's track (both with the add-on).
   const { user } = useAuth();
@@ -42,9 +42,16 @@ export default function Integrations() {
           {showSocial && <>
           <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">Pengiriman & pembayaran</h2>
           <Panel className="space-y-2 p-5 text-sm">
-            <p className="flex items-center gap-2"><MapPinned size={16} className="text-slate-500" /><b className="text-slate-800">Ongkir &amp; kurir (RajaOngkir / Komerce)</b>
-              <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${data.rajaongkir.connected ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{data.rajaongkir.connected ? "Aktif" : "Belum aktif"}</span></p>
-            <p className="text-slate-500">Ongkir asli di checkout, pencarian alamat sampai kelurahan, lacak resi{data.rajaongkir.settings?.delivery?.enabled ? ", dan pesan kurir + resi otomatis" : ""}. Disediakan Pesanin.</p>
+            {(() => {
+              const ship = data.kiriminaja ?? data.rajaongkir;
+              return (
+                <>
+                  <p className="flex items-center gap-2"><MapPinned size={16} className="text-slate-500" /><b className="text-slate-800">Ongkir &amp; kurir (KiriminAja)</b>
+                    <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${ship?.connected ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{ship?.connected ? "Aktif" : "Belum aktif"}</span></p>
+                  <p className="text-slate-500">Ongkir asli di checkout, pencarian alamat sampai kelurahan, lacak resi{ship?.settings?.delivery?.enabled ? ", dan pesan kurir + resi otomatis" : ""}. Disediakan Pesanin.</p>
+                </>
+              );
+            })()}
             <p className="flex items-center gap-2 pt-2"><CreditCard size={16} className="text-slate-500" /><b className="text-slate-800">Pembayaran online (Midtrans)</b>
               <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${data.midtrans.connected ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{data.midtrans.connected ? "Aktif" : "Belum aktif"}</span></p>
             <p className="text-slate-500">QRIS, Virtual Account, dan e-wallet lewat akun Midtrans Pesanin. Dana pembeli tercatat di <a href="/settings/balance" className="font-semibold text-brand-700">Saldo</a>.</p>
