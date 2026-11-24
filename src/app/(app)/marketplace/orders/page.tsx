@@ -35,7 +35,7 @@ const TABS: { key: string; label: string; count: boolean }[] = [
 ];
 // Sub-status inside "Perlu Dikirim", as in Seller Centre.
 // "Tertunda": paid orders Shopee is still reviewing (PENDING); shown only while there are any, like Seller Centre.
-const SUB: [string, string][] = [["perlu_kirim", "Semua"], ["to_ship", "Perlu diproses"], ["processed", "Telah diproses"], ["pending", "Tertunda"]];
+const SUB: [string, string][] = [["perlu_kirim", "Semua"], ["to_ship", "Perlu diproses"], ["processed", "Telah diproses"], ["in_cancel", "Pembatalan Diajukan"], ["pending", "Tertunda"]];
 const WITH_KILAT = ["", "perlu_kirim", "to_ship", "processed", "shipping"];
 const SEARCH_BY: [string, string][] = [["sn", "No. Pesanan"], ["buyer", "Nama/username pembeli"], ["product", "Produk / SKU"], ["resi", "No. Resi"]];
 
@@ -154,6 +154,7 @@ export default function ShopeeOrders() {
   const [subCounts, setSubCounts] = useState<Record<string, number>>({});
   // Pengembalian/Pembatalan sub-tab.
   const [retTab, setRetTab] = useState<"returns" | "pembatalan">("returns");
+  const [cancelSub, setCancelSub] = useState<"" | "in_cancel" | "cancelled">("");
   const [returns, setReturns] = useState<Paginated<ReturnReq> | null>(null);
   const [attention, setAttention] = useState({ returns: 0, cancel_requests: 0 });
   const [couriers, setCouriers] = useState<string[]>([]);
@@ -176,6 +177,11 @@ export default function ShopeeOrders() {
     // ?search=<no. pesanan> (e.g. from Kesehatan Akun → pesanan terlambat): find it in every tab.
     const search = q.get("search");
     if (search) { setDraft({ search, courier: "", printed: "" }); setFilters({ search, courier: "", printed: "" }); setTab(""); }
+    const statusParam = q.get("status") || q.get("state") || q.get("shopee_state");
+    if (statusParam === "in_cancel" || statusParam === "IN_CANCEL") {
+      setTab("perlu_kirim");
+      setSub("in_cancel");
+    }
   }, []);
 
   // Keep the chosen shop in the URL so a reload/remount restores it instead of snapping back to "Semua toko".
@@ -185,7 +191,7 @@ export default function ShopeeOrders() {
     window.history.replaceState(null, "", u.toString());
   }, [shopId]);
 
-  const state = tab === "perlu_kirim" ? sub : tab === "cancelled" ? "pembatalan" : tab;
+  const state = tab === "perlu_kirim" ? sub : tab === "cancelled" ? (retTab === "returns" ? "" : (cancelSub || "pembatalan")) : tab;
   const showingReturns = tab === "cancelled" && retTab === "returns";
   const base = useCallback((extra: Record<string, string>) => new URLSearchParams({
     channel: "shopee", ...(shopId ? { marketplace_shop_id: shopId } : {}),
@@ -342,9 +348,9 @@ export default function ShopeeOrders() {
     } catch (e) { setNotice(e instanceof ApiError ? e.message : "Sinkron gagal"); } finally { setBusy(""); }
   }
   // Seller Centre's Dikirim tab has no "Semua" type: it opens on Pesanan.
-  const pickTab = (k: string) => { setTab(k); setSub("perlu_kirim"); setKind(k === "shipping" ? "order" : ""); setStock(""); setDoneScope("today"); setRetTab("returns"); setPage(1); };
+  const pickTab = (k: string) => { setTab(k); setSub("perlu_kirim"); setKind(k === "shipping" ? "order" : ""); setStock(""); setDoneScope("today"); setRetTab("returns"); setCancelSub(""); setPage(1); };
   const apply = () => { setFilters(draft); setPage(1); };
-  const reset = () => { const empty = { search: "", courier: "", printed: "" }; setDraft(empty); setFilters(empty); setKind(tab === "shipping" ? "order" : ""); setStock(""); setPage(1); };
+  const reset = () => { const empty = { search: "", courier: "", printed: "" }; setDraft(empty); setFilters(empty); setKind(tab === "shipping" ? "order" : ""); setStock(""); setCancelSub(""); setPage(1); };
   const toggle = (id: number, on: boolean) => setSelected(on ? [...selected, id] : selected.filter((x) => x !== id));
   const pill = (on: boolean) => `h-8 rounded-full border px-4 text-[13px] transition ${on ? "border-brand-500 bg-white font-semibold text-brand-600" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"}`;
 
@@ -403,16 +409,52 @@ export default function ShopeeOrders() {
             </div>
           )}
           {tab === "cancelled" && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="w-28 text-slate-500">Jenis</span>
-              <button onClick={() => { setRetTab("returns"); setPage(1); }} className={pill(retTab === "returns")}>Pengembalian Barang/Dana{attention.returns ? ` (${attention.returns})` : ""}</button>
-              <button onClick={() => { setRetTab("pembatalan"); setPage(1); }} className={pill(retTab === "pembatalan")}>Pembatalan{attention.cancel_requests ? ` (${attention.cancel_requests})` : ""}</button>
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="w-28 text-slate-500">Jenis</span>
+                <button onClick={() => { setRetTab("returns"); setPage(1); }} className={pill(retTab === "returns")}>Pengembalian Barang/Dana{attention.returns ? ` (${attention.returns})` : ""}</button>
+                <button onClick={() => { setRetTab("pembatalan"); setCancelSub(""); setPage(1); }} className={pill(retTab === "pembatalan")}>Pembatalan{attention.cancel_requests ? ` (${attention.cancel_requests})` : ""}</button>
+              </div>
+              {retTab === "pembatalan" && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="w-28 text-slate-500">Status</span>
+                  <button onClick={() => { setCancelSub(""); setPage(1); }} className={pill(cancelSub === "")}>Semua</button>
+                  <button onClick={() => { setCancelSub("in_cancel"); setPage(1); }} className={`flex h-8 items-center gap-1.5 rounded-full border px-4 text-[13px] transition ${cancelSub === "in_cancel" ? "border-rose-500 bg-white font-semibold text-rose-600 ring-1 ring-rose-200" : (attention.cancel_requests ? "border-rose-300 bg-rose-50 font-medium text-rose-700 hover:border-rose-400" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300")}`}><XCircle size={13} className="text-rose-500" />Pembatalan Diajukan{attention.cancel_requests ? ` (${attention.cancel_requests})` : ""}</button>
+                  <button onClick={() => { setCancelSub("cancelled"); setPage(1); }} className={pill(cancelSub === "cancelled")}>Telah Dibatalkan</button>
+                </div>
+              )}
             </div>
           )}
           {tab === "perlu_kirim" && (
             <div className="flex flex-wrap items-center gap-2">
               <span className="w-28 text-slate-500">Status Pesanan</span>
-              {SUB.filter(([k]) => k !== "pending" || sub === "pending" || (subCounts.pending ?? 0) > 0).map(([k, l]) => <button key={k} onClick={() => { setSub(k); setPage(1); }} className={pill(sub === k)}>{l}{subCounts[k] !== undefined ? ` (${subCounts[k]})` : ""}</button>)}
+              {SUB.filter(([k]) => k !== "pending" || sub === "pending" || (subCounts.pending ?? 0) > 0).map(([k, l]) => {
+                const count = subCounts[k];
+                const isCancel = k === "in_cancel";
+                const hasCancel = isCancel && (count ?? 0) > 0;
+                return (
+                  <button
+                    key={k}
+                    onClick={() => {
+                      setSub(k);
+                      if (isCancel && kind === "kilat") setKind("order");
+                      setPage(1);
+                    }}
+                    className={`flex h-8 items-center gap-1.5 rounded-full border px-4 text-[13px] transition ${
+                      sub === k
+                        ? isCancel
+                          ? "border-rose-500 bg-white font-semibold text-rose-600 ring-1 ring-rose-200"
+                          : "border-brand-500 bg-white font-semibold text-brand-600"
+                        : hasCancel
+                          ? "border-rose-300 bg-rose-50 font-medium text-rose-700 hover:border-rose-400"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                    }`}
+                  >
+                    {isCancel && <XCircle size={13} className={sub === k ? "text-rose-600" : "text-rose-500"} />}
+                    {l}{count !== undefined ? ` (${count})` : ""}
+                  </button>
+                );
+              })}
             </div>
           )}
 
@@ -536,7 +578,16 @@ export default function ShopeeOrders() {
                       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-[11px] font-bold uppercase text-slate-600">{(buyer || "?").slice(0, 1)}</span>
                       <span className="font-medium text-slate-700">{buyer}</span>
                       {!shopId && <span className="flex items-center gap-1 text-xs text-slate-400"><ShopeeMark size={12} />{o.marketplace_shop?.shop_name}</span>}
-                      {o.external_status === "IN_CANCEL" && <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-600 ring-1 ring-rose-200" title="Buka rincian pesanan untuk Setuju / Tolak"><XCircle size={11} />Pembatalan Diajukan</span>}
+                      {o.external_status === "IN_CANCEL" && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setTab("perlu_kirim"); setSub("in_cancel"); setPage(1); }}
+                          className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-600 ring-1 ring-rose-200 transition hover:bg-rose-100"
+                          title="Klik untuk memfilter pesanan Pembatalan Diajukan"
+                        >
+                          <XCircle size={11} />Pembatalan Diajukan
+                        </button>
+                      )}
                       <span className="ml-auto text-slate-500">No. Pesanan <b className="font-medium text-slate-700">{o.external_order_sn}</b></span>
                     </div>
                     <div className={`${COLS} px-4 py-4 text-[13px]`}>
