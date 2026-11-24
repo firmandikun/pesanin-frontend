@@ -56,6 +56,7 @@ function Orders() {
   const [selected, setSelected] = useState<number[]>([]);
   const [detail, setDetail] = useState<Order | null>(null);
   const [track, setTrack] = useState<Order | null>(null);
+  const [bookTarget, setBookTarget] = useState<Order | null>(null);
   const [shipping, setShipping] = useState<number[]>([]);
   const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState("");
@@ -66,11 +67,12 @@ function Orders() {
   const [booking, setBooking] = useState(false);
   useEffect(() => { api("/integrations").then((d) => setBooking(!!(d.kiriminaja ?? d.rajaongkir)?.settings?.delivery?.enabled)).catch(() => {}); }, []);
   /** "Pesan kurir": KiriminAja books the courier pickup and returns the real waybill. */
-  async function bookCourier(ids: number[]) {
+  async function bookCourier(ids: number[], extra?: { courier?: string; courier_code?: string; courier_service?: string; shipping_cost?: number }) {
     setShipping(ids); setNotice("");
     try {
-      const r = await api("/orders/book", { method: "POST", json: { order_ids: ids } });
+      const r = await api("/orders/book", { method: "POST", json: { order_ids: ids, ...(extra ?? {}) } });
       setNotice(`${r.shipped.length} pesanan dipesankan kurir${r.shipped.length ? ` (resi: ${r.shipped.map((x: any) => x.waybill).join(", ")})` : ""}${r.failed.length ? `. ${r.failed.length} gagal: ${r.failed.map((f: any) => `${f.code} (${f.error})`).join("; ")}` : ""}.`);
+      setBookTarget(null);
       load();
     } catch (e) { setNotice(e instanceof ApiError ? e.message : "Gagal memesan kurir"); }
     finally { setShipping([]); }
@@ -259,7 +261,7 @@ function Orders() {
                   <td className={actionCell} onClick={(e) => e.stopPropagation()}>
                     <div className="flex flex-col gap-1.5">
                       <RowAction icon={Info} onClick={() => setDetail(o)}>Detail</RowAction>
-                      {canInputResi(o) && booking && !o.locked && <RowAction tone="shopee" icon={Truck} busy={shipping.includes(o.id)} onClick={() => bookCourier([o.id])}>Pesan kurir</RowAction>}
+                      {canInputResi(o) && booking && !o.locked && <RowAction tone="shopee" icon={Truck} busy={shipping.includes(o.id)} onClick={() => setBookTarget(o)}>Pesan kurir</RowAction>}
                       {canInputResi(o) && <RowAction icon={Truck} busy={shipping.includes(o.id)} onClick={() => inputResi(o)}>Input resi</RowAction>}
                       {canPrintWeb(o) && <RowAction tone="primary" icon={Printer} href={labelUrl([o.id])}>Cetak resi</RowAction>}
                       {canTrackWeb(o) && <RowAction icon={PackageSearch} onClick={() => setTrack(o)}>Lacak resi</RowAction>}
@@ -275,6 +277,7 @@ function Orders() {
       </div>
 
       {track && <TrackingModal orderId={track.id} title={`Lacak resi · ${track.code}`} onClose={() => setTrack(null)} />}
+      {bookTarget && <BookCourierModal order={bookTarget} busy={shipping.includes(bookTarget.id)} onClose={() => setBookTarget(null)} onSubmit={(extra) => bookCourier([bookTarget.id], extra)} />}
       {detail && <OrderDetail order={detail} onClose={() => setDetail(null)} onSaved={() => { setDetail(null); load(); }} />}
       {creating && <InputOrder onClose={() => setCreating(false)} onDone={() => { setCreating(false); load(); }} />}
     </div>
@@ -470,6 +473,81 @@ function InputOrder({ onClose, onDone }: { onClose: () => void; onDone: () => vo
         {chosen && (
           <CheckoutForm key={chosen.product.id} product={chosen.product} methods={chosen.payment_methods} store={chosen.store} extras={chosen} manual onDone={onDone} />
         )}
+      </div>
+    </Modal>
+  );
+}
+
+type ShippingRateOption = { code: string; courier: string; name: string; service: string; cost: number; etd: string; cod?: boolean };
+
+function BookCourierModal({ order, busy, onClose, onSubmit }: {
+  order: Order; busy: boolean; onClose: () => void;
+  onSubmit: (extra?: { courier?: string; courier_code?: string; courier_service?: string; shipping_cost?: number }) => void;
+}) {
+  const [rates, setRates] = useState<ShippingRateOption[] | null>(null);
+  const [err, setErr] = useState("");
+  const [picked, setPicked] = useState(order.courier_code || "");
+
+  useEffect(() => {
+    api<{ rates: ShippingRateOption[]; error?: string | null }>(`/orders/${order.id}/shipping-rates`)
+      .then((r) => {
+        setRates(r.rates ?? []);
+        if (r.error) setErr(r.error);
+        if (!picked && r.rates?.length) setPicked(r.rates[0].code);
+      })
+      .catch((e) => { setRates([]); setErr(e instanceof ApiError ? e.message : "Gagal memuat daftar ekspedisi."); });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order.id]);
+
+  const chosen = rates?.find((r) => r.code === picked);
+  const submit = () => {
+    if (chosen) {
+      onSubmit({ courier: chosen.name, courier_code: chosen.code, courier_service: chosen.service, shipping_cost: chosen.cost });
+    } else {
+      onSubmit();
+    }
+  };
+
+  return (
+    <Modal open onClose={onClose} title={`Pesan Kurir · ${order.code}`} icon={Truck}>
+      <div className="space-y-4 text-sm">
+        <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+          <p><b className="text-slate-800">{order.customer_name}</b> · {order.phone}</p>
+          <p className="mt-0.5">{[order.address, order.village, order.district, order.city].filter(Boolean).join(", ")}</p>
+          {order.courier && <p className="mt-1">Kurir pilihan pembeli: <b className="text-slate-800">{order.courier} {order.courier_service}</b> ({rupiah(order.shipping_cost)})</p>}
+        </div>
+
+        <Field label="Pilih Ekspedisi & Layanan (KiriminAja)">
+          {rates === null ? (
+            <p className="text-xs text-slate-500">Memuat daftar ekspedisi…</p>
+          ) : rates.length > 0 ? (
+            <div className="max-h-60 space-y-2 overflow-y-auto pr-1">
+              {rates.map((r) => (
+                <label key={r.code} className={`flex cursor-pointer items-center justify-between rounded-lg border p-2.5 transition ${picked === r.code ? "border-brand-500 bg-brand-50/40 ring-1 ring-brand-200" : "border-slate-200 hover:border-slate-300"}`}>
+                  <div className="flex items-center gap-2.5">
+                    <input type="radio" name="courier_pick" className="accent-brand-600" checked={picked === r.code} onChange={() => setPicked(r.code)} />
+                    <div>
+                      <p className="font-semibold text-navy">{r.name} · {r.service}</p>
+                      <p className="text-xs text-slate-500">Estimasi {r.etd}</p>
+                    </div>
+                  </div>
+                  <span className="font-semibold text-navy">{rupiah(r.cost)}</span>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+              {err || "Daftar ekspedisi tidak tersedia; gunakan kurir yang sudah dipilih di pesanan."}
+            </div>
+          )}
+        </Field>
+
+        <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
+          <button type="button" onClick={onClose} className="btn-outline">Batal</button>
+          <button type="button" disabled={busy || (!chosen && !order.courier)} onClick={submit} className="btn-primary">
+            {busy ? "Memproses…" : "Pesan Kurir & Buat Resi"}
+          </button>
+        </div>
       </div>
     </Modal>
   );
