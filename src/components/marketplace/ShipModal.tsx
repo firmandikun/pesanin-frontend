@@ -32,6 +32,7 @@ export function ShipModal({ orderIds = [], bookingIds = [], onClose, onDone }: {
   const [opts, setOpts] = useState<Option[] | null>(null);
   const [choices, setChoices] = useState<Record<string, Choice>>({});
   const [busy, setBusy] = useState(false);
+  const [doneCount, setDoneCount] = useState(0);
   const [err, setErr] = useState("");
   const totalSelected = orderIds.length + bookingIds.length;
 
@@ -78,7 +79,7 @@ export function ShipModal({ orderIds = [], bookingIds = [], onClose, onDone }: {
   });
 
   async function submit() {
-    setBusy(true); setErr("");
+    setBusy(true); setDoneCount(0); setErr("");
     try {
       const items = groups.flatMap((g) => {
         const c = choices[g.key];
@@ -93,8 +94,28 @@ export function ShipModal({ orderIds = [], bookingIds = [], onClose, onDone }: {
           tracking_number: c.method !== "pickup" ? c.tracking.trim() || null : null,
         }));
       });
-      const r = await api("/labels/shopee/ship", { method: "POST", json: { items } });
-      onDone(`${r.shipped.length} pesanan/reservasi diatur pengirimannya${r.failed.length ? `, ${r.failed.length} gagal: ${r.failed.map((f: any) => `${f.code} (${f.error})`).join("; ")}` : ""}. Nomor resi terbit dalam beberapa detik, lalu resi bisa dicetak.`);
+      const chunks: (typeof items)[] = [];
+      const chunkSize = items.length > 6 ? 4 : items.length;
+      for (let i = 0; i < items.length; i += chunkSize) {
+        chunks.push(items.slice(i, i + chunkSize));
+      }
+      const shipped: string[] = [];
+      const failed: { code: string; error: string }[] = [];
+      let cursor = 0;
+      const workers = Array.from({ length: Math.min(3, chunks.length) }, async () => {
+        while (cursor < chunks.length) {
+          const chunk = chunks[cursor++];
+          const r = await api<{ shipped: string[]; failed: { code: string; error: string }[] }>("/labels/shopee/ship", {
+            method: "POST",
+            json: { items: chunk },
+          });
+          shipped.push(...(r.shipped ?? []));
+          failed.push(...(r.failed ?? []));
+          setDoneCount((n) => n + chunk.length);
+        }
+      });
+      await Promise.all(workers);
+      onDone(`${shipped.length} pesanan/reservasi diatur pengirimannya${failed.length ? `, ${failed.length} gagal: ${failed.map((f) => `${f.code} (${f.error})`).join("; ")}` : ""}. Nomor resi terbit dalam beberapa detik, lalu resi bisa dicetak.`);
     } catch (e) { setErr(e instanceof ApiError ? e.message : "Gagal mengatur pengiriman"); }
     finally { setBusy(false); }
   }
@@ -194,7 +215,8 @@ export function ShipModal({ orderIds = [], bookingIds = [], onClose, onDone }: {
       <div className="mt-5 flex justify-end gap-2 border-t border-slate-100 pt-4">
         <button onClick={onClose} className="h-10 rounded-lg bg-slate-100 px-5 text-sm font-semibold text-slate-600 hover:bg-slate-200">Batal</button>
         <button onClick={submit} disabled={busy || !count || missing} className="flex h-10 items-center gap-2 rounded-lg bg-brand-600 px-5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50">
-          {busy && <Loader2 size={15} className="animate-spin" />}Atur pengiriman{count > 1 ? ` (${count})` : ""}
+          {busy && <Loader2 size={15} className="animate-spin" />}
+          {busy && count > 1 ? `Mengatur (${doneCount}/${count})…` : `Atur pengiriman${count > 1 ? ` (${count})` : ""}`}
         </button>
       </div>
     </Dialog>
