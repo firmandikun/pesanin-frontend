@@ -309,9 +309,9 @@ export function CheckoutForm({ product: p, methods, store, preview, mobile, manu
         <div id="cmp-shipping">
           {sectionTitle("Pengiriman:")}
           {preview ? (
-            <ShippingOptions origin={extras?.preview_shipping?.origin ?? null} rates={extras?.preview_shipping?.rates ?? []} error={extras?.preview_shipping?.error} opts={fs.shipping ?? {}} name="courier-preview" />
+            <ShippingOptions origin={extras?.preview_shipping?.origin ?? null} rates={extras?.preview_shipping?.rates ?? []} error={extras?.preview_shipping?.error} opts={{ ...(fs.shipping ?? {}), hide_courier: fs.shipping?.hide_courier ?? true }} name="courier-preview" />
           ) : (
-            <ShippingOptions origin={quote?.origin ?? null} rates={quote?.rates ?? []} error={quote?.shipping_error} selected={form.courier} onSelect={(code) => set("courier", code)} opts={fs.shipping ?? {}} />
+            <ShippingOptions origin={quote?.origin ?? null} rates={quote?.rates ?? []} error={quote?.shipping_error} selected={form.courier} onSelect={(code) => set("courier", code)} opts={{ ...(fs.shipping ?? {}), hide_courier: fs.shipping?.hide_courier ?? true }} />
           )}
         </div>
       )}

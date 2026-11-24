@@ -67,7 +67,7 @@ function Orders() {
   const [booking, setBooking] = useState(false);
   useEffect(() => { api("/integrations").then((d) => setBooking(!!(d.kiriminaja ?? d.rajaongkir)?.settings?.delivery?.enabled)).catch(() => {}); }, []);
   /** "Pesan kurir": KiriminAja books the courier pickup and returns the real waybill. */
-  async function bookCourier(ids: number[], extra?: { courier?: string; courier_code?: string; courier_service?: string; shipping_cost?: number }) {
+  async function bookCourier(ids: number[], extra?: { courier?: string; courier_code?: string; courier_service?: string; shipping_cost?: number; pickup_method?: "pickup" | "dropoff" }) {
     setShipping(ids); setNotice("");
     try {
       const r = await api("/orders/book", { method: "POST", json: { order_ids: ids, ...(extra ?? {}) } });
@@ -480,15 +480,27 @@ function InputOrder({ onClose, onDone }: { onClose: () => void; onDone: () => vo
 
 type ShippingRateOption = { code: string; courier: string; name: string; service: string; cost: number; etd: string; cod?: boolean };
 
+const FALLBACK_COURIERS: ShippingRateOption[] = [
+  { code: "jne:reg", courier: "jne", name: "JNE", service: "REG", cost: 0, etd: "-" },
+  { code: "jnt:ez", courier: "jnt", name: "J&T", service: "EZ", cost: 0, etd: "-" },
+  { code: "sicepat:reg", courier: "sicepat", name: "SiCepat", service: "REG", cost: 0, etd: "-" },
+  { code: "anteraja:reg", courier: "anteraja", name: "Anteraja", service: "REG", cost: 0, etd: "-" },
+  { code: "idexpress:std", courier: "idexpress", name: "iDexpress", service: "STD", cost: 0, etd: "-" },
+  { code: "sap:reg", courier: "sap", name: "SAP", service: "REG", cost: 0, etd: "-" },
+  { code: "ninja:reg", courier: "ninja", name: "Ninja", service: "REG", cost: 0, etd: "-" },
+];
+
 function BookCourierModal({ order, busy, onClose, onSubmit }: {
   order: Order; busy: boolean; onClose: () => void;
-  onSubmit: (extra?: { courier?: string; courier_code?: string; courier_service?: string; shipping_cost?: number }) => void;
+  onSubmit: (extra?: { courier?: string; courier_code?: string; courier_service?: string; shipping_cost?: number; pickup_method?: "pickup" | "dropoff" }) => void;
 }) {
   const [rates, setRates] = useState<ShippingRateOption[] | null>(null);
   const [err, setErr] = useState("");
   const [picked, setPicked] = useState(order.courier_code || "");
+  const [method, setMethod] = useState<"pickup" | "dropoff">("pickup");
 
-  useEffect(() => {
+  const loadRates = useCallback(() => {
+    setRates(null); setErr("");
     api<{ rates: ShippingRateOption[]; error?: string | null }>(`/orders/${order.id}/shipping-rates`)
       .then((r) => {
         setRates(r.rates ?? []);
@@ -499,12 +511,21 @@ function BookCourierModal({ order, busy, onClose, onSubmit }: {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order.id]);
 
-  const chosen = rates?.find((r) => r.code === picked);
+  useEffect(() => { loadRates(); }, [loadRates]);
+
+  const list = rates && rates.length > 0 ? rates : (rates !== null ? FALLBACK_COURIERS : []);
+  const chosen = list.find((r) => r.code === picked);
   const submit = () => {
     if (chosen) {
-      onSubmit({ courier: chosen.name, courier_code: chosen.code, courier_service: chosen.service, shipping_cost: chosen.cost });
+      onSubmit({
+        courier: chosen.name,
+        courier_code: chosen.code,
+        courier_service: chosen.service,
+        ...(chosen.cost > 0 ? { shipping_cost: chosen.cost } : {}),
+        pickup_method: method,
+      });
     } else {
-      onSubmit();
+      onSubmit({ pickup_method: method });
     }
   };
 
@@ -514,30 +535,46 @@ function BookCourierModal({ order, busy, onClose, onSubmit }: {
         <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
           <p><b className="text-slate-800">{order.customer_name}</b> · {order.phone}</p>
           <p className="mt-0.5">{[order.address, order.village, order.district, order.city].filter(Boolean).join(", ")}</p>
-          {order.courier && <p className="mt-1">Kurir pilihan pembeli: <b className="text-slate-800">{order.courier} {order.courier_service}</b> ({rupiah(order.shipping_cost)})</p>}
+          {order.courier && <p className="mt-1">Ongkir pesanan: <b className="text-slate-800">{order.courier} {order.courier_service}</b> ({rupiah(order.shipping_cost)})</p>}
         </div>
+
+        <Field label="Metode Penyerahan Paket">
+          <div className="grid grid-cols-2 gap-2">
+            {([["pickup", "Pickup", "Kurir jemput ke alamat"], ["dropoff", "Dropoff", "Antar ke gerai ekspedisi"]] as const).map(([k, title, desc]) => (
+              <button key={k} type="button" onClick={() => setMethod(k)}
+                className={`rounded-lg border p-2.5 text-left transition ${method === k ? "border-brand-500 bg-brand-50/40 ring-1 ring-brand-200" : "border-slate-200 hover:border-slate-300"}`}>
+                <p className="font-semibold text-navy">{title}</p>
+                <p className="text-[11px] text-slate-500">{desc}</p>
+              </button>
+            ))}
+          </div>
+        </Field>
 
         <Field label="Pilih Ekspedisi & Layanan (KiriminAja)">
           {rates === null ? (
             <p className="text-xs text-slate-500">Memuat daftar ekspedisi…</p>
-          ) : rates.length > 0 ? (
-            <div className="max-h-60 space-y-2 overflow-y-auto pr-1">
-              {rates.map((r) => (
-                <label key={r.code} className={`flex cursor-pointer items-center justify-between rounded-lg border p-2.5 transition ${picked === r.code ? "border-brand-500 bg-brand-50/40 ring-1 ring-brand-200" : "border-slate-200 hover:border-slate-300"}`}>
-                  <div className="flex items-center gap-2.5">
-                    <input type="radio" name="courier_pick" className="accent-brand-600" checked={picked === r.code} onChange={() => setPicked(r.code)} />
-                    <div>
-                      <p className="font-semibold text-navy">{r.name} · {r.service}</p>
-                      <p className="text-xs text-slate-500">Estimasi {r.etd}</p>
-                    </div>
-                  </div>
-                  <span className="font-semibold text-navy">{rupiah(r.cost)}</span>
-                </label>
-              ))}
-            </div>
           ) : (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-              {err || "Daftar ekspedisi tidak tersedia; gunakan kurir yang sudah dipilih di pesanan."}
+            <div className="space-y-2">
+              {err && (
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  <span>{err}</span>
+                  <button type="button" onClick={loadRates} className="shrink-0 font-semibold underline">Muat ulang</button>
+                </div>
+              )}
+              <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
+                {list.map((r) => (
+                  <label key={r.code} className={`flex cursor-pointer items-center justify-between rounded-lg border p-2.5 transition ${picked === r.code ? "border-brand-500 bg-brand-50/40 ring-1 ring-brand-200" : "border-slate-200 hover:border-slate-300"}`}>
+                    <div className="flex items-center gap-2.5">
+                      <input type="radio" name="courier_pick" className="accent-brand-600" checked={picked === r.code} onChange={() => setPicked(r.code)} />
+                      <div>
+                        <p className="font-semibold text-navy">{r.name} · {r.service}</p>
+                        <p className="text-xs text-slate-500">{r.etd !== "-" ? `Estimasi ${r.etd}` : "Layanan standar KiriminAja"}</p>
+                      </div>
+                    </div>
+                    {r.cost > 0 && <span className="font-semibold text-navy">{rupiah(r.cost)}</span>}
+                  </label>
+                ))}
+              </div>
             </div>
           )}
         </Field>
@@ -545,7 +582,7 @@ function BookCourierModal({ order, busy, onClose, onSubmit }: {
         <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
           <button type="button" onClick={onClose} className="btn-outline">Batal</button>
           <button type="button" disabled={busy || (!chosen && !order.courier)} onClick={submit} className="btn-primary">
-            {busy ? "Memproses…" : "Pesan Kurir & Buat Resi"}
+            {busy ? "Memproses…" : `Pesan Kurir (${method === "dropoff" ? "Dropoff" : "Pickup"})`}
           </button>
         </div>
       </div>
