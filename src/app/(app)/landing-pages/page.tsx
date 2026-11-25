@@ -1,6 +1,6 @@
 "use client";
 import {
-  Archive, Check, ChevronDown, Copy, Download, FileText, Globe, Monitor, MoreVertical, Plus, PlusCircle, Search, Settings, Smartphone, Trash2, X,
+  Archive, Check, ChevronDown, Copy, Download, FileText, Globe, Loader2, Monitor, MoreVertical, Plus, PlusCircle, Search, Settings, Smartphone, Sparkles, Trash2, X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -29,13 +29,13 @@ function StatTile({ label, value, icon: Icon, tint }: { label: string; value: nu
 
 export default function LandingPages() {
   const router = useRouter();
-  const [data, setData] = useState<{ pages: Paginated<LandingPage>; stats: any; labels: string[]; templates: Record<string, string> } | null>(null);
+  const [data, setData] = useState<{ pages: Paginated<LandingPage>; stats: any; labels: string[]; templates: Record<string, string>; gemini_connected?: boolean } | null>(null);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [label, setLabel] = useState("");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<false | "template" | "ai">(false);
   const [menu, setMenu] = useState<string | null>(null);
   const [selected, setSelected] = useState<number[]>([]);
   const [host, setHost] = useState("");
@@ -104,7 +104,14 @@ export default function LandingPages() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setCreating(true)}
+              onClick={() => setCreating("ai")}
+              className="flex h-9 shrink-0 items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-4 text-sm font-semibold text-violet-700 transition hover:bg-violet-100"
+            >
+              <Sparkles size={16} />
+              Buat dengan AI
+            </button>
+            <button
+              onClick={() => setCreating("template")}
               className="flex h-9 shrink-0 items-center gap-2 rounded-lg bg-brand-600 px-5 text-sm font-semibold text-white transition hover:bg-brand-700"
             >
               <PlusCircle size={16} />
@@ -200,7 +207,7 @@ export default function LandingPages() {
         {data && <Pagination page={data.pages.current_page} last={data.pages.last_page} onChange={setPage} total={data.pages.total} perPage={perPage} onPerPage={setPerPage} />}
       </div>
 
-      {creating && data && <CreateModal templates={data.templates} onClose={() => setCreating(false)} onCreated={(id) => router.push(`/landing-pages/${id}`)} />}
+      {creating && data && <CreateModal initialMode={creating} geminiConnected={!!data.gemini_connected} templates={data.templates} onClose={() => setCreating(false)} onCreated={(id) => router.push(`/landing-pages/${id}`)} />}
     </div>
   );
 }
@@ -215,22 +222,45 @@ function TemplateThumb({ k }: { k: string }) {
   return <div className="flex h-24 flex-col justify-center gap-1.5 rounded-t-lg bg-white px-4">{bars[k]}</div>;
 }
 
-function CreateModal({ templates, onClose, onCreated }: { templates: Record<string, string>; onClose: () => void; onCreated: (id: number) => void }) {
-  const [form, setForm] = useState({ title: "", template: "blank", product_id: "", preview: "mobile" });
+function CreateModal({ initialMode = "template", geminiConnected = false, templates, onClose, onCreated }: {
+  initialMode?: "template" | "ai"; geminiConnected?: boolean; templates: Record<string, string>; onClose: () => void; onCreated: (id: number) => void;
+}) {
+  const [mode, setMode] = useState<"template" | "ai">(initialMode);
+  const [form, setForm] = useState({ title: "", template: "blank", product_id: "", preview: "mobile", brief: "", tone: "persuasif" });
   const [products, setProducts] = useState<Product[]>([]);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
+  const [errMsg, setErrMsg] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => { Promise.all(["physical", "digital"].map((t) => api(`/products?per_page=100&type=${t}`))).then((r) => setProducts(r.flatMap((x) => x.products.data))); }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setBusy(true);
+    setBusy(true); setErrors({}); setErrMsg("");
     try {
+      if (mode === "ai") {
+        const page = await api<LandingPage>("/landing-pages/ai", {
+          method: "POST",
+          json: {
+            title: form.title.trim() || null,
+            product_id: form.product_id || null,
+            brief: form.brief.trim() || null,
+            tone: form.tone,
+            preview: form.preview,
+          },
+        });
+        onCreated(page.id);
+        return;
+      }
       const page = await api("/landing-pages", { method: "POST", json: { title: form.title, template: form.template, product_id: form.product_id || null } });
       if (form.preview === "desktop") await api(`/landing-pages/${page.id}`, { method: "PUT", json: { theme: { ...page.theme, width: "wide" } } });
       onCreated(page.id);
     } catch (err) {
-      if (err instanceof ApiError) setErrors(err.errors);
+      if (err instanceof ApiError) {
+        setErrors(err.errors ?? {});
+        setErrMsg(err.message);
+      } else {
+        setErrMsg("Gagal membuat landing page.");
+      }
       setBusy(false);
     }
   }
@@ -240,29 +270,93 @@ function CreateModal({ templates, onClose, onCreated }: { templates: Record<stri
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4 pt-14" onClick={onClose}>
       <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="w-full max-w-xl rounded-xl bg-white shadow-2xl">
         <div className="flex items-center justify-between px-6 pt-5">
-          <h3 className="flex items-center gap-2 text-lg font-bold text-slate-800"><FileText size={20} />Create New Page</h3>
+          <h3 className="flex items-center gap-2 text-lg font-bold text-slate-800">
+            {mode === "ai" ? <Sparkles size={20} className="text-violet-600" /> : <FileText size={20} />}
+            {mode === "ai" ? "Buat Landing Page dengan AI" : "Create New Page"}
+          </h3>
           <button type="button" onClick={onClose} className="text-slate-400" aria-label="Tutup"><X size={18} /></button>
         </div>
         <div className="space-y-4 px-6 pb-6 pt-3">
-          <p className="text-sm text-slate-600">Create a new page by selecting one of the templates below</p>
-          <div>
-            <div className="mb-2 font-semibold text-slate-800">Template</div>
-            <div className="grid grid-cols-3 gap-3">
-              {all.filter(([k]) => k !== "link_bio" && k !== "product_sales").map(([k, name]) => {
-                const soon = false; // "Link Bio" & "Product Sales" templates are not built yet: hidden instead of "Coming Soon"
-                const on = form.template === k;
-                return (
-                  <button type="button" key={k} disabled={soon} onClick={() => setForm({ ...form, template: k })} className="text-left disabled:cursor-not-allowed">
-                    <div className={`relative overflow-hidden rounded-lg border-2 bg-slate-100 p-2 ${on ? "border-brand-600" : "border-transparent"}`}>
-                      {soon ? <div className="flex h-24 items-center justify-center"><span className="rounded bg-[#5b8def] px-3 py-1 text-xs font-semibold text-white">Coming Soon</span></div> : <TemplateThumb k={k} />}
-                      {on && <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-brand-600 text-white"><Check size={12} strokeWidth={3} /></span>}
-                    </div>
-                    <div className={`mt-1.5 text-sm ${soon ? "text-slate-300" : "text-slate-800"}`}>{name}</div>
-                  </button>
-                );
-              })}
-            </div>
+          <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1 text-sm font-medium">
+            <button type="button" onClick={() => { setMode("template"); setErrMsg(""); }} className={`flex items-center justify-center gap-1.5 rounded-md py-2 transition ${mode === "template" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+              <FileText size={15} />Pilih Template
+            </button>
+            <button type="button" onClick={() => { setMode("ai"); setErrMsg(""); }} className={`flex items-center justify-center gap-1.5 rounded-md py-2 transition ${mode === "ai" ? "bg-white text-violet-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+              <Sparkles size={15} />Buat dengan AI
+            </button>
           </div>
+
+          {errMsg && <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{errMsg}</div>}
+
+          {mode === "ai" ? (
+            <>
+              {!geminiConnected && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                  API Key Google Gemini belum terhubung. <Link href="/settings/integrations" className="font-semibold underline">Hubungkan di Pengaturan → Integrasi</Link> terlebih dahulu.
+                </div>
+              )}
+              <p className="text-xs text-slate-500">AI akan menyusun headline, copywriting, fitur produk, testimoni, harga, FAQ, dan form checkout menggunakan komponen resmi Pesanin Builder agar bisa langsung Anda edit.</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">Produk (disarankan)</label>
+                  <Select className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" value={form.product_id} onChange={(e) => setForm({ ...form, product_id: e.target.value })}>
+                    <option value="">Tanpa produk (pakai brief)</option>{products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </Select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">Gaya Bahasa</label>
+                  <Select className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" value={form.tone} onChange={(e) => setForm({ ...form, tone: e.target.value })}>
+                    <option value="persuasif">Persuasif (Fokus Jualan)</option>
+                    <option value="elegan">Elegan &amp; Premium</option>
+                    <option value="santai">Santai &amp; Akrab</option>
+                    <option value="profesional">Profesional &amp; Informatif</option>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">Judul Halaman (opsional)</label>
+                <input className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600" placeholder="Biarkan kosong agar AI buatkan judul menarik" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">Brief / Catatan Produk {!form.product_id && <span className="text-rose-600">*</span>}</label>
+                <textarea rows={3} className="w-full rounded-lg border border-slate-200 p-3 text-sm outline-none focus:border-brand-600" placeholder="Jelaskan keunggulan produk, target pembeli, promo (misal: gratis ongkir / bonus), atau masalah yang diselesaikan…" value={form.brief} onChange={(e) => setForm({ ...form, brief: e.target.value })} />
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-slate-600">Create a new page by selecting one of the templates below</p>
+              <div>
+                <div className="mb-2 font-semibold text-slate-800">Template</div>
+                <div className="grid grid-cols-3 gap-3">
+                  {all.filter(([k]) => k !== "link_bio" && k !== "product_sales").map(([k, name]) => {
+                    const soon = false;
+                    const on = form.template === k;
+                    return (
+                      <button type="button" key={k} disabled={soon} onClick={() => setForm({ ...form, template: k })} className="text-left disabled:cursor-not-allowed">
+                        <div className={`relative overflow-hidden rounded-lg border-2 bg-slate-100 p-2 ${on ? "border-brand-600" : "border-transparent"}`}>
+                          <TemplateThumb k={k} />
+                          {on && <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-brand-600 text-white"><Check size={12} strokeWidth={3} /></span>}
+                        </div>
+                        <div className="mt-1.5 text-sm text-slate-800">{name}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">Page Name</label>
+                <input className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600" placeholder="Nama halaman" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+                {errors.title && <p className="mt-1 text-xs text-rose-600">{errors.title[0]}</p>}
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">Produk (opsional)</label>
+                <Select className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" value={form.product_id} onChange={(e) => setForm({ ...form, product_id: e.target.value })}>
+                  <option value="">Tanpa produk</option>{products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </Select>
+              </div>
+            </>
+          )}
+
           <div className="border-t border-slate-100 pt-4">
             <div className="mb-2 font-semibold text-slate-800">Default Preview</div>
             <div className="grid grid-cols-2 gap-3">
@@ -272,20 +366,13 @@ function CreateModal({ templates, onClose, onCreated }: { templates: Record<stri
               ))}
             </div>
           </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">Page Name</label>
-            <input className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-brand-600" placeholder="Nama halaman" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-            {errors.title && <p className="mt-1 text-xs text-rose-600">{errors.title[0]}</p>}
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">Produk (opsional)</label>
-            <Select className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" value={form.product_id} onChange={(e) => setForm({ ...form, product_id: e.target.value })}>
-              <option value="">Tanpa produk</option>{products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </Select>
-          </div>
+
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="rounded-lg border border-brand-600 px-6 py-2 text-sm font-semibold text-brand-600">Batal</button>
-            <button disabled={busy} className="rounded-lg bg-brand-600 px-6 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Membuat…" : "Create Page"}</button>
+            <button disabled={busy || (mode === "ai" && !geminiConnected)} className={`flex items-center gap-2 rounded-lg px-6 py-2 text-sm font-semibold text-white disabled:opacity-50 ${mode === "ai" ? "bg-violet-600 hover:bg-violet-700" : "bg-brand-600 hover:bg-brand-700"}`}>
+              {busy && <Loader2 size={15} className="animate-spin" />}
+              {mode === "ai" ? (busy ? "Menyusun Landing Page…" : "Generate dengan AI") : (busy ? "Membuat…" : "Create Page")}
+            </button>
           </div>
         </div>
       </form>
