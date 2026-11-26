@@ -238,7 +238,7 @@ function CreateModal({ initialMode = "template", geminiConnected = false, templa
     setBusy(true); setErrors({}); setErrMsg("");
     try {
       if (mode === "ai") {
-        const page = await api<LandingPage>("/landing-pages/ai", {
+        const start = await api<{ job: string }>("/landing-pages/ai", {
           method: "POST",
           json: {
             title: form.title.trim() || null,
@@ -248,8 +248,20 @@ function CreateModal({ initialMode = "template", geminiConnected = false, templa
             preview: form.preview,
           },
         });
-        onCreated(page.id);
-        return;
+        // Gemini takes 1–3 minutes: the server builds the page in the background, we check every 4 s (max ~7 min).
+        for (let i = 0; i < 105; i++) {
+          await new Promise((r) => setTimeout(r, 4000));
+          let st: { status: string; error?: string; page?: LandingPage };
+          try {
+            st = await api(`/landing-pages/ai/${start.job}`);
+          } catch (e) {
+            if (e instanceof ApiError && e.status === 404) throw e;
+            continue; // a brief network / server hiccup while waiting: keep checking
+          }
+          if (st.status === "done" && st.page) { onCreated(st.page.id); return; }
+          if (st.status === "failed") throw new ApiError(422, st.error || "AI gagal menyusun landing page. Coba lagi.");
+        }
+        throw new ApiError(504, "AI terlalu lama menyusun landing page. Cek daftar landing page sebentar lagi, atau coba lagi.");
       }
       const page = await api("/landing-pages", { method: "POST", json: { title: form.title, template: form.template, product_id: form.product_id || null } });
       if (form.preview === "desktop") await api(`/landing-pages/${page.id}`, { method: "PUT", json: { theme: { ...page.theme, width: "wide" } } });
@@ -371,7 +383,7 @@ function CreateModal({ initialMode = "template", geminiConnected = false, templa
             <button type="button" onClick={onClose} className="rounded-lg border border-brand-600 px-6 py-2 text-sm font-semibold text-brand-600">Batal</button>
             <button disabled={busy || (mode === "ai" && !geminiConnected)} className={`flex items-center gap-2 rounded-lg px-6 py-2 text-sm font-semibold text-white disabled:opacity-50 ${mode === "ai" ? "bg-violet-600 hover:bg-violet-700" : "bg-brand-600 hover:bg-brand-700"}`}>
               {busy && <Loader2 size={15} className="animate-spin" />}
-              {mode === "ai" ? (busy ? "Menyusun Landing Page…" : "Generate dengan AI") : (busy ? "Membuat…" : "Create Page")}
+              {mode === "ai" ? (busy ? "AI menyusun (1–3 menit)…" : "Generate dengan AI") : (busy ? "Membuat…" : "Create Page")}
             </button>
           </div>
         </div>
