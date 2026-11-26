@@ -23,7 +23,9 @@ import { askConfirm, askText, showAlert } from "@/components/Dialogs";
 const canPrintWeb = (o: Order) => !!o.courier && o.shipping_status === "not_shipped" && !["cancelled", "refunded"].includes(o.status) && !o.is_abandoned && !o.is_dropship && !o.locked;
 const canTrackWeb = (o: Order) => !!o.tracking_number && !o.is_abandoned;
 /** Ready to hand over: a courier was chosen, not shipped yet, COD or already paid. Dropship orders are shipped by the Pesanin warehouse. */
-const canInputResi = (o: Order) => !!o.courier && o.shipping_status === "not_shipped" && !o.is_abandoned && !o.is_dropship
+/** Booked with KiriminAja, resi not issued yet (it comes by webhook / the 10-minute check). */
+const awaitingResi = (o: Order) => o.shipping_provider === "kiriminaja" && !!o.shipping_ref && !o.tracking_number;
+const canInputResi = (o: Order) => !!o.courier && o.shipping_status === "not_shipped" && !o.is_abandoned && !o.is_dropship && !awaitingResi(o)
   && !["cancelled", "refunded"].includes(o.status) && (o.payment_method === "cod" || o.payment_status === "paid");
 const labelUrl = (ids: number[]) => `/orders/labels?ids=${ids.join(",")}&auto=1`;
 
@@ -63,11 +65,21 @@ function Orders() {
 
   const query = useCallback(() => new URLSearchParams({ view, type, ...filters, page: String(page), per_page: String(perPage) }).toString(), [view, type, filters, page, perPage]);
   const load = useCallback(() => { api(`/orders?${query()}`).then(setData); setSelected([]); }, [query]);
+  // "Cek resi": ask KiriminAja's tracking now instead of waiting for the webhook / the 10-minute check.
+  const [checking, setChecking] = useState<number | null>(null);
+  const checkResi = async (o: Order) => {
+    setChecking(o.id);
+    try {
+      const t = await api<{ tracking_number?: string | null }>(`/orders/${o.id}/tracking`);
+      if (t.tracking_number) { showAlert(`Resi terbit: ${t.tracking_number}`, "Resi KiriminAja"); load(); }
+      else showAlert("Resi belum diterbitkan kurir. Biasanya beberapa menit setelah pesan kurir (di sandbox, setelah status disimulasikan). Pesanin juga mengecek otomatis tiap 10 menit.", "Belum ada resi");
+    } catch (e) { showAlert(e instanceof ApiError ? e.message : "Gagal mengecek resi", "Gagal"); } finally { setChecking(null); }
+  };
   useEffect(() => { window.addEventListener(ORDERS_EVENT, load); return () => window.removeEventListener(ORDERS_EVENT, load); }, [load]);
   const [booking, setBooking] = useState(false);
   useEffect(() => { api("/integrations").then((d) => setBooking(!!(d.kiriminaja ?? d.rajaongkir)?.settings?.delivery?.enabled)).catch(() => {}); }, []);
   /** "Pesan kurir": KiriminAja books the courier pickup and returns the real waybill. */
-  async function bookCourier(ids: number[], extra?: { courier?: string; courier_code?: string; courier_service?: string; shipping_cost?: number; pickup_method?: "pickup" | "dropoff" }) {
+  async function bookCourier(ids: number[], extra?: BookExtra) {
     setShipping(ids); setNotice("");
     try {
       const r = await api("/orders/book", { method: "POST", json: { order_ids: ids, ...(extra ?? {}) } });
@@ -240,7 +252,7 @@ function Orders() {
                     {o.locked && <a href="/settings/billing" title="Melewati kuota pesanan bulan ini. Upgrade paket untuk membuka data pembeli." className="mt-1 block w-fit rounded bg-amber-50 px-1.5 py-0.5 font-sans text-[10px] font-semibold text-amber-700">Terkunci · upgrade</a>}
                   </td>
                   <td className="td"><ChannelBadge channel={o.channel} shop={o.marketplace_shop?.shop_name} utm={o.utm_source} /></td>
-                  <td className="td">{o.courier ? <>{o.courier}{o.courier_service ? `-${o.courier_service}` : ""}<div className="text-xs text-slate-500">{o.tracking_number ?? "belum ada resi"}</div>{!o.tracking_number && o.auto_ship_error && <div className="max-w-[200px] truncate text-[11px] text-rose-600" title={o.auto_ship_error}>Resi otomatis gagal: {o.auto_ship_error}</div>}</> : o.product?.type === "digital" ? <span className={`text-xs ${o.digital_sent_at ? "text-emerald-700" : "text-slate-400"}`}>{o.digital_sent_at ? "Produk terkirim" : "Digital"}</span> : "-"}</td>
+                  <td className="td">{o.courier ? <>{o.courier}{o.courier_service ? `-${o.courier_service}` : ""}<div className="text-xs text-slate-500">{o.tracking_number ?? (awaitingResi(o) ? <span className="font-semibold text-amber-600">Menunggu resi KiriminAja</span> : "belum ada resi")}</div>{!o.tracking_number && o.auto_ship_error && <div className="max-w-[200px] truncate text-[11px] text-rose-600" title={o.auto_ship_error}>Resi otomatis gagal: {o.auto_ship_error}</div>}</> : o.product?.type === "digital" ? <span className={`text-xs ${o.digital_sent_at ? "text-emerald-700" : "text-slate-400"}`}>{o.digital_sent_at ? "Produk terkirim" : "Digital"}</span> : "-"}</td>
                   <td className="td"><div className="font-medium">{o.customer_name || "-"}</div><div className="text-xs text-slate-500">{o.phone}</div></td>
                   <td className="td">{o.city ? <>{o.city}<div className="text-xs text-slate-500">{o.district}</div></> : "-"}</td>
                   <td className="td">{o.channel === "shopee" && o.items?.length
@@ -262,6 +274,7 @@ function Orders() {
                     <div className="flex flex-col gap-1.5">
                       <RowAction icon={Info} onClick={() => setDetail(o)}>Detail</RowAction>
                       {canInputResi(o) && booking && !o.locked && <RowAction tone="shopee" icon={Truck} busy={shipping.includes(o.id)} onClick={() => setBookTarget(o)}>Pesan kurir</RowAction>}
+                      {awaitingResi(o) && <RowAction icon={PackageSearch} busy={checking === o.id} onClick={() => checkResi(o)}>Cek resi</RowAction>}
                       {canInputResi(o) && <RowAction icon={Truck} busy={shipping.includes(o.id)} onClick={() => inputResi(o)}>Input resi</RowAction>}
                       {canPrintWeb(o) && <RowAction tone="primary" icon={Printer} href={labelUrl([o.id])}>Cetak resi</RowAction>}
                       {canTrackWeb(o) && <RowAction icon={PackageSearch} onClick={() => setTrack(o)}>Lacak resi</RowAction>}
@@ -302,6 +315,46 @@ function CodRiskCard({ risk }: { risk: CodRisk }) {
       <p className="flex items-center justify-between gap-2 font-semibold"><span>{r.label}</span><span className="text-xs">skor {risk.score}/100</span></p>
       {risk.reasons.length > 0 && <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-xs">{risk.reasons.map((x) => <li key={x}>{x}</li>)}</ul>}
       <p className="mt-2 text-xs font-semibold">{r.tip}</p>
+    </div>
+  );
+}
+
+/** What KiriminAja booked (pickup time, COD to collect, sorting code) and "Batalkan pengiriman" before pickup. */
+function KiriminAjaInfo({ o, onCancelled }: { o: Order; onCancelled: () => void }) {
+  const ka = ((o.custom_fields as Record<string, unknown> | null)?.kiriminaja ?? {}) as Record<string, string | number | boolean | undefined>;
+  const [busy, setBusy] = useState(false);
+  const cancel = async () => {
+    const msg = o.tracking_number
+      ? `Batalkan pengiriman ${o.tracking_number}? Hanya bisa sebelum kurir mengambil paket. Pesanan bisa dipesankan kurir lagi.`
+      : "Resi belum terbit, jadi paket ini hanya dilepas di Pesanin supaya bisa dipesankan kurir lagi. Hapus juga paketnya di dashboard KiriminAja supaya tidak dobel.";
+    if (!(await askConfirm(msg, { title: "Batalkan pengiriman", confirmLabel: "Batalkan", danger: true }))) return;
+    setBusy(true);
+    try { await api(`/orders/${o.id}/ship/cancel`, { method: "POST", json: { reason: "Dibatalkan penjual" } }); onCancelled(); }
+    catch (e) { showAlert(e instanceof ApiError ? e.message : "Gagal membatalkan", "Gagal"); } finally { setBusy(false); }
+  };
+  const rows = [
+    ka.dropoff ? ["Penyerahan", "Drop-off ke gerai"] : ka.schedule ? ["Jadwal pickup", new Date(String(ka.schedule).replace(" ", "T") + "+07:00").toLocaleString("id-ID", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })] : null,
+    ka.pickup_number ? ["No. pickup", String(ka.pickup_number)] : null,
+    ka.sorting_code ? ["Kode sortir (label)", String(ka.sorting_code)] : null,
+    ka.cod ? ["COD ditagih kurir", rupiah(Number(ka.cod))] : null,
+    ka.insurance ? ["Asuransi", rupiah(Number(ka.insurance))] : null,
+    ka.last_event ? ["Update terakhir", String(ka.last_event).replace(/_packages$/, "").replace(/_/g, " ")] : null,
+  ].filter(Boolean) as [string, string][];
+  // Non-COD shipments wait until the shipping fee is paid to KiriminAja (KA Credit or the payment QR).
+  const payStatus = String(ka.payment_status ?? "").toLowerCase();
+  const unpaid = !!payStatus && !["paid", "0", "success", "settlement"].includes(payStatus);
+  return (
+    <div className="mt-3 space-y-1 border-t border-slate-200 pt-3 text-xs">
+      {rows.map(([k, v]) => <div key={k} className="flex justify-between gap-3"><span className="text-slate-500">{k}</span><b className="text-right text-slate-700">{v}</b></div>)}
+      {unpaid && !o.tracking_number && (
+        <div className="mt-2 rounded-lg bg-amber-50 p-2.5 text-amber-800">
+          <b>Ongkir belum dibayar ke KiriminAja</b> (status: {String(ka.payment_status)}). Resi baru terbit setelah dibayar.
+          {ka.qr_url ? <> <a href={String(ka.qr_url)} target="_blank" rel="noreferrer" className="font-semibold underline">Bayar lewat QRIS</a></> : " Bayar di dashboard KiriminAja, atau pakai saldo KA Credit (KIRIMINAJA_PAYMENT=credit)."}
+        </div>
+      )}
+      {(o.tracking_number || o.shipping_ref) && (!o.shipping_status || o.shipping_status === "not_shipped") && (
+        <button type="button" onClick={cancel} disabled={busy} className="mt-2 text-xs font-semibold text-rose-600 hover:underline disabled:opacity-50">{busy ? "Membatalkan…" : o.tracking_number ? "Batalkan pengiriman" : "Batalkan & pesan ulang kurir"}</button>
+      )}
     </div>
   );
 }
@@ -371,6 +424,7 @@ function OrderDetail({ order, onClose, onSaved }: { order: Order; onClose: () =>
         <div className="mb-5 rounded-xl bg-slate-50 p-4">
           <p className="mb-3 text-sm font-semibold text-navy">Status pengiriman</p>
           <ShippingStatus status={o.shipping_status} tracking={o.tracking_number} courier={[o.courier, o.courier_service].filter(Boolean).join(" ")} />
+          {o.shipping_provider === "kiriminaja" && <KiriminAjaInfo o={o} onCancelled={() => { setO({ ...o, tracking_number: null, shipping_provider: null } as unknown as Order); onSaved(); }} />}
         </div>
       )}
       {o.channel === "shopee" && (
@@ -407,7 +461,10 @@ function OrderDetail({ order, onClose, onSaved }: { order: Order; onClose: () =>
             <div className="flex justify-between border-t border-slate-200 pt-1 font-bold"><span>Total</span><span>{rupiah(o.total)}</span></div>
             <div className="pt-1 text-xs text-slate-500">{o.payment_method ? PAYMENT_LABEL[o.payment_method] : "-"} • {fmtDate(o.created_at)}{o.shipping_etd ? ` • estimasi ${o.shipping_etd}` : ""}</div>
             {o.notes && <div className="text-xs"><b>Catatan:</b> {o.notes}</div>}
-            {o.custom_fields && Object.entries(o.custom_fields).map(([k, v]) => <div key={k} className="text-xs"><b>{k}:</b> {v}</div>)}
+            {/* Buyer's checkout fields only: system data (KiriminAja booking, cancel history…) is objects, shown elsewhere. */}
+            {o.custom_fields && Object.entries(o.custom_fields as Record<string, unknown>)
+              .filter(([k, v]) => !k.startsWith("kiriminaja") && (typeof v === "string" || typeof v === "number") && String(v) !== "")
+              .map(([k, v]) => <div key={k} className="text-xs"><b>{k}:</b> {String(v)}</div>)}
             {(o.utm_source || o.utm_campaign) && <div className="text-xs text-slate-500">UTM: {[o.utm_source, o.utm_medium, o.utm_campaign].filter(Boolean).join(" / ")}</div>}
           </div>
         </div>
@@ -494,7 +551,8 @@ function InputOrder({ onClose, onDone }: { onClose: () => void; onDone: () => vo
   );
 }
 
-type ShippingRateOption = { code: string; courier: string; name: string; service: string; cost: number; etd: string; cod?: boolean };
+type ShippingRateOption = { code: string; courier: string; name: string; service: string; cost: number; etd: string; cod?: boolean; drop?: boolean; cut_off?: string | null; cod_fee_pct?: number; insurance_pct?: number; force_insurance?: boolean };
+type BookExtra = { courier?: string; courier_code?: string; courier_service?: string; shipping_cost?: number; pickup_method?: "pickup" | "dropoff"; insurance?: boolean; length?: number; width?: number; height?: number; schedule?: string };
 
 const FALLBACK_COURIERS: ShippingRateOption[] = [
   { code: "jne:reg", courier: "jne", name: "JNE", service: "REG", cost: 0, etd: "-" },
@@ -508,50 +566,68 @@ const FALLBACK_COURIERS: ShippingRateOption[] = [
 
 function BookCourierModal({ order, busy, onClose, onSubmit }: {
   order: Order; busy: boolean; onClose: () => void;
-  onSubmit: (extra?: { courier?: string; courier_code?: string; courier_service?: string; shipping_cost?: number; pickup_method?: "pickup" | "dropoff" }) => void;
+  onSubmit: (extra?: BookExtra) => void;
 }) {
-  const [rates, setRates] = useState<ShippingRateOption[] | null>(null);
+  type Info = { rates: ShippingRateOption[]; error?: string | null; schedules?: { clock: string; until: string | null; holiday: boolean }[]; cod?: boolean; item_value?: number; weight?: number; pickup?: { name: string | null; address: string | null; city: string | null } };
+  const [info, setInfo] = useState<Info | null>(null);
   const [err, setErr] = useState("");
   const [picked, setPicked] = useState(order.courier_code || "");
   const [method, setMethod] = useState<"pickup" | "dropoff">("pickup");
+  const [schedule, setSchedule] = useState("");
+  const [insure, setInsure] = useState(false);
+  const [dims, setDims] = useState({ length: 10, width: 10, height: 10 });
 
   const loadRates = useCallback(() => {
-    setRates(null); setErr("");
-    api<{ rates: ShippingRateOption[]; error?: string | null }>(`/orders/${order.id}/shipping-rates`)
+    setInfo(null); setErr("");
+    api<Info>(`/orders/${order.id}/shipping-rates`)
       .then((r) => {
-        setRates(r.rates ?? []);
+        setInfo(r);
         if (r.error) setErr(r.error);
-        if (!picked && r.rates?.length) setPicked(r.rates[0].code);
+        const first = r.schedules?.find((x) => !x.holiday);
+        if (first) setSchedule(first.clock);
       })
-      .catch((e) => { setRates([]); setErr(e instanceof ApiError ? e.message : "Gagal memuat daftar ekspedisi."); });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+      .catch((e) => { setInfo({ rates: [] }); setErr(e instanceof ApiError ? e.message : "Gagal memuat daftar ekspedisi."); });
   }, [order.id]);
-
   useEffect(() => { loadRates(); }, [loadRates]);
 
-  const list = rates && rates.length > 0 ? rates : (rates !== null ? FALLBACK_COURIERS : []);
-  const chosen = list.find((r) => r.code === picked);
-  const submit = () => {
-    if (chosen) {
-      onSubmit({
-        courier: chosen.name,
-        courier_code: chosen.code,
-        courier_service: chosen.service,
-        ...(chosen.cost > 0 ? { shipping_cost: chosen.cost } : {}),
-        pickup_method: method,
-      });
-    } else {
-      onSubmit({ pickup_method: method });
-    }
-  };
+  const cod = info?.cod ?? order.payment_method === "cod";
+  const rates = info?.rates ?? [];
+  // Only services that can take this parcel: COD orders need a COD service; drop-off needs a courier that accepts it.
+  const usable = (r: ShippingRateOption) => (!cod || r.cod !== false) && (method === "pickup" || r.drop !== false);
+  const list = info ? (rates.length ? rates : FALLBACK_COURIERS) : [];
+  const shown = list.filter(usable);
+  const hidden = list.length - shown.length;
+  const chosen = shown.find((r) => r.code === picked) ?? null;
+  useEffect(() => { if (info && !shown.some((r) => r.code === picked) && shown[0]) setPicked(shown[0].code); }, [info, method]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Same formulas KiriminAja uses (insurance rounded up to Rp100; COD fee on item + shipping + insurance).
+  const itemValue = Math.max(1000, info?.item_value ?? order.subtotal);
+  const insured = insure || !!chosen?.force_insurance;
+  const insurance = insured && chosen?.insurance_pct ? Math.ceil((itemValue * chosen.insurance_pct) / 100 / 100) * 100 : 0;
+  const ship = chosen?.cost ?? order.shipping_cost;
+  const codFee = cod && chosen?.cod_fee_pct ? Math.ceil(((itemValue + ship + insurance) * chosen.cod_fee_pct) / 100) : 0;
+  const codTotal = cod ? itemValue + ship + insurance + codFee : 0;
+
+  const submit = () => onSubmit({
+    ...(chosen ? { courier: chosen.name, courier_code: chosen.code, courier_service: chosen.service, ...(chosen.cost > 0 ? { shipping_cost: chosen.cost } : {}) } : {}),
+    pickup_method: method, insurance: insured, ...dims, ...(method === "pickup" && schedule ? { schedule } : {}),
+  });
+  const time = (s: string) => new Date(s.replace(" ", "T") + "+07:00").toLocaleString("id-ID", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
   return (
     <Modal open onClose={onClose} title={`Pesan Kurir · ${order.code}`} icon={Truck}>
       <div className="space-y-4 text-sm">
-        <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
-          <p><b className="text-slate-800">{order.customer_name}</b> · {order.phone}</p>
-          <p className="mt-0.5">{[order.address, order.village, order.district, order.city].filter(Boolean).join(", ")}</p>
-          {order.courier && <p className="mt-1">Ongkir pesanan: <b className="text-slate-800">{order.courier} {order.courier_service}</b> ({rupiah(order.shipping_cost)})</p>}
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+            <p className="font-semibold text-slate-400">PENGIRIM</p>
+            <p className="mt-0.5"><b className="text-slate-800">{info?.pickup?.name ?? "-"}</b></p>
+            <p>{[info?.pickup?.address, info?.pickup?.city].filter(Boolean).join(", ") || "Atur di Pengaturan → Alamat"}</p>
+          </div>
+          <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+            <p className="font-semibold text-slate-400">PENERIMA</p>
+            <p className="mt-0.5"><b className="text-slate-800">{order.customer_name}</b> · {order.phone}</p>
+            <p>{[order.address, order.village, order.district, order.city].filter(Boolean).join(", ")}</p>
+          </div>
         </div>
 
         <Field label="Metode Penyerahan Paket">
@@ -566,34 +642,74 @@ function BookCourierModal({ order, busy, onClose, onSubmit }: {
           </div>
         </Field>
 
-        <Field label="Pilih Ekspedisi & Layanan (KiriminAja)">
-          {rates === null ? (
-            <p className="text-xs text-slate-500">Memuat daftar ekspedisi…</p>
-          ) : (
+        {method === "pickup" && !!info?.schedules?.length && (
+          <Field label="Jadwal Pickup">
+            <select className="input" value={schedule} onChange={(e) => setSchedule(e.target.value)}>
+              {info.schedules.filter((x) => !x.holiday).map((x) => <option key={x.clock} value={x.clock}>{time(x.clock)}{x.until ? ` – ${x.until.slice(11, 16)}` : ""}</option>)}
+            </select>
+          </Field>
+        )}
+
+        <Field label={`Pilih Ekspedisi & Layanan${cod ? " (yang melayani COD)" : ""}`}>
+          {!info ? <p className="text-xs text-slate-500">Memuat daftar ekspedisi…</p> : (
             <div className="space-y-2">
               {err && (
                 <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                  <span>{err}</span>
-                  <button type="button" onClick={loadRates} className="shrink-0 font-semibold underline">Muat ulang</button>
+                  <span>{err}</span><button type="button" onClick={loadRates} className="shrink-0 font-semibold underline">Muat ulang</button>
                 </div>
               )}
               <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
-                {list.map((r) => (
-                  <label key={r.code} className={`flex cursor-pointer items-center justify-between rounded-lg border p-2.5 transition ${picked === r.code ? "border-brand-500 bg-brand-50/40 ring-1 ring-brand-200" : "border-slate-200 hover:border-slate-300"}`}>
+                {shown.map((r) => (
+                  <label key={r.code} className={`flex cursor-pointer items-center justify-between gap-2 rounded-lg border p-2.5 transition ${picked === r.code ? "border-brand-500 bg-brand-50/40 ring-1 ring-brand-200" : "border-slate-200 hover:border-slate-300"}`}>
                     <div className="flex items-center gap-2.5">
                       <input type="radio" name="courier_pick" className="accent-brand-600" checked={picked === r.code} onChange={() => setPicked(r.code)} />
                       <div>
                         <p className="font-semibold text-navy">{r.name} · {r.service}</p>
-                        <p className="text-xs text-slate-500">{r.etd !== "-" ? `Estimasi ${r.etd}` : "Layanan standar KiriminAja"}</p>
+                        <p className="text-xs text-slate-500">{[r.etd !== "-" ? `Estimasi ${r.etd}` : null, r.cut_off ? `cut-off ${r.cut_off}` : null, r.cod ? "COD" : null, r.drop ? "bisa drop-off" : null, r.force_insurance ? "wajib asuransi" : null].filter(Boolean).join(" · ") || "Layanan KiriminAja"}</p>
                       </div>
                     </div>
-                    {r.cost > 0 && <span className="font-semibold text-navy">{rupiah(r.cost)}</span>}
+                    {r.cost > 0 && <span className="shrink-0 font-semibold text-navy">{rupiah(r.cost)}</span>}
                   </label>
                 ))}
+                {!shown.length && <p className="text-xs text-rose-600">Tidak ada layanan yang {cod ? "melayani COD" : "tersedia"}{method === "dropoff" ? " dengan drop-off" : ""} ke alamat ini.</p>}
               </div>
+              {hidden > 0 && <p className="text-[11px] text-slate-400">{hidden} layanan disembunyikan karena tidak mendukung {cod ? "COD" : ""}{cod && method === "dropoff" ? "/" : ""}{method === "dropoff" ? "drop-off" : ""}.</p>}
             </div>
           )}
         </Field>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Ukuran paket (cm)">
+            <div className="flex items-center gap-1.5">
+              {(["length", "width", "height"] as const).map((k, i) => (
+                <span key={k} className="flex items-center gap-1.5">
+                  {i > 0 && <span className="text-slate-400">×</span>}
+                  <input type="number" min={1} max={300} className="input h-9 w-16 text-center" value={dims[k]} onChange={(e) => setDims({ ...dims, [k]: Math.max(1, Number(e.target.value) || 1) })} title={k === "length" ? "Panjang" : k === "width" ? "Lebar" : "Tinggi"} />
+                </span>
+              ))}
+            </div>
+            <p className="mt-1 text-[11px] text-slate-400">Berat {((info?.weight ?? order.weight ?? 0) / 1000).toLocaleString("id-ID")} kg. Ukuran besar bisa kena berat volume.</p>
+          </Field>
+          <Field label="Asuransi">
+            <label className="flex items-center gap-2 text-xs text-slate-600">
+              <input type="checkbox" className="accent-brand-600" checked={insured} disabled={!!chosen?.force_insurance} onChange={(e) => setInsure(e.target.checked)} />
+              Asuransikan paket{chosen?.insurance_pct ? ` (${chosen.insurance_pct}% nilai barang)` : ""}{chosen?.force_insurance ? " · wajib untuk layanan ini" : ""}
+            </label>
+            {insured && insurance > 0 && <p className="mt-1 text-[11px] text-slate-500">Biaya asuransi ±{rupiah(insurance)}</p>}
+          </Field>
+        </div>
+
+        <div className="rounded-lg bg-slate-50 p-3 text-xs">
+          <div className="flex justify-between"><span className="text-slate-500">Ongkir KiriminAja</span><b>{rupiah(ship)}</b></div>
+          {insurance > 0 && <div className="flex justify-between"><span className="text-slate-500">Asuransi</span><b>{rupiah(insurance)}</b></div>}
+          {cod && (
+            <>
+              <div className="flex justify-between"><span className="text-slate-500">Biaya COD{chosen?.cod_fee_pct ? ` (${chosen.cod_fee_pct}%)` : ""}</span><b>{rupiah(codFee)}</b></div>
+              <div className="mt-1 flex justify-between border-t border-slate-200 pt-1"><span className="font-semibold text-slate-700">Ditagih kurir ke pembeli (COD)</span><b className="text-navy">{rupiah(codTotal)}</b></div>
+              {Math.abs(codTotal - order.total) > 100 && <p className="mt-1 text-[11px] text-amber-700">Beda dengan total pesanan {rupiah(order.total)}: KiriminAja menagih sesuai rumus ongkir + asuransi + biaya COD mereka.</p>}
+            </>
+          )}
+        </div>
 
         <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
           <button type="button" onClick={onClose} className="btn-outline">Batal</button>
