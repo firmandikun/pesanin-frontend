@@ -33,7 +33,7 @@ export function NotificationBell({ side = "bottom", openOverride, onToggleOverri
   const [internalOpen, setInternalOpen] = useState(false);
   const open = openOverride !== undefined ? openOverride : internalOpen;
   const setOpen = (v: boolean) => { if (onToggleOverride) onToggleOverride(v); else setInternalOpen(v); };
-  const [notifTab, setNotifTab] = useState<"all" | "order" | "other">("all");
+  const [notifTab, setNotifTab] = useState<"all" | "order" | "chat" | "other">("all");
   const [toasts, setToasts] = useState<Item[]>([]);
   const [push, setPush] = useState<{ key: string | null; enabled: boolean }>({ key: null, enabled: false });
   const [pushOn, setPushOn] = useState(false);
@@ -105,7 +105,8 @@ export function NotificationBell({ side = "bottom", openOverride, onToggleOverri
 
   const filteredItems = items.filter((i) => {
     if (notifTab === "order") return i.type === "order";
-    if (notifTab === "other") return i.type !== "order";
+    if (notifTab === "chat") return i.type === "chat";
+    if (notifTab === "other") return i.type !== "order" && i.type !== "chat";
     return true;
   });
 
@@ -132,7 +133,7 @@ export function NotificationBell({ side = "bottom", openOverride, onToggleOverri
               </div>
             </div>
             <div className="grid grid-cols-3 border-b border-slate-100 px-2 pt-2 text-center text-xs font-semibold">
-              {([["all", "Semua"], ["order", "Pesanan"], ["other", "Toko & Info"]] as const).map(([k, label]) => (
+              {([["all", "Semua"], ["order", "Pesanan"], ["chat", `Chat${items.some((i) => i.type === "chat" && !i.read_at) ? " •" : ""}`], ["other", "Toko & Info"]] as const).map(([k, label]) => (
                 <button key={k} type="button" onClick={() => setNotifTab(k)} className={`pb-2 ${notifTab === k ? "border-b-2 border-[#ee4d2d] text-[#ee4d2d]" : "text-slate-500 hover:text-slate-700"}`}>{label}</button>
               ))}
             </div>
