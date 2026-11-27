@@ -3,6 +3,7 @@ import { Bell, BellRing, Check, ChevronsRight, MessageCircle, RefreshCcw, Shoppi
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { subscribeRealtime } from "@/lib/realtime";
 
 type Item = { id: number; type: string; title: string; body: string | null; url: string | null; read_at: string | null; created_at: string };
 type Feed = { items: Item[]; unread: number; push: { key: string | null; enabled: boolean } };
@@ -65,14 +66,24 @@ export function NotificationBell({ side = "bottom", openOverride, onToggleOverri
 
   useEffect(() => {
     poll();
-    const t = setInterval(() => { if (document.visibilityState === "visible") poll(); }, POLL_MS);
+    // With the realtime service (NEXT_PUBLIC_REALTIME_URL) new items arrive over a stream, so PHP is only polled once a minute as a safety net.
+    const live = { on: false, last: Date.now() };
+    const off = subscribeRealtime({
+      onEvent: (e) => { if (e.type !== "ready") { live.last = Date.now(); poll(); } },
+      onStatus: (s) => { live.on = s === "live"; },
+    });
+    const t = setInterval(() => {
+      if (document.visibilityState !== "visible" || (live.on && Date.now() - live.last < 60_000)) return;
+      live.last = Date.now();
+      poll();
+    }, POLL_MS);
     const onFocus = () => poll();
     // A push that reached the service worker means something new: fetch it right away.
     const onSw = (e: MessageEvent) => { if (e.data?.type === "pesanin:notification") poll(); };
     window.addEventListener("focus", onFocus);
     navigator.serviceWorker?.addEventListener("message", onSw);
     navigator.serviceWorker?.getRegistration("/sw.js").then((r) => r?.pushManager.getSubscription()).then((s) => setPushOn(!!s)).catch(() => {});
-    return () => { clearInterval(t); window.removeEventListener("focus", onFocus); navigator.serviceWorker?.removeEventListener("message", onSw); };
+    return () => { off(); clearInterval(t); window.removeEventListener("focus", onFocus); navigator.serviceWorker?.removeEventListener("message", onSw); };
   }, [poll]);
 
   async function togglePush() {
