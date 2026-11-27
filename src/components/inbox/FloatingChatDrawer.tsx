@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ShopeeMark } from "@/components/ChannelBadge";
 import { CHAT_EVENT, NotificationBell } from "@/components/NotificationBell";
 import { api, ApiError, rupiah } from "@/lib/api";
+import { realtimeLive } from "@/lib/realtime";
 
 type Channel = "shopee" | "facebook" | "instagram" | "whatsapp";
 type Conv = {
@@ -67,7 +68,9 @@ export function FloatingChatDrawer() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const lastInbox = useRef(0);
   const loadInbox = useCallback(() => {
+    lastInbox.current = Date.now();
     setInboxErr("");
     api<InboxRes>("/chat")
       .then(setInbox)
@@ -82,8 +85,11 @@ export function FloatingChatDrawer() {
     loadInbox();
     const onChat = () => loadInbox();
     window.addEventListener(CHAT_EVENT, onChat);
+    // New chats on every channel create a "chat" notification, which the bell turns into CHAT_EVENT as soon as the
+    // realtime stream delivers it; while the stream is live this poll is only a once-a-minute safety net.
     const t = setInterval(() => {
-      if (!document.hidden) loadInbox();
+      if (document.hidden || (realtimeLive() && Date.now() - lastInbox.current < 60_000)) return;
+      loadInbox();
     }, 10000);
     return () => {
       window.removeEventListener(CHAT_EVENT, onChat);

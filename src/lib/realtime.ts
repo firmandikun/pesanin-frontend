@@ -28,7 +28,13 @@ export const realtimeMe = () => rt<{ user_id: number; streams: number; poll_seco
  * Keeps one stream open (fetch-based SSE, so the token goes in a header, not the URL) and reconnects
  * with backoff. Stops for good on 401 (logged out). Returns a function that closes it.
  */
+// True while a stream is open, so other pollers (e.g. the chat drawer) can slow down: new items arrive over the stream.
+let liveNow = false;
+export const realtimeLive = () => liveNow;
+
 export function subscribeRealtime(opts: { onEvent: (e: RealtimeEvent) => void; onStatus?: (s: RealtimeStatus) => void }): () => void {
+  const user = opts.onStatus;
+  opts = { ...opts, onStatus: (s) => { liveNow = s === "live"; user?.(s); } };
   if (!realtimeEnabled() || !getToken()) {
     opts.onStatus?.("off");
     return () => {};
@@ -86,6 +92,7 @@ export function subscribeRealtime(opts: { onEvent: (e: RealtimeEvent) => void; o
   connect();
   return () => {
     stopped = true;
+    liveNow = false;
     if (timer) clearTimeout(timer);
     ctrl?.abort();
   };
