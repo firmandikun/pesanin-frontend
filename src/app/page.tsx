@@ -1,232 +1,292 @@
-import {
-  ArrowRight, BarChart3, Bell, CalendarCheck, CheckCircle2, ChevronDown, Coins, FileDown, FileSpreadsheet,
-  Globe, Inbox, Link2, Megaphone, MessageCircle, PackageCheck, Receipt, Send, ShieldCheck, Store, Tag, Truck, Users, Wallet,
-} from "lucide-react";
+/* eslint-disable @next/next/no-img-element */
+import { Geist } from "next/font/google";
 import Link from "next/link";
-import { BrandIcon, type Brand } from "@/components/BrandIcon";
-import { ShopeeMark } from "@/components/ChannelBadge";
-import { LogoMark } from "@/components/Logo";
-import { AdsMockup, CheckoutMockup, HeroDashboard, IncomeMockup, InboxMockup, ProfitMockup, ReportMockup } from "@/components/marketing/Mockups";
-import { HowItWorks } from "@/components/marketing/HowItWorks";
-import { Pricing } from "@/components/marketing/Pricing";
-import { SitePage } from "@/components/marketing/SiteChrome";
+import { DemoLink, Faq, HomeHeader, PricingPlans, SegmentTabs } from "@/components/home/HomeClient";
+import { WRAP, Wordmark } from "@/components/home/shared";
 import { WaLink } from "@/components/marketing/Contact";
 
-const FAQ: [string, string][] = [
-  ["Apa itu Pesanin dan cara kerjanya?", "Pesanin adalah dashboard untuk seller online: pesanan dari Shopee, checkout web, dan input manual masuk ke satu tempat. Pesanin membaca penghasilan Shopee per pesanan, menghitung HPP, biaya iklan, dan pengeluaran, lalu menampilkan laba bersih yang sebenarnya. Untuk jualan di media sosial, Pesanin juga menyediakan link checkout dan landing page dengan ongkir otomatis dan COD."],
-  ["Platform apa saja yang didukung?", "Shopee terhubung resmi lewat Shopee Open Platform (pesanan, produk, stok, chat, dan Shopee Ads). Untuk penjualan di Instagram, TikTok, Facebook, dan WhatsApp, kamu memakai link checkout/landing page Pesanin. WhatsApp Business (Cloud API) terhubung untuk inbox dan broadcast, Meta Ads untuk laporan iklan, dan KiriminAja untuk ongkir & lacak resi. TikTok Shop dan Lazada sedang kami siapkan."],
-  ["Apakah potongan Shopee terbaca otomatis?", "Ya. Pesanin mengambil rincian penghasilan tiap pesanan langsung dari API Shopee: biaya admin, biaya layanan, biaya pemrosesan pesanan Rp1.250, ongkir aktual dan subsidinya, komisi AMS, pajak, sampai ongkir retur. Sebelum dana cair angkanya ditandai \"Estimasi\", dan otomatis diperbarui menjadi final begitu Shopee melepas dana."],
-  ["Bagaimana cara menghitung HPP dan laba bersih?", "Isi HPP (modal) per produk atau per SKU sekali saja, termasuk massal. Laba bersih = omzet − potongan marketplace − HPP − biaya iklan (Shopee Ads sudah termasuk PPN 11%) − biaya operasional. Pesanan batal tidak dihitung, retur dicatat sebagai kerugian."],
-  ["Bisakah input pengeluaran manual atau transaksi di luar marketplace?", "Bisa. Menu Pengeluaran untuk gaji, sewa, packing, pembelian stok, dan aset. Pesanan dari luar marketplace bisa masuk lewat checkout web atau dicatat manual, lalu ikut terhitung di laporan."],
-  ["Apakah data saya aman?", "Koneksi ke Shopee dan Meta memakai login resmi (OAuth), Pesanin tidak pernah meminta password tokomu. Token disimpan terenkripsi, akses tim bisa dibatasi per peran, dan kamu bisa memutus koneksi kapan saja."],
-  ["Bisakah mengelola lebih dari satu toko?", "Bisa. Hubungkan beberapa toko Shopee sekaligus. Setiap toko punya ruang kerja sendiri (ringkasan, pesanan, produk, keuangan, iklan), dan dashboard utama menggabungkan semuanya."],
-  ["Bisakah tim saya ikut memakai Pesanin?", "Bisa. Tambahkan anggota tim dengan peran berbeda (admin, CS, gudang, advertiser) dan login masing-masing, tanpa membagikan akun pemilik."],
-  ["Apakah bisa dipakai di HP atau tablet?", "Bisa. Pesanin berjalan di browser HP, tablet, maupun laptop, dan bisa dipasang ke layar utama HP seperti aplikasi untuk notifikasi pesanan baru."],
-  ["Apa bedanya Pesanin dengan aplikasi lain?", "Pesanin menggabungkan dua hal yang biasanya terpisah: alat jualan (checkout, landing page, ongkir, COD, resi otomatis, inbox WhatsApp, broadcast) dan analitik keuangan marketplace (penghasilan per pesanan, HPP, iklan, laba rugi, arus kas). Jadi kamu tidak perlu dua langganan."],
-  ["Bagaimana proses berlangganan?", "Daftar gratis, coba fiturnya, lalu pilih paket saat siap. Pembayaran lewat transfer bank, virtual account, QRIS, atau e-wallet, dengan faktur ke email setiap periode."],
-  ["Bisa ganti paket kapan saja?", "Bisa. Upgrade langsung aktif dan sisa masa paket lama dihitung proporsional. Downgrade berlaku di periode tagihan berikutnya."],
-  ["Bagaimana kalau kuota pesanan habis?", "Pesanan tetap masuk dan tidak ada yang ditolak. Kami hanya mengingatkan untuk upgrade paket."],
-  ["Apakah data tetap tersimpan kalau berhenti berlangganan?", "Ya. Riwayat pesanan dan laporanmu tetap tersimpan, dan langsung bisa dipakai lagi saat kamu melanjutkan paket."],
-  ["Bagaimana cara mendapatkan bantuan?", "Chat tim kami lewat WhatsApp, baca Tutorial di menu atas, atau jadwalkan demo gratis untuk dipandu langsung."],
-];
+/* Landing page, sliced from Figma "Pesanin" → Beranda (node 1:4193). Desktop frame is 1440px wide. */
 
-type FeatureProps = { id?: string; tag: string; icon: React.ElementType; title: string; desc: string; bullets: string[]; mockup: React.ReactNode; flip?: boolean };
+const geist = Geist({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
-function Feature({ id, tag, icon: Icon, title, desc, bullets, mockup, flip }: FeatureProps) {
+const INK = "text-[#1a1f2e]";
+const MUTED = "text-[#878787]";
+const SHADOW_200 = "shadow-[0_1px_4px_0_rgba(12,12,13,0.1),0_1px_4px_0_rgba(12,12,13,0.05)]";
+const SHADOW_300 = "shadow-[0_4px_4px_-1px_rgba(12,12,13,0.1),0_4px_4px_-1px_rgba(12,12,13,0.05)]";
+
+/** Orange pill above a section title. `jakarta` = Plus Jakarta Sans like most labels in the design. */
+function Eyebrow({ children, jakarta = true }: { children: React.ReactNode; jakarta?: boolean }) {
+  return <span className={`inline-flex items-center justify-center rounded-[20px] bg-[rgba(254,85,27,0.1)] p-[8px] text-[12px] text-[#fe551b] ${jakarta ? "font-sans leading-[15px]" : "leading-[16px]"}`}>{children}</span>;
+}
+
+function SectionTitle({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <h2 className={`text-[24px] font-medium leading-[31px] tracking-[0.048px] ${INK} ${className}`}>{children}</h2>;
+}
+
+function Cap({ icon, title, desc, children, className = "", wide = false }: { icon: string; title: string; desc: string; children: React.ReactNode; className?: string; wide?: boolean }) {
   return (
-    <div id={id} className={`mx-auto grid max-w-7xl scroll-mt-20 items-center gap-12 px-4 py-16 md:py-24 lg:grid-cols-2 [&>*]:min-w-0 ${flip ? "lg:[&>:first-child]:order-last" : ""}`}>
-      <div>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-100 px-3 py-1 text-xs font-bold text-brand-700"><Icon size={13} />{tag}</span>
-        <h3 className="mt-4 text-3xl font-extrabold leading-tight tracking-tight text-navy md:text-[34px]">{title}</h3>
-        <p className="mt-4 text-lg leading-relaxed text-slate-600">{desc}</p>
-        <ul className="mt-6 space-y-3">
-          {bullets.map((b) => <li key={b} className="flex items-start gap-3 text-slate-700"><CheckCircle2 size={18} className="mt-0.5 shrink-0 text-emerald-500" /><span>{b}</span></li>)}
-        </ul>
+    <div className={`flex h-[417px] flex-col overflow-clip rounded-[16px] bg-[#fafafa] ${className}`}>
+      <div className="flex flex-col gap-[16px] p-[20px]">
+        <div className="flex items-center gap-[8px]">
+          <img src={icon} alt="" width={24} height={24} className="size-[24px] shrink-0" />
+          <p className="text-[18px] font-semibold leading-[23px] text-[#1d2127]">{title}</p>
+        </div>
+        <p className={`text-[14px] leading-[18px] text-[#1e1e1d] ${wide ? "" : "min-h-[36px] lg:max-w-[357px]"}`}>{desc}</p>
       </div>
-      <div>{mockup}</div>
+      {/* Screenshots sit 4px below the header, as in the design; positions are relative to this layer. */}
+      <div className="relative flex-1">{children}</div>
     </div>
   );
 }
 
-const ALL_FEATURES: [React.ElementType, string, string][] = [
-  [Store, "Multi toko Shopee", "Pesanan, produk, stok & chat tersinkron tiap 30 detik"],
-  [Receipt, "Penghasilan per pesanan", "Rincian 20+ jenis potongan langsung dari API Shopee"],
-  [Coins, "HPP per produk & SKU", "Isi massal, laba tiap pesanan langsung terhitung"],
-  [Wallet, "Pengeluaran", "Operasional, pembelian stok, aset & arus kas"],
-  [Megaphone, "Shopee Ads & Meta Ads", "Biaya iklan +PPN, ROAS per kampanye & produk"],
-  [FileSpreadsheet, "Laba rugi & arus kas", "Ekspor Excel & PDF, siap untuk pembukuan"],
-  [Link2, "Link checkout", "Ongkir otomatis 7+ kurir, COD, transfer & e-payment"],
-  [Globe, "Landing page builder", "Block editor, domain sendiri, pixel Meta/TikTok/Google"],
-  [Truck, "Ongkir & lacak resi", "Ongkir asli KiriminAja, resi dilacak otomatis"],
-  [FileDown, "Produk digital otomatis", "Link akses terkirim via WhatsApp & email setelah bayar"],
-  [Inbox, "Inbox + CRM", "Chat WhatsApp & Shopee, label, catatan, riwayat pelanggan"],
-  [Send, "Broadcast WhatsApp", "Kirim template resmi Meta ke ribuan kontak"],
-  [Users, "Anggota tim & peran", "Login terpisah untuk admin, CS, gudang & advertiser"],
-  [Tag, "Kupon & order bump", "Diskon, gratis ongkir & tambahan produk di checkout"],
-  [PackageCheck, "Pesanan & pengiriman", "Atur pengiriman Shopee, cetak label massal, lacak paket"],
-  [BarChart3, "Riset produk & pasar", "Produk naik/turun, stok menipis, tren pencarian"],
+function Img({ src, box, img = "absolute inset-0 size-full object-cover" }: { src: string; box: string; img?: string }) {
+  return <div className={`absolute overflow-hidden rounded-[8px] ${box}`}><img src={src} alt="" loading="lazy" className={`pointer-events-none max-w-none ${img}`} /></div>;
+}
+
+const LOGOS: [string, string, string][] = [
+  ["/landing/logo-shopee.png", "Shopee", "h-[24px] w-[75px] object-cover"],
+  ["/landing/logo-whatsapp-business.svg", "WhatsApp Business", "h-[24px] w-[168px]"],
+  ["/landing/logo-meta.png", "Meta", "h-[22px] w-[85px]"],
+  ["/landing/logo-midtrans.png", "Midtrans", "h-[20px] w-[121px] object-cover"],
+  ["/landing/logo-rajaongkir.png", "RajaOngkir", "h-[24px] w-[96px] object-cover"],
+];
+
+const STATS: [string, string, string, string][] = [
+  ["65%", "Lebih hemat", "biaya sistem", "Dibanding biaya langganan sistem omnichannel skala besar yang mencapai puluhan juta."],
+  ["30 Detik", "Sinkronisasi", "0tomatis", "Update pesanan, status pencairan dana, dan stok berjalan otomatis tanpa refresh manual."],
+  ["100%", "Transparansi", "berbasis API", "Hitungan laba bersih diambil langsung dari rincian resmi transaksi."],
 ];
 
 export default function Home() {
   return (
-    <SitePage>
-      {/* HERO */}
-      <section className="relative overflow-hidden border-b border-slate-100 bg-[#fbfaf8]">
-        <div className="pointer-events-none absolute inset-0"><div className="absolute left-1/2 top-0 h-[520px] w-[760px] -translate-x-1/2 rounded-full bg-brand-100/50 blur-3xl" /></div>
-        <div className="relative mx-auto grid max-w-7xl items-center gap-14 px-4 pb-20 pt-14 lg:grid-cols-[1.05fr_1fr] [&>*]:min-w-0">
-          <div>
-            <div className="inline-flex flex-wrap items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600">
-              <ShopeeMark size={16} /> Integrasi resmi Shopee Open Platform · sinkron real-time
-            </div>
-            <h1 className="mt-6 text-[34px] font-extrabold leading-[1.1] tracking-[-0.03em] text-navy sm:text-[44px] md:text-[56px]">
-              Kelola pesanan & <span className="text-brand-500">laba bersih</span> jualan online dalam satu dashboard
-            </h1>
-            <p className="mt-5 max-w-xl text-lg leading-relaxed text-slate-600">
-              Pesanan Shopee, checkout web, dan chat WhatsApp jadi satu. Pesanin membaca potongan Shopee per pesanan, menghitung HPP, iklan, dan pengeluaran, jadi kamu tahu untung yang sebenarnya, setiap hari.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/register" className="flex h-12 items-center gap-2 rounded-xl bg-brand-500 px-7 font-bold text-white shadow-lg shadow-brand-500/25 transition hover:-translate-y-0.5 hover:bg-brand-600">Coba Gratis Sekarang <ArrowRight size={18} /></Link>
-              <WaLink text={"Halo tim Pesanin, saya mau jadwalkan demo"} target="_blank" rel="noopener noreferrer" className="flex h-12 items-center gap-2 rounded-xl border border-slate-200 bg-white px-6 font-semibold text-navy transition hover:border-slate-300 hover:bg-slate-50"><CalendarCheck size={18} />Jadwalkan Demo</WaLink>
-            </div>
-            <p className="mt-4 text-sm text-slate-500">Daftar gratis · Tanpa kartu kredit · Siap dalam 5 menit</p>
-            <div className="mt-8 grid max-w-lg grid-cols-3 gap-4 border-t border-slate-200 pt-6">
-              {[["30 detik", "interval sinkron pesanan"], ["20+", "jenis potongan Shopee terbaca"], ["7+ kurir", "ongkir & COD otomatis"]].map(([v, l]) => (
-                <div key={l}><p className="text-2xl font-extrabold tracking-tight text-navy">{v}</p><p className="text-xs leading-snug text-slate-500">{l}</p></div>
-              ))}
-            </div>
-          </div>
-          <HeroDashboard />
-        </div>
-      </section>
+    <div className={`${geist.className} min-h-screen overflow-x-clip bg-white leading-[1.3] ${INK}`}>
+      <HomeHeader />
 
-      {/* INTEGRATIONS */}
-      <section className="border-b border-slate-100 bg-white py-12">
-        <div className="mx-auto max-w-7xl px-4">
-          <p className="text-center text-sm font-semibold text-slate-500">Terhubung dengan layanan yang sudah kamu pakai</p>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-            {([["shopee", "Shopee"], ["whatsapp", "WhatsApp Business"], ["meta", "Meta Ads"], ["instagram", "Instagram"], ["tiktok", "TikTok Shop (segera)"], ["midtrans", "Midtrans"]] as [Brand, string][]).map(([b, label]) => (
-              <span key={b} className="flex h-12 items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-navy shadow-sm">
-                {b === "shopee" ? <ShopeeMark size={24} /> : <BrandIcon name={b} size={24} />}{label}
-              </span>
-            ))}
+      {/* HERO (1:4211) */}
+      <section className="relative overflow-hidden">
+        <img src="/landing/hero-swoosh.png" alt="" aria-hidden className="pointer-events-none absolute right-0 top-[-50px] z-0 hidden h-[342px] w-[310px] object-cover lg:block" />
+        <div className={`${WRAP} relative z-10 flex flex-col gap-[40px] py-[40px] lg:flex-row lg:items-start lg:gap-[80px] lg:py-[80px]`}>
+          <div className="flex flex-col justify-center gap-[32px] lg:w-[456px] lg:shrink-0">
+            <div className="flex flex-col gap-[24px]">
+              <h1 className="text-[32px] font-bold leading-[42px] sm:leading-[52px] tracking-[0.08px] sm:text-[40px]">
+                Omzet besar belum tentu untung. Lihat <span className="text-[#fe551b]">laba bersihmu</span> setiap hari.
+              </h1>
+              <p className="text-[18px] leading-[23px] tracking-[0.036px]">Satukan pesanan Shopee, checkout web, HPP, dan biaya iklan dalam satu dashboard otomatis.</p>
+            </div>
+            <div className="flex flex-col gap-[12px]">
+              <div className="flex flex-wrap items-center gap-[20px]">
+                <Link href="/register" className="flex items-center justify-center rounded-[32px] bg-[#fe551b] px-[16px] py-[12px] text-[14px] leading-[24px] tracking-[0.028px] text-white transition hover:bg-[#e64a14]">Coba Gratis Sekarang</Link>
+                <DemoLink className={`flex items-center justify-center rounded-[32px] bg-[#efeeed] px-[16px] py-[12px] text-[14px] leading-[24px] tracking-[0.028px] ${INK} transition hover:bg-[#e5e4e3]`}>Jadwalkan Demo</DemoLink>
+              </div>
+              <p className="flex flex-wrap items-center text-[12px] leading-[18px] tracking-[0.024px]">
+                Gratis selamanya hingga 100 orderan/bulan<span className="w-[21px] text-center text-[14px]" aria-hidden>•</span>Tanpa kartu kredit
+              </p>
+            </div>
           </div>
-          <p className="mt-8 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Ongkir & resi otomatis</p>
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">
-            {([["jne", "JNE"], ["jnt", "J&T Express"], ["sicepat", "SiCepat"], ["spx", "SPX Express"], ["anteraja", "AnterAja"], ["pos", "POS Indonesia"], ["sap", "SAP Express"]] as [Brand, string][]).map(([b, label]) => (
-              <span key={b} className="flex h-10 items-center gap-2 rounded-lg bg-slate-50 px-3 text-xs font-semibold text-slate-600 ring-1 ring-slate-100"><BrandIcon name={b} size={20} className="rounded" />{label}</span>
-            ))}
+          <div className="min-w-0 flex-1 rounded-[20px] border border-[#f7f7f7] bg-white p-[11px] shadow-[inset_0_0_12px_rgba(0,0,0,0.025)] max-sm:p-[7px]">
+            <div className="rounded-[12px] border border-[#f5f5f5] bg-white p-[3px]">
+              <div className="relative aspect-[3360/1573] w-full overflow-hidden rounded-[12px]">
+                <img src="/landing/hero-dashboard.png" alt="Dashboard Pesanin" className="absolute left-0 top-[-33.5%] h-[133.5%] w-full max-w-none" />
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* FEATURES */}
-      <section id="fitur" className="scroll-mt-16">
-        <div className="mx-auto max-w-3xl px-4 pt-20 text-center">
-          <span className="inline-block rounded-full bg-brand-100 px-3 py-1 text-xs font-bold text-brand-700">Fitur Unggulan</span>
-          <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-navy md:text-[42px]">Dari pesanan masuk sampai laporan laba, otomatis</h2>
-          <p className="mt-4 text-lg text-slate-600">Tidak perlu lagi rekap manual di Excel atau cocokkan saldo Shopee satu per satu.</p>
-        </div>
-        <div className="divide-y divide-slate-100">
-          <Feature tag="Penghasilan Marketplace" icon={Receipt} title="Potongan Shopee tiap pesanan terbaca otomatis"
-            desc="Pesanin mengambil data penghasilan pesanan langsung dari API resmi Shopee, jadi kamu tahu berapa uang yang benar-benar masuk dari tiap pesanan."
-            bullets={["Biaya admin, layanan, pemrosesan pesanan Rp1.250, komisi AMS, dan pajak", "Ongkir aktual, subsidi ongkir Shopee, ongkir retur & pengembalian dana", "Status Estimasi → Sudah cair, diperbarui otomatis saat dana dilepas", "Pesanan batal tidak dihitung, retur dicatat sebagai kerugian"]}
-            mockup={<IncomeMockup />} />
-          <div className="bg-[#fbfaf8]">
-            <Feature tag="Dashboard Laba" icon={Coins} flip title="Omzet, HPP, potongan, iklan, dan laba bersih dalam satu layar"
-              desc="Isi HPP per produk atau SKU sekali, catat pengeluaran operasional, dan lihat alur dari omzet menjadi laba bersih setiap hari."
-              bullets={["Profit funnel per toko dan gabungan semua channel", "HPP per produk/SKU, input massal tanpa Excel", "Pengeluaran: operasional, pembelian stok, aset & pembiayaan", "Peringatan HPP kosong, produk rugi, dan retur"]}
-              mockup={<ProfitMockup />} />
-          </div>
-          <Feature tag="Marketing & Iklan" icon={Megaphone} title="Tahu iklan mana yang benar-benar untung"
-            desc="Biaya Shopee Ads tersinkron otomatis tiap hari (sudah termasuk PPN 11%), laporan Meta Ads terhubung, dan biaya iklan lain bisa dicatat manual."
-            bullets={["ROAS per kampanye dan per produk", "Saldo iklan Shopee terpantau langsung dari dashboard", "Laba setelah iklan, bukan sekadar omzet iklan", "Atribusi UTM untuk penjualan dari Instagram, TikTok & Meta Ads"]}
-            mockup={<AdsMockup />} />
-          <div className="bg-[#fbfaf8]">
-            <Feature tag="Laporan Keuangan" icon={FileSpreadsheet} flip title="Laporan laba rugi & arus kas tanpa rekap manual"
-              desc="Laporan per toko atau gabungan siap dipakai untuk evaluasi bisnis dan pembukuan. Ekspor transaksi lengkap dengan kolom per jenis potongan."
-              bullets={["Laba rugi dan arus kas per periode", "Ekspor Excel (kolom per jenis biaya) dan cetak PDF", "Transaksi per pesanan dengan filter status, tanggal & pencarian", "Pagination hingga 1.000 baris per halaman"]}
-              mockup={<ReportMockup />} />
-          </div>
-          <Feature tag="Checkout & Landing Page" icon={Link2} title="Jualan di media sosial dengan checkout yang rapi"
-            desc="Bagikan link checkout atau landing page ke Instagram, TikTok, WhatsApp, dan iklan. Ongkir muncul otomatis, pembeli bisa COD, dan resi terbit sendiri setelah lunas."
-            bullets={["Tarif real-time JNE, J&T, SiCepat, SPX, AnterAja, POS, SAP", "COD, transfer bank, dan e-payment (QRIS, VA, e-wallet)", "Ongkir asli KiriminAja & resi dilacak otomatis; produk digital terkirim otomatis", "Landing page builder dengan domain sendiri & pixel iklan"]}
-            mockup={<CheckoutMockup />} />
-          <div className="bg-[#fbfaf8]">
-            <Feature tag="Inbox, CRM & Broadcast" icon={MessageCircle} flip title="Semua chat pelanggan di satu inbox"
-              desc="Balas chat WhatsApp Business dan Shopee dari satu tempat, beri label pelanggan, dan kirim broadcast dengan template resmi Meta."
-              bullets={["Inbox WhatsApp & Shopee dengan label, catatan, dan riwayat pesanan", "Balasan cepat dan pembagian chat ke anggota tim", "Broadcast WhatsApp ke segmen pelanggan", "Notifikasi pesanan baru ke HP dan WhatsApp"]}
-              mockup={<InboxMockup />} />
+      {/* SOCIAL PROOF (1:4231) */}
+      <section className="border-y border-[#efeeed]">
+        <div className={`${WRAP} flex flex-col gap-[24px] py-[32px] lg:flex-row lg:items-center lg:gap-[80px]`}>
+          <p className="shrink-0 text-[16px] leading-[21px] tracking-[0.032px]">Terhubung resmi dengan ekosistem jualanmu:</p>
+          <div className="flex flex-1 flex-wrap items-center justify-between gap-x-[24px] gap-y-[20px] max-lg:justify-start">
+            {LOGOS.map(([src, alt, cls]) => <img key={alt} src={src} alt={alt} className={`shrink-0 ${cls}`} />)}
           </div>
         </div>
+      </section>
 
-        {/* ALL FEATURES */}
-        <div className="border-t border-slate-100 bg-white py-20">
-          <div className="mx-auto max-w-7xl px-4">
-            <div className="mx-auto max-w-2xl text-center">
-              <h2 className="text-3xl font-extrabold tracking-tight text-navy md:text-[36px]">Semua fitur dalam satu langganan</h2>
-              <p className="mt-3 text-slate-600">Alat jualan dan analitik keuangan yang biasanya butuh beberapa aplikasi berbeda.</p>
+      {/* SEGMENTASI SOLUSI (1:4251) */}
+      <section id="solusi" className="scroll-mt-4 bg-[#fafafa]">
+        <div className={`${WRAP} flex flex-col items-start gap-[24px] py-[56px] lg:py-[80px]`}>
+          <div className="flex flex-col items-start gap-[16px]">
+            <Eyebrow>SEGMENTASI SOLUSI</Eyebrow>
+            <SectionTitle className="lg:w-[759px]">Dibangun untuk cara jualanmu hari ini. <span className={MUTED}>Pilih kanal utama jualanmu untuk melihat masalah yang kami bereskan</span></SectionTitle>
+          </div>
+          <SegmentTabs />
+        </div>
+      </section>
+
+      {/* KAPABILITAS UTAMA (1:4277) */}
+      <section id="fitur" className="scroll-mt-4">
+        <div className={`${WRAP} flex flex-col gap-[24px] py-[56px] lg:py-[80px]`}>
+          <div className="flex flex-col gap-[16px] lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col items-start gap-[16px]">
+              <Eyebrow>KAPABILITAS UTAMA</Eyebrow>
+              <SectionTitle className="lg:w-[473px]">Dari pesanan masuk sampai laporan laba, serba otomatis</SectionTitle>
             </div>
-            <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {ALL_FEATURES.map(([Icon, t, d]) => (
-                <div key={t} className="rounded-2xl border border-slate-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-md">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600"><Icon size={20} /></span>
-                  <h3 className="mt-3 font-bold text-navy">{t}</h3>
-                  <p className="mt-1 text-sm leading-relaxed text-slate-500">{d}</p>
+            <p className="text-[18px] leading-[23px] tracking-[0.036px] lg:w-[517px] lg:text-right">Lima pilar utama yang menggantikan <br className="hidden lg:block" />tumpukan spreadsheet dan langganan aplikasi terpisah.</p>
+          </div>
+          <div className="grid gap-[20px] lg:grid-cols-[815fr_397fr]">
+            <Cap wide icon="/landing/ic-chart-analysis.svg" title="Analitik laba & potongan otomatis" desc="Membaca potongan Shopee serta menghitung HPP per SKU secara otomatis">
+              <Img src="/landing/cap-laba.png" box={`left-[19px] top-[4px] h-[349px] w-[777px] ${SHADOW_300}`} />
+            </Cap>
+            <Cap icon="/landing/ic-cart-checkout.svg" title="Checkout & Landing Page Builder" desc="Halaman penjualan dengan domain sendiri, tarif ongkir 7+ kurir, COD, serta pembayaran QRIS/VA otomatis">
+              <Img src="/landing/cap-domain.png" box={`left-[31px] top-[4px] h-[65px] w-[335px] ${SHADOW_200}`} img="absolute left-[-3.36%] top-[-18.46%] h-[135.38%] w-[103.43%]" />
+              <Img src="/landing/cap-custom-domain.png" box={`left-[58px] top-[89px] h-[96px] w-[319px] ${SHADOW_200}`} img="absolute left-[-4.8%] top-[-13.27%] h-[236.28%] w-[109.87%]" />
+            </Cap>
+          </div>
+          <div className="grid gap-[20px] md:grid-cols-2 lg:grid-cols-3 lg:gap-[20.5px]">
+            <Cap icon="/landing/ic-ads-click.svg" title="Atribusi Iklan & ROAS Nyata" desc="Sinkronisasi biaya Shopee Ads (+PPN 11%) dan Meta Ads untuk melihat kampanye yang menghasilkan profit">
+              <Img src="/landing/cap-ads.png" box="left-[20px] top-[4px] h-[85px] w-[819px]" img="absolute left-[-1.2%] top-[-9.17%] h-[109.17%] w-[101.2%]" />
+              <Img src="/landing/cap-ads.png" box="left-[-233px] top-[105px] h-[81px] w-[786px]" img="absolute left-[-1.2%] top-[-9.17%] h-[109.17%] w-[101.2%]" />
+              <Img src="/landing/cap-ads.png" box="left-[-402px] top-[202px] h-[81px] w-[786px]" img="absolute left-[-1.2%] top-[-9.17%] h-[109.17%] w-[101.2%]" />
+            </Cap>
+            <Cap icon="/landing/ic-message.svg" title="Inbox CRM & Kolaborasi Tim" desc="Satukan chat Shopee dan WhatsApp Business dalam satu layar, lengkap">
+              <Img src="/landing/cap-chat.png" box={`left-[20.5px] top-[4px] h-[331px] w-[1037px] ${SHADOW_200}`} />
+            </Cap>
+            <Cap icon="/landing/ic-report-data.svg" title="Otomasi Agentic & Laporan Keuangan" desc="Pantau perubahan status dana, deteksi dini produk rugi/HPP kosong.">
+              <Img src="/landing/cap-otomasi.png" box="left-[11px] top-[4px] h-[277px] w-[759px]" />
+            </Cap>
+          </div>
+        </div>
+      </section>
+
+      {/* DAMPAK TERUKUR (1:4330) */}
+      <section>
+        <div className={`${WRAP} flex flex-col gap-[24px] py-[56px] lg:py-[80px]`}>
+          <div className="flex flex-col items-start gap-[16px]">
+            <Eyebrow jakarta={false}>DAMPAK TERUKUR</Eyebrow>
+            <SectionTitle className="lg:w-[473px]">Dipercaya Seller <span className={MUTED}>untuk memangkas biaya operasional sistem</span></SectionTitle>
+          </div>
+          <div className="grid gap-[24px] md:grid-cols-3">
+            {STATS.map(([v, a, b, d]) => (
+              <div key={v} className="flex h-[200px] flex-col justify-between rounded-[16px] border border-[#ededed] bg-white p-[20px] lg:h-[265px]">
+                <div className="flex items-start gap-[12px] whitespace-nowrap text-[#1d2127]">
+                  <p className="text-[36px] font-bold leading-[47px]">{v}</p>
+                  <p className="text-[18px] leading-[23px]">{a}<br />{b}</p>
                 </div>
-              ))}
+                <p className="text-[16px] leading-[21px] text-[#1e1e1d]">{d}</p>
+              </div>
+            ))}
+          </div>
+          <figure className="flex min-h-[417px] flex-col items-center justify-center gap-[24px] rounded-[16px] p-[20px] text-center">
+            <img src="/landing/testimonial-avatar.png" alt="" width={80} height={80} className="size-[80px] rounded-full" />
+            <blockquote className="max-w-[800px] text-[20px] font-medium leading-[26px] sm:leading-[31px] text-[#1d2127] sm:text-[24px]">
+              “Sebelumnya kami bayar hingga Rp10 juta/bulan di sistem lama dan masih harus rekap laba bersih di Excel. Pindah ke Pesanin memangkas biaya sistem lebih dari separuh, dan laba per SKU langsung terlihat setiap hari.”
+            </blockquote>
+            <figcaption className="flex flex-col items-center gap-[4px] text-[16px] leading-[21px] sm:leading-[23px] sm:text-[18px]">
+              <span className="font-medium text-[#1d2127]">Operasional lead</span>
+              <span className={MUTED}>Brand Retail Multi-Toko · Klien Enterprise Pesanin</span>
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+
+      {/* PAKET & HARGA (1:4359) */}
+      <section id="harga" className="scroll-mt-4 bg-[#fafafa]">
+        <div className={`${WRAP} flex flex-col items-center gap-[24px] py-[56px] lg:py-[80px]`}>
+          <div className="flex w-full flex-col gap-[16px] lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col items-start gap-[16px]">
+              <Eyebrow>PAKET &amp; HARGA</Eyebrow>
+              <SectionTitle className="lg:w-[473px]">Harga simple yang tumbuh bersama bisnismu.</SectionTitle>
+            </div>
+            <p className="text-[18px] leading-[23px] tracking-[0.036px] lg:w-[517px] lg:text-right">Pilih jalur sesuai cara jualanmu. <br className="hidden lg:block" />Tanpa fitur mubazir, mulai gratis selamanya</p>
+          </div>
+          <PricingPlans />
+
+          <div className="flex w-full flex-col overflow-clip rounded-[16px] bg-white">
+            <div className="flex flex-col items-start gap-[16px] p-[20px]">
+              <span className="rounded-[20px] bg-[#fe551b] px-[8px] py-[6px] text-[12px] font-medium leading-[16px] tracking-[0.24px] text-white">SCALE &amp; ENTERPRISE</span>
+              <p className="text-[16px] font-semibold leading-[21px]">Scale &amp; Enterprise</p>
+              <p className={`text-[12px] leading-[16px] ${MUTED}`}>Untuk big seller, brand, dan agensi dengan <b className={`font-bold ${INK}`}>50.000 – 100.000+</b> order/bulan yang ingin memangkas biaya sistem hingga 65%.</p>
+              <div className="flex flex-wrap gap-x-[20px] gap-y-[8px]">
+                {["Unlimited Toko & Multi-Gudang", "Otomasi Agentic & Deteksi Anomali Penuh", "Dedicated Account & SLA Prioritas"].map((c) => (
+                  <span key={c} className="rounded-[20px] bg-[rgba(254,85,27,0.1)] px-[8px] py-[4px] text-[10px] font-bold leading-[13px] text-[#fe551b]">{c}</span>
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-[12px] px-[20px] pb-[20px]">
+              <p className="text-[16px] leading-[21px]">Dapatkan penawaran khusus</p>
+              <WaLink text="Halo tim Pesanin, saya tertarik paket Scale & Enterprise" target="_blank" rel="noopener noreferrer"
+                className="flex h-[42px] items-center rounded-[20px] border border-[#efeeed] bg-[#fe551b] px-[16px] text-[14px] font-medium leading-[18px] text-white transition hover:bg-[#e64a14]">Hubungi Tim Sales</WaLink>
+            </div>
+          </div>
+
+          <div className="flex w-full flex-col gap-[8px] tracking-[0.036px]">
+            <p className="text-[18px] font-bold leading-[23px]">Perluas sesuai kebutuhanmu.</p>
+            <p className="text-[18px] leading-[23px]">Fleksibilitas modul tambahan dan transparansi biaya resmi mitra.</p>
+          </div>
+          <div className="grid w-full gap-[24px] md:grid-cols-2">
+            <div className="flex flex-col gap-[20px] rounded-[16px] border border-[#ededed] bg-white p-[19px]">
+              <div className="flex items-center gap-[20px]">
+                <p className="text-[18px] font-bold leading-[23px] text-[#1d2127]">Bundling Omnichannel</p>
+                <span className="rounded-[20px] bg-[rgba(254,85,27,0.1)] px-[8px] py-[4px] text-[10px] font-medium leading-[13px] text-[#fe551b]">Hemat 30%</span>
+              </div>
+              <p className="text-[16px] leading-[21px] text-[#1e1e1d]">Gabungkan jalur Shopee dan Social/Web sekaligus dalam satu workspace terpusat untuk laporan Laba Rugi lintas kanal.</p>
+            </div>
+            <div className="flex flex-col gap-[20px] rounded-[16px] border border-[#ededed] bg-white p-[19px]">
+              <p className="text-[18px] font-bold leading-[23px] text-[#1d2127]">Transparansi Biaya Mitra</p>
+              <p className="text-[16px] leading-[21px] text-[#1e1e1d]">Harga belum termasuk PPN 11%. Biaya payment gateway (Midtrans) dan ongkir (RajaOngkir) dibayar langsung sesuai tarif resmi mitra tanpa markup.</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* CARA KERJA */}
-      <section id="cara-kerja" className="scroll-mt-16 border-t border-slate-100 bg-[#fbfaf8] py-24">
-        <div className="mx-auto max-w-7xl px-4"><HowItWorks /></div>
-      </section>
-
-      {/* HARGA */}
-      <section id="harga" className="scroll-mt-16 border-t border-slate-100 bg-white py-24">
-        <div className="mx-auto max-w-7xl px-4">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-extrabold tracking-tight text-navy md:text-[42px]">Pilih Paket yang <span className="text-brand-500">Tepat</span></h2>
-            <p className="mt-4 text-lg text-slate-600">Pilih paket sesuai volume pesanan bisnismu. Semua paket termasuk integrasi Shopee, analitik laba, dan checkout dengan ongkir otomatis & COD.</p>
-          </div>
-          <div className="mt-12"><Pricing /></div>
+      {/* FAQ (1:4579) */}
+      <section id="faq" className="scroll-mt-4">
+        <div className={`${WRAP} flex flex-col items-center gap-[24px] py-[56px] lg:py-[80px]`}>
+          <h2 className="text-center text-[28px] font-bold leading-[36px] sm:leading-[47px] tracking-[0.072px] sm:text-[36px]">Pertanyaan yang sering diajukan</h2>
+          <Faq />
         </div>
       </section>
 
-      {/* FAQ */}
-      <section id="faq" className="scroll-mt-16 border-t border-slate-100 bg-[#fbfaf8] py-24">
-        <div className="mx-auto max-w-3xl px-4">
-          <div className="mb-10 text-center">
-            <span className="inline-block rounded-full bg-brand-100 px-3 py-1 text-xs font-bold text-brand-700">FAQ</span>
-            <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-navy md:text-[40px]">Pertanyaan yang sering diajukan</h2>
+      {/* CTA (1:4608) */}
+      <section className={`${WRAP} py-[40px]`}>
+        <div className="relative flex flex-col items-center justify-center gap-[48px] overflow-clip rounded-[24px] px-[20px] py-[48px] sm:p-[48px]">
+          <div aria-hidden className="pointer-events-none absolute left-[42.4%] top-[118.77px] size-[215px] rounded-full bg-[rgba(255,214,167,0.4)] blur-[150px]" />
+          <div aria-hidden className="pointer-events-none absolute left-[-34px] top-[204.77px] size-[215px] rounded-full bg-[rgba(254,85,27,0.4)] blur-[150px]" />
+          <div aria-hidden className="pointer-events-none absolute left-[81.8%] top-[226.77px] size-[215px] rounded-full bg-[rgba(254,85,27,0.4)] blur-[150px]" />
+          <div className="relative flex max-w-[800px] flex-col items-center gap-[16px] text-center leading-[1.3]">
+            <h2 className="text-[32px] font-bold sm:text-[40px]">Berhenti menebak untung. Lihat angkanya hari ini.</h2>
+            <p className="max-w-[542px] text-[16px]">Hubungkan tokomu dalam 5 menit dan temukan laba bersih dari setiap pesanan.</p>
           </div>
-          <div className="space-y-2">
-            {FAQ.map(([q, a]) => (
-              <details key={q} className="group rounded-2xl border border-slate-200 bg-white px-6 py-1 transition hover:border-slate-300">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 font-semibold text-navy">{q}<ChevronDown size={18} className="shrink-0 text-slate-400 transition-transform duration-300 group-open:rotate-180" /></summary>
-                <p className="pb-5 leading-relaxed text-slate-600">{a}</p>
-              </details>
-            ))}
-          </div>
-          <p className="mt-6 text-center text-sm text-slate-500">Masih ada pertanyaan? <WaLink target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-600">Chat tim kami</WaLink> atau baca <Link href="/tutorials" className="font-semibold text-brand-600">Tutorial</Link>.</p>
+          <Link href="/register" className="relative flex h-[47px] items-center justify-center gap-[10px] rounded-[20px] bg-[#fe551b] px-[16px] py-[12px] font-sans text-[14px] font-medium leading-[18px] text-white transition hover:bg-[#e64a14]">
+            Coba gratis sekarang <img src="/landing/ic-arrow-right.svg" alt="" width={18} height={18} className="size-[18px]" />
+          </Link>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="bg-gradient-to-br from-brand-500 to-brand-700 py-24">
-        <div className="mx-auto max-w-2xl px-4 text-center">
-          <LogoMark size={44} className="mx-auto" />
-          <h2 className="mx-auto mt-6 text-3xl font-extrabold tracking-tight text-white md:text-[44px] md:leading-tight">Berhenti menebak untung. Mulai lihat angkanya.</h2>
-          <p className="mt-4 text-lg text-white/85">Hubungkan tokomu hari ini dan lihat laba bersih per pesanan dalam hitungan menit.</p>
-          <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Link href="/register" className="inline-flex h-12 items-center gap-2 rounded-xl bg-white px-8 font-bold text-brand-600 shadow-lg transition hover:-translate-y-0.5">Coba Gratis Sekarang <ArrowRight size={18} /></Link>
-            <WaLink text={"Halo tim Pesanin, saya mau jadwalkan demo"} target="_blank" rel="noopener noreferrer" className="inline-flex h-12 items-center gap-2 rounded-xl bg-white/15 px-7 font-semibold text-white transition hover:bg-white/25"><CalendarCheck size={18} />Jadwalkan Demo</WaLink>
+      {/* FOOTER (1:4621) */}
+      <footer className="relative border-t border-[#ededed] bg-white">
+        <img src="/landing/footer-bg.png" alt="" aria-hidden className="pointer-events-none absolute inset-0 size-full object-cover" />
+        <div className="relative mx-auto flex w-full max-w-[1440px] flex-col gap-[40px] px-4 pt-[56px] sm:px-6 lg:flex-row lg:items-start lg:justify-between lg:px-10 lg:pt-[80px] xl:px-[140px]">
+          <div className="flex flex-col items-start gap-[32px]">
+            <Link href="/" aria-label="Pesanin"><Wordmark className="h-[43px] w-[183px]" /></Link>
+            <p className="max-w-[444px] text-[16px] font-medium leading-[21px]">Pusat kendali pesanan, potongan marketplace, HPP, iklan, dan laba bersih untuk seller online Indonesia.</p>
           </div>
-          <p className="mt-5 flex items-center justify-center gap-2 text-sm text-white/80"><ShieldCheck size={16} />Login resmi Shopee & Meta · data terenkripsi · <Bell size={14} />notifikasi real-time</p>
+          <div className="grid grid-cols-2 gap-x-[40px] gap-y-[32px] text-[16px] leading-[21px] sm:flex sm:gap-[80px]">
+            <div className="flex flex-col items-start gap-[12px]">
+              <p className="font-semibold">Platform Overview</p>
+              <Link href="#solusi" className="hover:text-[#fe551b]">Masalah &amp; Solusi</Link>
+              <Link href="#fitur" className="hover:text-[#fe551b]">5 Kapabilitas</Link>
+              <Link href="#harga" className="hover:text-[#fe551b]">Paket &amp; Harga</Link>
+            </div>
+            <div className="flex flex-col items-start gap-[12px]">
+              <p className="font-semibold">Akun</p>
+              <Link href="/login" className="hover:text-[#fe551b]">Masuk Dashboard</Link>
+              <Link href="/register" className="hover:text-[#fe551b]">Coba Gratis</Link>
+              <DemoLink className="hover:text-[#fe551b]">Jadwalkan Demo</DemoLink>
+            </div>
+            <div className="flex flex-col items-start gap-[12px]">
+              <p className="font-semibold">Kontak &amp; Legal</p>
+              <a href="mailto:halo@pesaninn.my.id" className="hover:text-[#fe551b]">halo@pesaninn.my.id</a>
+              <Link href="/privacy-policy" className="hover:text-[#fe551b]">Kebijakan Privasi</Link>
+              <Link href="/terms-of-service" className="hover:text-[#fe551b]">Ketentuan Layanan</Link>
+            </div>
+          </div>
         </div>
-      </section>
-    </SitePage>
+        <div className="relative mt-[40px] flex items-center justify-center bg-[#fe551b] px-4 py-[12px]">
+          <p className="text-center text-[11px] leading-[14.67px] text-white">© 2026 pesan in (pesaninn.my.id). Seluruh hak cipta dilindungi.</p>
+        </div>
+      </footer>
+    </div>
   );
 }
