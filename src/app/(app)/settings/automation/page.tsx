@@ -7,20 +7,18 @@ import { Select } from "@/components/Select";
 import { api, ApiError } from "@/lib/api";
 import { WaTemplate } from "@/lib/broadcast";
 import { useAuth } from "@/lib/auth";
+import { TelegramConnect, type TelegramState } from "@/components/TelegramConnect";
 
 /** One scheduled send: the time (WIB) and which labels — only unprinted ones, or every ready label. */
 type AwbSlot = { time: string; scope: "new" | "all" };
 type Automation = { auto_ship: boolean; auto_ship_cod: boolean; auto_ship_shopee: boolean; auto_ship_shopee_method: "auto" | "pickup" | "dropoff"; awb_schedule: boolean; awb_times: string[]; awb_slots: AwbSlot[] | null; digital_email: boolean; digital_wa_template: { name: string; language: string; variables: number } | null };
 const DEFAULTS: Automation = { auto_ship: false, auto_ship_cod: false, auto_ship_shopee: false, auto_ship_shopee_method: "auto", awb_schedule: false, awb_times: ["08:00"], awb_slots: null, digital_email: true, digital_wa_template: null };
-type Telegram = { connected: boolean; bot_username: string | null; bot_name?: string | null; chat_name: string | null; ready: boolean };
 
-/** Scheduled Shopee AWB PDF → the seller's own Telegram bot. */
+/** Scheduled Shopee AWB PDF → the seller's own Telegram bot (the same connection as Pengaturan → Notifikasi). */
 function TelegramAwbPanel({ a, save }: { a: Automation; save: (next: Automation) => void }) {
-  const [tg, setTg] = useState<Telegram | null>(null);
-  const [token, setToken] = useState("");
+  const [tg, setTg] = useState<TelegramState | null>(null);
   const [busy, setBusy] = useState("");
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
-  useEffect(() => { api<Telegram>("/telegram").then(setTg).catch(() => setTg({ connected: false, bot_username: null, chat_name: null, ready: false })); }, []);
 
   const run = async (key: string, fn: () => Promise<string | void>) => {
     setBusy(key); setNote(null);
@@ -47,28 +45,11 @@ function TelegramAwbPanel({ a, save }: { a: Automation; save: (next: Automation)
         <Toggle checked={a.awb_schedule} onChange={(v) => save({ ...a, awb_schedule: v })} />
       </div>
 
-      {!tg ? <p className="text-xs text-slate-400">Memuat Telegram…</p> : !tg.connected ? (
-        <div className="space-y-2 rounded-lg bg-slate-50 p-3 text-sm">
-          <b className="block text-slate-700">Hubungkan bot Telegram</b>
-          <ol className="list-decimal space-y-0.5 pl-5 text-xs text-slate-600">
-            <li>Di Telegram buka <b>@BotFather</b>, kirim <code>/newbot</code>, beri nama bot.</li>
-            <li>Salin <b>token</b> yang diberikan BotFather, tempel di bawah.</li>
-            <li>Buka bot barumu dan tekan <b>Start</b>.</li>
-          </ol>
-          <div className="flex flex-wrap gap-2">
-            <input className="input min-w-0 flex-1 bg-white font-mono text-xs" placeholder="123456789:AAH…" value={token} onChange={(e) => setToken(e.target.value.trim())} />
-            <button className={btn} disabled={!token || !!busy} onClick={() => run("save", async () => { const r = await api<Telegram>("/telegram", { method: "PUT", json: { bot_token: token } }); setTg(r); setToken(""); return r.ready ? "Terhubung." : `Bot @${r.bot_username} tersimpan. Tekan Start di bot, lalu klik Deteksi chat.`; })}>{spin("save")}Hubungkan</button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-3 text-sm">
-          <span className="mr-auto text-slate-700">Bot <b>{tg.bot_name ? `${tg.bot_name} ` : ""}(@{tg.bot_username})</b>{tg.ready ? <> · kirim ke <b>{tg.chat_name}</b></> : <span className="text-amber-700"> · chat belum terdeteksi</span>}</span>
-          {!tg.ready && tg.bot_username && <a href={`https://t.me/${tg.bot_username}`} target="_blank" rel="noopener noreferrer" className={btn}><Send size={14} />Buka bot di Telegram</a>}
-          {!tg.ready && <button className={btn} disabled={!!busy} onClick={() => run("detect", async () => { setTg(await api<Telegram>("/telegram/detect", { method: "POST" })); return "Chat terdeteksi."; })}>{spin("detect")}Deteksi chat</button>}
-          {tg.ready && <button className={btn} disabled={!!busy} onClick={() => run("test", async () => { await api("/telegram/test", { method: "POST" }); return "Pesan tes terkirim, cek Telegram."; })}>{spin("test")}Kirim tes</button>}
-          {tg.ready && <button className={btn} disabled={!!busy} onClick={() => run("now", async () => { await api("/telegram/send-awb", { method: "POST", json: { scope: "new" } }); return "Sedang menyiapkan resi yang belum tercetak… PDF masuk ke Telegram dalam 1–2 menit."; })}>{spin("now")}Kirim yang belum tercetak</button>}
-          {tg.ready && <button className={btn} disabled={!!busy} onClick={() => run("all", async () => { await api("/telegram/send-awb", { method: "POST", json: { scope: "all" } }); return "Sedang menyiapkan semua resi siap cetak… PDF masuk ke Telegram dalam 1–2 menit."; })}>{spin("all")}Kirim semua</button>}
-          <button className="text-xs font-semibold text-slate-500 hover:text-rose-600" disabled={!!busy} onClick={() => run("del", async () => { await api("/telegram", { method: "DELETE" }); setTg({ connected: false, bot_username: null, chat_name: null, ready: false }); })}>Putuskan</button>
+      <TelegramConnect onChange={setTg} />
+      {tg?.ready && (
+        <div className="flex flex-wrap gap-2">
+          <button className={btn} disabled={!!busy} onClick={() => run("now", async () => { await api("/telegram/send-awb", { method: "POST", json: { scope: "new" } }); return "Sedang menyiapkan resi yang belum tercetak… PDF masuk ke Telegram dalam 1–2 menit."; })}>{spin("now")}Kirim resi yang belum tercetak</button>
+          <button className={btn} disabled={!!busy} onClick={() => run("all", async () => { await api("/telegram/send-awb", { method: "POST", json: { scope: "all" } }); return "Sedang menyiapkan semua resi siap cetak… PDF masuk ke Telegram dalam 1–2 menit."; })}>{spin("all")}Kirim semua resi</button>
         </div>
       )}
 
