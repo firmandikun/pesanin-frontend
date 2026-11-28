@@ -1,5 +1,5 @@
 "use client";
-import { AlertTriangle, Calculator, Info, Loader2 } from "lucide-react";
+import { AlertTriangle, Calculator, Info, Loader2, RefreshCw, Tag } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { PageHead, Panel, SearchBox } from "@/components/kit";
@@ -8,10 +8,12 @@ import { api, rupiah } from "@/lib/api";
 
 /** Same rows as Cek Margin (GET /marketplace/listings/margins): price, real Shopee fee rate, HPP, ads per unit, units sold. */
 type Row = {
-  id: number; shop_id: number; shop_name: string | null; name: string; variant: string | null; sku: string | null; image: string | null;
+  id: number; shop_id: number; shop_name: string | null; item_id: number; name: string; variant: string | null; sku: string | null; image: string | null;
   list_price: number; price: number; fee_rate: number; fee_estimated: boolean; hpp: number; ad_per_unit: number; units_30d: number;
 };
 type Data = { rows: Row[]; summary: { threshold: number; checked: number; no_hpp: number } };
+type Promo = { type: string; label: string; name: string; status: "ongoing" | "upcoming"; start_time: number | null; end_time: number | null; detail: string };
+type Active = { items: Record<string, Promo[]>; shop_wide: Record<string, Promo[]>; errors: string[] };
 type Shop = { id: number; shop_name: string; platform?: string; status: string; is_demo: boolean };
 type Sim = Row & { base: number; pay: number; fee: number; ads: number; profit: number; pct: number; now: number; status: "rugi" | "tipis" | "aman"; maxDisc: number | null; volume: number | null };
 
@@ -38,8 +40,10 @@ export default function PromoSimulatorPage() {
   const [extraFee, setExtraFee] = useState("0");
   const [base, setBase] = useState<"list" | "sold">("list");
   const [withAds, setWithAds] = useState(true);
-  const [filter, setFilter] = useState<"bad" | "all" | "rugi" | "tipis" | "aman">("bad");
+  const [filter, setFilter] = useState<"bad" | "all" | "rugi" | "tipis" | "aman" | "promo">("bad");
   const [q, setQ] = useState("");
+  const [active, setActive] = useState<Active | null>(null);
+  const [activeBusy, setActiveBusy] = useState(false);
 
   useEffect(() => {
     api<{ shops: Shop[] }>("/marketplace/shops").then((r) => setShops(r.shops.filter((x) => (x.platform ?? "shopee") === "shopee" && x.status !== "disconnected" && !x.is_demo))).catch(() => {});
@@ -47,7 +51,23 @@ export default function PromoSimulatorPage() {
   useEffect(() => {
     setD(null);
     api<Data>(`/marketplace/listings/margins${shop ? `?shop_id=${shop}` : ""}`).then(setD).catch(() => setD({ rows: [], summary: { threshold: 10, checked: 0, no_hpp: 0 } }));
+    loadActive(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shop]);
+
+  /** Promotions each product is already in (Shopee), so a new discount is not stacked by accident. Slow: loaded separately. */
+  function loadActive(fresh: boolean) {
+    setActiveBusy(true);
+    const qs = new URLSearchParams({ ...(shop ? { shop_id: shop } : {}), ...(fresh ? { fresh: "1" } : {}) }).toString();
+    api<Active>(`/marketplace/listings/active-promotions${qs ? `?${qs}` : ""}`).then(setActive)
+      .catch(() => setActive({ items: {}, shop_wide: {}, errors: ["Promo aktif belum bisa dibaca dari Shopee."] }))
+      .finally(() => setActiveBusy(false));
+  }
+  const promosOf = (r: { shop_id: number; item_id: number }) => active?.items[`${r.shop_id}:${r.item_id}`] ?? [];
+  const when = (p: Promo) => {
+    const f = (t: number | null) => (t ? new Date(t * 1000).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "");
+    return p.status === "upcoming" ? `mulai ${f(p.start_time)}` : p.end_time ? `s.d. ${f(p.end_time)}` : "";
+  };
 
   const threshold = d?.summary.threshold ?? 10;
   const sims: Sim[] = useMemo(() => (d?.rows ?? []).map((r) => {
@@ -76,9 +96,13 @@ export default function PromoSimulatorPage() {
   }), [d, discount, voucher, extraFee, base, withAds, threshold]);
 
   const shown = useMemo(() => sims
-    .filter((s) => (filter === "all" || (filter === "bad" ? s.status !== "aman" : s.status === filter))
+    .filter((s) => (filter === "all" || (filter === "promo" ? promosOf(s).length > 0 : filter === "bad" ? s.status !== "aman" : s.status === filter))
       && (!q || `${s.name} ${s.variant ?? ""} ${s.sku ?? ""}`.toLowerCase().includes(q.toLowerCase())))
-    .sort((a, b) => b.units_30d - a.units_30d || a.pct - b.pct), [sims, filter, q]);
+    .sort((a, b) => b.units_30d - a.units_30d || a.pct - b.pct),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [sims, filter, q, active]);
+  const inPromo = sims.filter((s) => promosOf(s).length > 0);
+  const shopWide = Object.values(active?.shop_wide ?? {}).flat();
   const count = (st: Sim["status"]) => sims.filter((s) => s.status === st).length;
   const sold = sims.filter((s) => s.units_30d > 0);
   const profitNow = sold.reduce((t, s) => t + s.now * s.units_30d, 0);
@@ -128,6 +152,23 @@ export default function PromoSimulatorPage() {
               <p className="text-[11px] text-slate-400">agar total laba tetap sama</p></Panel>
           </div>
 
+          <Panel className="flex flex-wrap items-start gap-3 p-4 text-sm">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-600"><Tag size={17} /></span>
+            <div className="min-w-0 flex-1">
+              <b className="text-slate-800">Promo yang sedang berjalan di Shopee</b>
+              {!active ? <p className="text-slate-500">Membaca promo aktif dari Shopee…</p> : (
+                <p className="text-slate-600">
+                  {inPromo.length ? <><b>{inPromo.length} produk</b> sedang atau akan ikut promo lain (lihat label ungu di tabel). Diskon baru bisa bertumpuk dan memotong laba lebih dalam dari simulasi ini. </> : "Tidak ada produk yang sedang ikut promo lain. "}
+                  {shopWide.length > 0 && <>Juga ada <b>{shopWide.length} voucher toko</b> yang berlaku untuk semua produk ({shopWide.map((v) => `${v.name}: ${v.detail}`).join("; ")}). </>}
+                  {active.errors.length > 0 && <span className="text-amber-700">Sebagian promo tidak terbaca: {active.errors.join("; ")}.</span>}
+                </p>
+              )}
+            </div>
+            <button onClick={() => loadActive(true)} disabled={activeBusy} className="flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-navy hover:bg-slate-50 disabled:opacity-50">
+              {activeBusy ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}Perbarui
+            </button>
+          </Panel>
+
           {d.summary.no_hpp > 0 && (
             <Link href="/marketplace/products?cost=empty&bulk=1" className="flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
               <AlertTriangle size={16} className="shrink-0" />{d.summary.no_hpp} variasi belum punya HPP sehingga tidak ikut disimulasikan.<b className="ml-auto whitespace-nowrap">Isi HPP</b>
@@ -136,7 +177,7 @@ export default function PromoSimulatorPage() {
 
           <Panel>
             <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-4">
-              {([["bad", "Rugi & tipis"], ["rugi", "Rugi"], ["tipis", "Tipis"], ["aman", "Aman"], ["all", "Semua"]] as const).map(([k, l]) => (
+              {([["bad", "Rugi & tipis"], ["rugi", "Rugi"], ["tipis", "Tipis"], ["aman", "Aman"], ["promo", `Ikut promo lain${active ? ` (${inPromo.length})` : ""}`], ["all", "Semua"]] as const).map(([k, l]) => (
                 <button key={k} onClick={() => setFilter(k)} className={`h-8 rounded-lg px-3 text-xs font-semibold ${filter === k ? "bg-navy text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>{l}</button>
               ))}
               <div className="ml-auto w-full sm:w-64"><SearchBox value={q} onChange={setQ} placeholder="Cari produk / SKU" /></div>
@@ -155,6 +196,15 @@ export default function PromoSimulatorPage() {
                       <td className="max-w-[280px] px-4 py-3">
                         <p className="truncate font-medium text-navy" title={s.name}>{s.name}</p>
                         <p className="truncate text-xs text-slate-400">{[s.variant, s.sku, shops.length > 1 ? s.shop_name : null].filter(Boolean).join(" · ")}</p>
+                        {promosOf(s).length > 0 && (
+                          <span className="mt-1 flex flex-wrap gap-1">
+                            {promosOf(s).map((p, i) => (
+                              <span key={i} title={`${p.name} · ${p.detail} ${when(p)}`} className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${p.status === "ongoing" ? "bg-violet-100 text-violet-700" : "bg-violet-50 text-violet-500"}`}>
+                                {p.label}{p.status === "upcoming" ? " · akan datang" : " · aktif"}
+                              </span>
+                            ))}
+                          </span>
+                        )}
                       </td>
                       <td className="px-3"><b className="text-slate-800">{rupiah(s.pay)}</b><span className="block text-[11px] text-slate-400 line-through">{rupiah(s.base)}</span></td>
                       <td className="px-3 text-slate-600">{rupiah(s.fee)}<span className="block text-[11px] text-slate-400">{Math.round((s.fee_rate + num(extraFee)) * 10) / 10}%{s.fee_estimated ? " (perkiraan)" : ""}</span></td>
