@@ -111,10 +111,14 @@ export async function addToBoost(keys: string[]) {
 }
 
 /** Ubah harga massal: set / naik-turun % / naik-turun Rp for the selected variations, then fine-tune each one. */
-export function PriceDialog({ rows, onClose, onSaved }: { rows: PriceRow[]; onClose: () => void; onSaved: (prices: Record<number, number>, msg: string) => void }) {
+export function PriceDialog({ rows, onClose, onSaved, initial, note }: {
+  rows: PriceRow[]; onClose: () => void; onSaved: (prices: Record<number, number>, msg: string) => void;
+  /** Suggested new prices (listing id => price), e.g. Cek Margin's safe price; still editable. */
+  initial?: Record<number, number>; note?: string;
+}) {
   const [mode, setMode] = useState<"set" | "pct" | "amount">("pct");
   const [val, setVal] = useState("");
-  const [prices, setPrices] = useState<Record<number, string>>(() => Object.fromEntries(rows.map((r) => [r.id, String(r.price)])));
+  const [prices, setPrices] = useState<Record<number, string>>(() => Object.fromEntries(rows.map((r) => [r.id, String(initial?.[r.id] ?? r.price)])));
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<number, string>>({});
   const apply = () => {
@@ -137,6 +141,7 @@ export function PriceDialog({ rows, onClose, onSaved }: { rows: PriceRow[]; onCl
   return (
     <Modal open onClose={onClose} title={`Ubah Harga (${rows.length} variasi)`} wide>
       <div className="space-y-4">
+        {note && <p className="rounded-xl bg-sky-50 p-3 text-xs text-sky-800">{note}</p>}
         <div className="grid items-end gap-3 rounded-xl bg-slate-50 p-3.5 sm:grid-cols-[1fr_1fr_auto]">
           <label className="block text-xs"><span className="mb-1 block font-medium text-slate-600">Cara ubah</span>
             <select className="input h-9 w-full" value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>

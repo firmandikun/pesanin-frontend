@@ -1,15 +1,18 @@
 "use client";
-import { AlertTriangle, Info, Loader2, TrendingDown } from "lucide-react";
+import { AlertTriangle, Info, Loader2, TrendingDown, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageHead, Panel, SearchBox } from "@/components/kit";
 import { Select } from "@/components/Select";
+import { PriceDialog } from "@/components/marketplace/ProductTools";
 import { api, rupiah } from "@/lib/api";
 
 type Row = {
   id: number; shop_id: number; shop_name: string | null; item_id: number; name: string; variant: string | null; sku: string | null; image: string | null;
   list_price: number; price: number; price_source: "sold" | "list"; fee: number; fee_rate: number; fee_estimated: boolean; hpp: number;
   ad_per_unit: number; ad_no_sales: boolean; units_30d: number; margin: number; margin_pct: number; status: "rugi" | "tipis" | "aman"; min_price: number;
+  /** List price to set so buyers (after the usual discount) still pay the minimum price; null = raising it won't help. */
+  suggested_price: number | null;
 };
 type Data = { rows: Row[]; summary: { threshold: number; checked: number; no_hpp: number; rugi: number; tipis: number; aman: number } };
 type Shop = { id: number; shop_name: string; platform?: string; status: string; is_demo: boolean };
@@ -31,13 +34,16 @@ export default function MarginsPage() {
   const [filter, setFilter] = useState<"bad" | "rugi" | "tipis" | "aman" | "all">("bad");
   const [q, setQ] = useState("");
   const [threshold, setThreshold] = useState<number | null>(null);
+  const [picked, setPicked] = useState<Set<number>>(new Set());
+  const [fixing, setFixing] = useState(false);
+  const [msg, setMsg] = useState("");
 
   useEffect(() => {
     api<{ shops: Shop[] }>("/marketplace/shops").then((r) => setShops(r.shops.filter((x) => (x.platform ?? "shopee") === "shopee" && x.status !== "disconnected" && !x.is_demo))).catch(() => {});
   }, []);
   const load = useCallback(() => {
     setD(null);
-    api<Data>(`/marketplace/listings/margins${shop ? `?shop_id=${shop}` : ""}`).then((r) => { setD(r); setThreshold(r.summary.threshold); }).catch(() => setD({ rows: [], summary: { threshold: 10, checked: 0, no_hpp: 0, rugi: 0, tipis: 0, aman: 0 } }));
+    api<Data>(`/marketplace/listings/margins${shop ? `?shop_id=${shop}` : ""}`).then((r) => { setD(r); setThreshold(r.summary.threshold); setPicked(new Set()); }).catch(() => setD({ rows: [], summary: { threshold: 10, checked: 0, no_hpp: 0, rugi: 0, tipis: 0, aman: 0 } }));
   }, [shop]);
   useEffect(() => { load(); }, [load]);
 
@@ -51,6 +57,10 @@ export default function MarginsPage() {
     (filter === "all" || (filter === "bad" ? r.status !== "aman" : r.status === filter))
     && (!q || `${r.name} ${r.variant ?? ""} ${r.sku ?? ""}`.toLowerCase().includes(q.toLowerCase()))), [d, filter, q]);
   const s = d?.summary;
+  const fixable = rows.filter((r) => r.suggested_price);
+  const chosen = (d?.rows ?? []).filter((r) => picked.has(r.id) && r.suggested_price);
+  const toggle = (id: number) => setPicked((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const allPicked = fixable.length > 0 && fixable.every((r) => picked.has(r.id));
 
   return (
     <div className="space-y-5">
@@ -77,6 +87,8 @@ export default function MarginsPage() {
         Margin per unit = harga jual − biaya Shopee − HPP − biaya iklan per unit. Harga jual memakai rata-rata harga yang benar-benar dibayar pembeli 30 hari terakhir (sudah termasuk diskon/promo). Biaya Shopee memakai persentase asli toko 60 hari terakhir. Pesanin mengirim notifikasi tiap pagi kalau ada produk yang baru masuk rugi/tipis.
       </p>
 
+      {msg && <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{msg}</p>}
+
       <Panel>
         <div className="flex flex-wrap items-center gap-2 p-4">
           <SearchBox value={q} onChange={setQ} placeholder="Cari produk / SKU" />
@@ -96,6 +108,13 @@ export default function MarginsPage() {
             </label>
           )}
         </div>
+        {fixable.length > 0 && (
+          <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 bg-orange-50/50 px-4 py-2.5 text-sm">
+            <span className="text-slate-600">{chosen.length ? `${chosen.length} varian dipilih` : `${fixable.length} varian bisa diperbaiki dengan menaikkan harga`}</span>
+            <button onClick={() => setPicked(allPicked ? new Set() : new Set(fixable.map((r) => r.id)))} className="text-xs font-semibold text-brand-600 hover:underline">{allPicked ? "Batal pilih" : "Pilih semua"}</button>
+            <button onClick={() => setFixing(true)} disabled={!chosen.length} className="ml-auto flex h-9 items-center gap-1.5 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"><TrendingUp size={15} />Naikkan ke harga aman</button>
+          </div>
+        )}
         {!d && <p className="py-14 text-center text-slate-400"><Loader2 size={18} className="mx-auto animate-spin" /></p>}
         {d && !rows.length && (
           <p className="py-14 text-center text-sm text-slate-500">
@@ -106,11 +125,12 @@ export default function MarginsPage() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[860px] text-sm">
               <thead className="border-y border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-500">
-                <tr><th className="px-4 py-2.5">Produk</th><th className="px-3 py-2.5 text-right">Harga jual</th><th className="px-3 py-2.5 text-right">Biaya Shopee</th><th className="px-3 py-2.5 text-right">HPP</th><th className="px-3 py-2.5 text-right">Iklan/unit</th><th className="px-3 py-2.5 text-right">Margin/unit</th><th className="px-4 py-2.5 text-right">Harga minimal</th></tr>
+                <tr><th className="w-10 py-2.5 pl-4" /><th className="px-4 py-2.5">Produk</th><th className="px-3 py-2.5 text-right">Harga jual</th><th className="px-3 py-2.5 text-right">Biaya Shopee</th><th className="px-3 py-2.5 text-right">HPP</th><th className="px-3 py-2.5 text-right">Iklan/unit</th><th className="px-3 py-2.5 text-right">Margin/unit</th><th className="px-4 py-2.5 text-right">Harga minimal</th></tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {rows.map((r) => (
                   <tr key={r.id} className={r.status === "rugi" ? "bg-rose-50/40" : ""}>
+                    <td className="py-3 pl-4">{r.suggested_price ? <input type="checkbox" className="h-4 w-4 accent-brand-600" checked={picked.has(r.id)} onChange={() => toggle(r.id)} aria-label="Pilih" /> : null}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         {r.image ? <img src={r.image} alt="" className="h-11 w-11 shrink-0 rounded-lg object-cover" /> : <div className="h-11 w-11 shrink-0 rounded-lg bg-slate-100" />}
@@ -136,7 +156,9 @@ export default function MarginsPage() {
                       <p className="text-[11px] text-slate-400">{r.margin_pct}%</p>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {r.status === "aman" ? <span className="text-slate-400">-</span> : <><p className="font-semibold text-navy">{rupiah(r.min_price)}</p><p className="text-[11px] text-slate-400">untuk margin {s?.threshold}%</p></>}
+                      {r.status === "aman" ? <span className="text-slate-400">-</span> : <><p className="font-semibold text-navy">{rupiah(r.min_price)}</p><p className="text-[11px] text-slate-400">untuk margin {s?.threshold}%</p>
+                        {r.suggested_price ? (r.suggested_price !== r.min_price && <p className="text-[11px] text-brand-600">harga tayang {rupiah(r.suggested_price)}</p>)
+                          : <p className="text-[11px] text-amber-600">kurangi diskon/promo</p>}</>}
                     </td>
                   </tr>
                 ))}
@@ -145,6 +167,16 @@ export default function MarginsPage() {
           </div>
         )}
       </Panel>
+
+      {fixing && (
+        <PriceDialog
+          rows={chosen.map((r) => ({ id: r.id, name: r.name, model_name: r.variant, price: r.list_price }))}
+          initial={Object.fromEntries(chosen.map((r) => [r.id, r.suggested_price!]))}
+          note={`Harga baru = harga minimal untuk margin ${s?.threshold}% setelah biaya Shopee, HPP & iklan. Kalau produk biasanya terjual dengan diskon, harga tayang dinaikkan sebanding agar harga yang dibayar pembeli tetap aman. Masih bisa diubah sebelum disimpan.`}
+          onClose={() => setFixing(false)}
+          onSaved={(_, m) => { if (m) { setFixing(false); setMsg(m); load(); } }}
+        />
+      )}
     </div>
   );
 }

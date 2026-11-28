@@ -113,15 +113,20 @@ const TITLE: Record<PromoType, string> = {
 };
 
 /** Create form for every promotion kind; posts to Shopee through Pesanin. */
-export function PromoForm({ type, shopId, onClose, onCreated }: { type: PromoType; shopId: number; onClose: () => void; onCreated: (warnings: string[]) => void }) {
+export function PromoForm({ type, shopId, onClose, onCreated, initialItems, initialMain, initial }: {
+  type: PromoType; shopId: number; onClose: () => void; onCreated: (warnings: string[]) => void;
+  /** Prefill (e.g. from Saran Paket): products already picked and form values such as name / value. */
+  initialItems?: PickItem[]; initialMain?: PickItem[]; initial?: Record<string, string>;
+}) {
   const now = new Date();
   const [f, setF] = useState<Record<string, string>>({
     name: "", start: local(new Date(now.getTime() + 15 * 60000)), end: local(new Date(now.getTime() + 7 * 86400000)),
     code: "", voucher_type: "shop", reward_type: "fix_amount", discount_amount: "", percentage: "", max_price: "", min_basket_price: "", usage_quantity: "100",
     rule_type: "percentage", value: "", min_amount: "2", purchase_limit: "", date: local(now).slice(0, 10), activate: "1",
+    ...initial,
   });
-  const [items, setItems] = useState<PickItem[]>([]);
-  const [main, setMain] = useState<PickItem[]>([]);
+  const [items, setItems] = useState<PickItem[]>(initialItems ?? []);
+  const [main, setMain] = useState<PickItem[]>(initialMain ?? []);
   const [slots, setSlots] = useState<{ id: number; start_time: number; end_time: number }[] | null>(null);
   const [slot, setSlot] = useState(0);
   const [busy, setBusy] = useState(false);
