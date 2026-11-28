@@ -7,7 +7,7 @@ import { Dialog, DialogActions, EmptyState, FieldLabel, PageHead, Pager, Panel, 
 import { Select } from "@/components/Select";
 
 type Acc = { id: number; type: string; name: string; value: string; is_active: boolean; events?: string[] };
-const EVENTS: [string, string][] = [["new_order", "Pesanan baru masuk"], ["paid", "Pesanan dibayar"], ["confirmation", "Konfirmasi pembayaran baru"], ["wa_disconnected", "Koneksi WhatsApp terputus"], ["low_stock", "Stok hampir habis"]];
+const EVENTS: [string, string][] = [["daily_summary", "Ringkasan laba harian (setiap pagi jam 07.00, juga ke Telegram bila terhubung)"], ["new_order", "Pesanan baru masuk"], ["paid", "Pesanan dibayar"], ["confirmation", "Konfirmasi pembayaran baru"], ["wa_disconnected", "Koneksi WhatsApp terputus"], ["low_stock", "Stok hampir habis"]];
 
 export default function Notifications() {
   const { user, setUser } = useAuth();
