@@ -10,11 +10,9 @@ import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { ShopeeMark } from "@/components/ChannelBadge";
 import { PageHead, Panel } from "@/components/kit";
 import { ShopWorkspaceNav } from "@/components/marketplace/ShopWorkspaceNav";
-import { AffiliatePanel } from "@/components/marketplace/AffiliatePanel";
 import { api, isoDate, Order, Paginated, rupiah } from "@/lib/api";
 
 type Shop = {
-  is_demo?: boolean;
   id: number; shop_id: number; shop_name: string; region: string; status: string;
   listings_count: number; orders_count: number; last_error: string | null;
   products_synced_at: string | null; orders_synced_at: string | null;
@@ -136,8 +134,6 @@ export default function ShopDashboard({ params }: { params: Promise<{ id: string
           {(!listing || (listing.with_cost === listing.total && listing.out_of_stock === 0)) && <div className="rounded-xl bg-emerald-50 p-5 text-center"><CheckCircle2 className="mx-auto text-emerald-500" size={28} /><p className="mt-2 text-sm font-semibold text-emerald-800">Semua terlihat baik</p><p className="text-xs text-emerald-600">Tidak ada hal mendesak saat ini.</p></div>}
         </div></Panel>
       </div>
-
-      {!shop.is_demo && <AffiliatePanel shopId={shop.id} />}
 
       <div><h2 className="mb-3 text-lg font-bold text-navy">Aksi cepat</h2><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{quickActions.map(([Icon, title, sub, href, tone]) => <Link key={title} href={href} className="group flex items-center gap-3 rounded-xl bg-white p-4 transition hover:-translate-y-0.5 hover:shadow-md"><span className={`flex h-11 w-11 items-center justify-center rounded-xl ${tone}`}><Icon size={20} /></span><span className="min-w-0 flex-1"><b className="block text-navy">{title}</b><span className="block text-xs text-slate-500">{sub}</span></span><ChevronRight size={17} className="text-slate-300 group-hover:text-brand-600" /></Link>)}</div></div>
     </div>
