@@ -6,13 +6,14 @@ import {
 } from "lucide-react";
 import { addToBoost, BoostPanel, PriceDialog, SkuDialog, StatLine, TextDialog, type ItemStat } from "@/components/marketplace/ProductTools";
 import { BulkCostDialog } from "@/components/marketplace/BulkCostDialog";
+import { ItemPromotionsDialog, VariationsDialog } from "@/components/marketplace/ProductVariations";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { ShopeeMark } from "@/components/ChannelBadge";
 import { Pager, PageHead, Panel } from "@/components/kit";
 import { Select } from "@/components/Select";
 import { api, ApiError, Paginated, rupiah } from "@/lib/api";
-import { showAlert } from "@/components/Dialogs";
+import { askConfirm, showAlert } from "@/components/Dialogs";
 
 type Listing = {
   id: number; marketplace_shop_id: number; item_id: number; model_id: number; name: string; model_name: string | null; sku: string | null; item_sku: string | null;
@@ -179,6 +180,8 @@ function Products() {
   const [selected, setSelected] = useState<string[]>([]);
   const [priceKeys, setPriceKeys] = useState<string[] | null>(null);
   const [textItem, setTextItem] = useState<{ shop: number; item: number } | null>(null);
+  const [varItem, setVarItem] = useState<{ shop: number; item: number; name: string } | null>(null);
+  const [promoItem, setPromoItem] = useState<{ shop: number; item: number; name: string } | null>(null);
   const [boostKey, setBoostKey] = useState(0);
   const [boosted, setBoosted] = useState<Set<string>>(new Set());
   const [toolBusy, setToolBusy] = useState("");
@@ -240,6 +243,14 @@ function Products() {
       setNotice(`Statistik ${r.products} produk diperbarui dari Shopee.`);
       load();
     } catch (e) { showAlert(e instanceof ApiError ? e.message : "Gagal memperbarui statistik", "Gagal"); } finally { setToolBusy(""); }
+  };
+  // Permanent delete on Shopee (Arsipkan is the reversible option).
+  const deleteItem = async (shop: number, item: number, name: string) => {
+    if (!(await askConfirm(`Hapus "${name}" dari Shopee untuk selamanya? Produk, variasi, ulasan, dan statistiknya hilang dan tidak bisa dikembalikan. Pilih Arsipkan bila hanya ingin menyembunyikan.`, { title: "Hapus Produk", confirmLabel: "Hapus Permanen", danger: true }))) return;
+    try {
+      await api(`/marketplace/listings/items/${shop}/${item}`, { method: "DELETE" });
+      setNotice(`"${name}" dihapus dari Shopee.`); load();
+    } catch (e) { showAlert(e instanceof ApiError ? e.message : "Gagal menghapus produk", "Gagal"); }
   };
   const setListed = async (unlist: boolean, keys: string[] = selected) => {
     setToolBusy(unlist ? "unlist" : "list"); setNotice("");
@@ -328,6 +339,8 @@ function Products() {
         <PriceDialog rows={d.listings.data.filter((l) => priceKeys.includes(`${l.marketplace_shop_id}:${l.item_id}`))} onClose={() => setPriceKeys(null)}
           onSaved={(p, msg) => { Object.entries(p).forEach(([id, price]) => patch(Number(id), { price })); if (msg) { setNotice(msg); setPriceKeys(null); setSelected([]); } }} />
       )}
+      {varItem && <VariationsDialog shopId={varItem.shop} itemId={varItem.item} name={varItem.name} onClose={() => setVarItem(null)} onChanged={() => load()} />}
+      {promoItem && <ItemPromotionsDialog shopId={promoItem.shop} itemId={promoItem.item} name={promoItem.name} onClose={() => setPromoItem(null)} />}
       {textItem && (
         <TextDialog shopId={textItem.shop} itemId={textItem.item} onClose={() => setTextItem(null)}
           onSaved={(name) => { setD((cur) => cur && { ...cur, listings: { ...cur.listings, data: cur.listings.data.map((x) => (x.marketplace_shop_id === textItem.shop && x.item_id === textItem.item ? { ...x, name } : x)) } }); setTextItem(null); setNotice("Judul & deskripsi diperbarui di Shopee."); }} />
@@ -612,10 +625,13 @@ function Products() {
                               ["Judul & Deskripsi", () => setTextItem({ shop: first.marketplace_shop_id, item: first.item_id })],
                               ["Ubah Harga", () => setPriceKeys([key])],
                               ["Ubah SKU", () => setSkuKeys([key])],
+                              ["Variasi", () => setVarItem({ shop: first.marketplace_shop_id, item: first.item_id, name: first.name })],
+                              ["Cek Promo", () => setPromoItem({ shop: first.marketplace_shop_id, item: first.item_id, name: first.name })],
                               ["Salin Produk", `/marketplace/publish?copy_shop=${first.marketplace_shop_id}&copy_item=${first.item_id}`],
                               [boosted.has(key) ? "Sudah di Naikkan Otomatis" : "Naikkan Produk", boosted.has(key) ? null : () => boostKeys([key])],
                               [first.status === "UNLIST" ? "Tampilkan" : "Arsipkan", () => setListed(first.status !== "UNLIST", [key])],
                               ["Lihat Iklan", `/marketplace/ads?shop=${first.marketplace_shop_id}`],
+                              ["Hapus Produk", () => deleteItem(first.marketplace_shop_id, first.item_id, first.name)],
                             ]} />
                           </>
                         )}
