@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  BookOpen, Boxes, ChevronRight, Truck, CreditCard, FileText, Gauge, LayoutDashboard, LogOut, Megaphone, Menu, Settings2, ShieldCheck, SlidersHorizontal, Store, Users, X,
+  BookOpen, Boxes, ChevronRight, Truck, CreditCard, FileText, Gauge, LayoutDashboard, LogOut, Megaphone, Menu, Rocket, Settings2, ShieldCheck, SlidersHorizontal, Store, Users, X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -10,7 +10,7 @@ import { LogoMark } from "@/components/Logo";
 import { AuthProvider, useAuth } from "@/lib/auth";
 
 const GROUPS: [string, [string, string, React.ElementType][]][] = [
-  ["Bisnis", [["Ringkasan", "/admin", LayoutDashboard], ["Pengguna", "/admin/users", Users], ["Tagihan", "/admin/invoices", CreditCard]]],
+  ["Bisnis", [["Ringkasan", "/admin", LayoutDashboard], ["Pengguna", "/admin/users", Users], ["Aktivasi", "/admin/activation", Rocket], ["Tagihan", "/admin/invoices", CreditCard]]],
   ["Produk Pesanin", [["Produk Dropship", "/admin/dropship", Boxes], ["Pesanan Dropship", "/admin/dropship/orders", Truck], ["Paket & Fitur", "/admin/plans", SlidersHorizontal], ["Pengaturan Platform", "/admin/settings", Settings2]]],
   ["Operasional", [["Toko Shopee", "/admin/shops", Store]]],
   ["Konten", [["Tutorial", "/admin/content/tutorials", BookOpen], ["Blog", "/admin/blog", FileText], ["Pengumuman", "/admin/content/announcements", Megaphone]]],

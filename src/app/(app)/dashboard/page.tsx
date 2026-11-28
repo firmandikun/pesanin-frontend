@@ -1,7 +1,7 @@
 "use client";
 import {
   AlertTriangle, ArrowDownRight, ArrowUpRight, Banknote, Bell, CheckCircle2, ChevronRight, Clock, Megaphone, MessageCircle,
-  Package, Printer, ShoppingBag, ShoppingCart, SquareTerminal, Truck, UserPlus, Wallet,
+  Package, Printer, Send, ShoppingBag, ShoppingCart, SquareTerminal, Truck, UserPlus, Wallet,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
@@ -42,9 +42,11 @@ const STEPS: { key: string; title: string; href: string; icon: LucideIcon }[] = 
 /** Marketplace activation (GTM Playbook): see real profit within the first 15 minutes. */
 const MP_STEPS: { key: string; title: string; href: string; icon: LucideIcon }[] = [
   { key: "shop", title: "Hubungkan toko Shopee", href: "/marketplace/shops", icon: Package },
-  { key: "hpp", title: "Isi HPP 3 produk terlaris", href: "/marketplace/products", icon: Banknote },
   { key: "order", title: "Pesanan Shopee tersinkron", href: "/marketplace/orders", icon: Truck },
+  { key: "hpp", title: "Isi HPP 3 produk terlaris", href: "/marketplace/products?cost=empty&bulk=1", icon: Banknote },
   { key: "profit", title: "Lihat laba bersih sebenarnya", href: "/reports/profit", icon: CheckCircle2 },
+  { key: "awb", title: "Cetak resi pertama dari Pesanin", href: "/marketplace/orders", icon: Printer },
+  { key: "telegram", title: "Hubungkan Telegram", href: "/settings/notifications", icon: Send },
   { key: "whatsapp", title: "Isi nomor WhatsApp", href: "/settings/account", icon: UserPlus },
 ];
 
@@ -189,6 +191,18 @@ export default function Dashboard() {
         </section>
       </div>
 
+      {hideSetup && d && doneSteps < steps.length && (() => {
+        // Hidden checklist stays as one slim bar until every step is done (activation drives retention).
+        const next = steps.find((x) => !progress[x.key]);
+        return (
+          <section className="flex flex-wrap items-center gap-3 rounded-xl bg-white px-4 py-3 text-sm">
+            <span className="font-semibold text-navy">Langkah awal {doneSteps}/{steps.length}</span>
+            <span className="h-1.5 w-28 overflow-hidden rounded-full bg-slate-100"><span className="block h-full rounded-full bg-brand-500" style={{ width: `${(doneSteps / steps.length) * 100}%` }} /></span>
+            {next && <Link href={next.href} className="font-medium text-brand-600 hover:underline">Berikutnya: {next.title} →</Link>}
+            <button onClick={() => { setHideSetup(false); try { localStorage.removeItem("formku_skip_tutorial"); } catch {} }} className="ml-auto text-xs font-semibold text-slate-500 hover:text-navy">Tampilkan</button>
+          </section>
+        );
+      })()}
       {!hideSetup && doneSteps < steps.length && (
         <section className="rounded-xl bg-white p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
