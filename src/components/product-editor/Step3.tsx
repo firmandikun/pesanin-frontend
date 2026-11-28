@@ -1,7 +1,8 @@
 "use client";
 import { BadgeCheck, Edit3, Eye, Film, GripVertical, ImageIcon, LayoutList, MessageCircle, PanelBottom, Palette, PenLine, Receipt, Search, SquareCheck, Type } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
 import { Pixel, Product, SuccessSettings } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { SUCCESS_COMPONENTS, successComp, successOrder } from "@/lib/successPage";
@@ -97,12 +98,13 @@ export function Step3({ p, setSs, method, setMethod, onLocate }: {
 
       <EdCard icon={Eye} tint="blue" title="Ketika Sudah Selesai Isi Formulir">
         <div className="grid grid-cols-2 gap-y-3 text-sm text-slate-700">
-          {([["page", "Tampilkan halaman sukses"], ["whatsapp_random", "Alihkan ke whatsApp (random)"], ["url", "Alihkan ke URL lain"], ["whatsapp", "Alihkan ke whatsApp (nomor CS)"]] as const).map(([k, l]) => (
+          {([["page", "Tampilkan halaman sukses"], ["whatsapp_random", "Alihkan ke WhatsApp CS (bergiliran)"], ["url", "Alihkan ke URL lain"], ["whatsapp", "Alihkan ke whatsApp (nomor CS)"]] as const).map(([k, l]) => (
             <label key={k} className="flex items-center gap-2"><input type="radio" className="h-4 w-4 accent-brand-600" checked={action === k} onChange={() => setSs({ action: k })} />{l}</label>
           ))}
         </div>
         {action === "whatsapp" && <div><Label>Nomor WhatsApp CS</Label><input className="input" placeholder={user?.whatsapp ?? "08…"} value={ss.whatsapp ?? ""} onChange={(e) => setSs({ whatsapp: e.target.value })} /></div>}
-        {action === "whatsapp_random" && <p className="text-xs text-slate-500">Nomor diambil acak dari CS aktif yang sedang bertugas (jadwal &amp; cuti di menu CS). Kalau tidak ada yang bertugas, memakai nomor WhatsApp toko. Pesan memakai template &quot;redirect&quot; di Follow Up.</p>}
+        {action === "whatsapp_random" && <p className="text-xs text-slate-500">Pembeli diarahkan ke WhatsApp CS penanggung jawab pesanannya (dibagi bergiliran ke CS yang sedang shift). Kalau belum ada CS, memakai nomor WhatsApp toko. Pesan memakai template &quot;redirect&quot; di Follow Up.</p>}
+        <CsPicker value={ss.cs_staff_ids ?? []} onChange={(ids) => setSs({ cs_staff_ids: ids })} />
         {action === "url" && <div><Label>URL Tujuan</Label><input className="input" placeholder="https://" value={ss.redirect_url ?? ""} onChange={(e) => setSs({ redirect_url: e.target.value })} /></div>}
       </EdCard>
 
@@ -149,6 +151,35 @@ export function Step3({ p, setSs, method, setMethod, onLocate }: {
           );
         })()}
       </Modal>
+    </div>
+  );
+}
+
+/**
+ * CS penanggung jawab: which CS handle this product's orders. Each order is assigned in turn to one of them
+ * (on shift first) and shows in Pesanan with a "Hubungi pembeli" button. None picked = every active CS.
+ */
+function CsPicker({ value, onChange }: { value: number[]; onChange: (ids: number[]) => void }) {
+  const [staff, setStaff] = useState<{ id: number; name: string; is_active: boolean }[] | null>(null);
+  useEffect(() => { api<{ data: { id: number; name: string; is_active: boolean }[] }>("/r/staff?per_page=100").then((r) => setStaff(r.data)).catch(() => setStaff([])); }, []);
+  if (!staff) return null;
+  const toggle = (id: number) => onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
+  return (
+    <div className="space-y-2 border-t border-slate-100 pt-3">
+      <Label>CS penanggung jawab pesanan</Label>
+      {!staff.length ? (
+        <p className="text-xs text-slate-500">Belum ada CS. Tambahkan di <a href="/whatsapp-rotator/staff" className="text-brand-600 underline">Staf CS WhatsApp</a> agar setiap pesanan punya CS yang mengonfirmasi ke pembeli.</p>
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-2">
+            {staff.map((s) => (
+              <button key={s.id} type="button" onClick={() => toggle(s.id)} disabled={!s.is_active}
+                className={`h-8 rounded-full border px-3 text-xs font-medium disabled:opacity-40 ${value.includes(s.id) ? "border-brand-600 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-600"}`}>{s.name}{!s.is_active && " (nonaktif)"}</button>
+            ))}
+          </div>
+          <p className="text-xs text-slate-500">{value.length ? `Pesanan produk ini dibagi bergiliran ke ${value.length} CS terpilih.` : "Tidak ada yang dipilih: pesanan dibagi bergiliran ke semua CS aktif."} CS yang sedang shift didahulukan; CS dan status &quot;sudah dihubungi&quot; terlihat di menu Pesanan.</p>
+        </>
+      )}
     </div>
   );
 }

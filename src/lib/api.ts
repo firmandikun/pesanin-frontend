@@ -102,6 +102,8 @@ export type FormSettings = {
 };
 export type SuccessSettings = {
   action?: "page" | "whatsapp" | "whatsapp_random" | "url"; whatsapp?: string; redirect_url?: string; messages?: Record<string, string>;
+  /** CS that handle this product's orders (empty = every active CS), assigned in turn. */
+  cs_staff_ids?: number[];
   background?: string; title?: { enabled?: boolean; text?: string }; tagline?: { enabled?: boolean; text?: string };
   components?: Record<string, Record<string, { enabled?: boolean; [k: string]: any }>>; order?: Record<string, string[]>; pixels?: Pixel[];
 };
@@ -139,6 +141,8 @@ export type Order = {
   total: number; weight: number; payment_method: string | null; payment_status: string; status: string;
   courier?: string; courier_service?: string; courier_code?: string | null; external_note?: string | null; shipping_ref?: string | null; shipping_provider?: string | null; shipping_etd?: string; shipping_status: string; tracking_number?: string; auto_ship_error?: string | null; digital_token?: string | null; digital_sent_at?: string | null; digital_error?: string | null;
   notes?: string; utm_source?: string; utm_medium?: string; utm_campaign?: string; source: string;
+  /** CS penanggung jawab (assigned in turn at checkout) and when they first followed up the buyer. */
+  cs_staff_id?: number | null; cs_staff?: { id: number; name: string; phone: string } | null; cs_contacted_at?: string | null;
   followup_count: number; created_at: string; paid_at?: string; shipped_at?: string; archived_at?: string | null; is_abandoned: boolean;
   product?: { id: number; name: string; type?: string } | null;
   bump_items?: { product_id: number; name: string; price: number }[] | null; custom_fields?: Record<string, string> | null; village?: string | null;

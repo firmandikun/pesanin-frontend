@@ -1,6 +1,6 @@
 "use client";
 import { ORDERS_EVENT } from "@/components/NotificationBell";
-import { Archive, ArchiveRestore, BadgeCheck, Ban, CircleDollarSign, Download, Info, Mail, MessageCircle, MonitorDown, Package, PackageSearch, Plus, Printer, Receipt, Search, ShoppingBag, Trash2, Truck } from "lucide-react";
+import { Archive, ArchiveRestore, BadgeCheck, Ban, BarChart3, CheckCircle2, Headset, CircleDollarSign, Download, Info, Mail, MessageCircle, MonitorDown, Package, PackageSearch, Plus, Printer, Receipt, Search, ShoppingBag, Trash2, Truck } from "lucide-react";
 import Link from "next/link";
 import { ChannelBadge, ShopeeMark } from "@/components/ChannelBadge";
 import { TRAFFIC, trafficOf } from "@/lib/traffic";
@@ -32,6 +32,8 @@ const labelUrl = (ids: number[]) => `/orders/labels?ids=${ids.join(",")}&auto=1`
 const TITLES: Record<string, string> = { all: "Pesanan Media Sosial", abandoned: "Checkout Ditinggalkan", archived: "Pesanan Diarsipkan" };
 const COURIERS = ["JNE", "SiCepat", "SAP", "iDexpress", "J&T", "Lion Parcel", "SPX Express"];
 
+type CsOption = { id: number; name: string; is_active?: boolean };
+
 /** Which follow-up template fits the order's current state. */
 function suggestedTemplate(o: Order) {
   if (o.is_abandoned) return "followup_1";
@@ -47,7 +49,7 @@ function Orders() {
   const [type, setType] = useState<"physical" | "digital">("physical");
   const [filters, setFilters] = useState({
     search: sp.get("search") ?? "", product_id: "", status: sp.get("status") ?? "", payment_status: sp.get("payment_status") ?? "",
-    payment_method: sp.get("payment_method") ?? "", courier: "", pickup: "", duplicates: "",
+    payment_method: sp.get("payment_method") ?? "", courier: "", pickup: "", duplicates: "", cs_staff_id: "",
     channel: sp.get("channel") ?? "", marketplace_shop_id: "", traffic: "",
     ...todayRange(),
   });
@@ -62,6 +64,9 @@ function Orders() {
   const [shipping, setShipping] = useState<number[]>([]);
   const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState("");
+  const [staff, setStaff] = useState<CsOption[]>([]);
+  const [csReport, setCsReport] = useState(false);
+  useEffect(() => { api<{ data: CsOption[] }>("/r/staff?per_page=100").then((r) => setStaff(r.data ?? [])).catch(() => {}); }, []);
 
   const query = useCallback(() => new URLSearchParams({ view, type, ...filters, page: String(page), per_page: String(perPage) }).toString(), [view, type, filters, page, perPage]);
   const load = useCallback(() => { api(`/orders?${query()}`).then(setData); setSelected([]); }, [query]);
@@ -133,6 +138,7 @@ function Orders() {
           {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </Select>
         <DateRangePicker value={{ from: filters.from, to: filters.to }} onChange={(r) => { setFilters({ ...filters, from: r.from, to: r.to }); setPage(1); }} />
+        {view === "all" && staff.length > 0 && <button className="btn-outline" onClick={() => setCsReport(true)}><BarChart3 size={16} />Kinerja CS</button>}
         {view === "all" && <button className="btn-primary" onClick={() => setCreating(true)}><Plus size={16} />Input Order</button>}
       </div>
 
@@ -199,6 +205,11 @@ function Orders() {
                   </Select>
                 </>
               )}
+              {staff.length > 0 && (
+                <Select className="input w-40" value={filters.cs_staff_id} onChange={(e) => f("cs_staff_id", e.target.value)}>
+                  <option value="">Semua CS</option>{staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}<option value="none">Tanpa CS</option>
+                </Select>
+              )}
               <label className="flex items-center gap-1.5 text-sm font-medium text-slate-600"><input type="checkbox" className="accent-brand-600" checked={!!filters.duplicates} onChange={(e) => f("duplicates", e.target.checked ? "1" : "")} />Cek Duplikasi</label>
             </>
           )}
@@ -236,7 +247,7 @@ function Orders() {
             <thead className="bg-slate-50/60">
               <tr>
                 <th className="th w-8"><input type="checkbox" checked={ids.length > 0 && selected.length === ids.length} onChange={(e) => setSelected(e.target.checked ? ids : [])} /></th>
-                {["Date", "ID Pesanan", "Sumber", "Courier", "Name", "City", "Produk", "Gross Revenue", "Status", "Payment Status", ...(type === "physical" ? ["Pengiriman"] : []), "Followup WhatsApp", "Kampanye (UTM)"].map((h) => <th key={h} className="th">{h}</th>)}
+                {["Date", "ID Pesanan", "Sumber", "Courier", "Name", "City", "Produk", "Gross Revenue", "Status", "Payment Status", ...(type === "physical" ? ["Pengiriman"] : []), "CS & Followup", "Kampanye (UTM)"].map((h) => <th key={h} className="th">{h}</th>)}
                 <th className={`${actionCell} bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500`}>Aksi</th>
               </tr>
             </thead>
@@ -267,6 +278,8 @@ function Orders() {
                     </td>
                   )}
                   <td className="td" onClick={(e) => e.stopPropagation()}>
+                    {o.cs_staff && <div className="mb-1 flex items-center gap-1 whitespace-nowrap text-xs font-medium text-slate-700" title={o.cs_contacted_at ? "Pembeli sudah dihubungi" : "Belum dihubungi CS"}>
+                      <Headset size={12} className="text-slate-400" />{o.cs_staff.name}{o.cs_contacted_at ? <CheckCircle2 size={12} className="text-emerald-600" /> : <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />}</div>}
                     <button className="btn-outline btn-sm text-emerald-700" onClick={() => followup(o)} title="Kirim template yang sesuai status"><MessageCircle size={13} />{o.followup_count}×</button>
                   </td>
                   <td className="td text-xs">{o.channel === "website" && o.utm_campaign ? <><span className="font-medium text-slate-700">{o.utm_campaign}</span><div className="text-slate-400">{TRAFFIC[trafficOf(o.utm_source)].short}</div></> : "-"}</td>
@@ -291,7 +304,8 @@ function Orders() {
 
       {track && <TrackingModal orderId={track.id} title={`Lacak resi · ${track.code}`} onClose={() => setTrack(null)} />}
       {bookTarget && <BookCourierModal order={bookTarget} busy={shipping.includes(bookTarget.id)} onClose={() => setBookTarget(null)} onSubmit={(extra) => bookCourier([bookTarget.id], extra)} />}
-      {detail && <OrderDetail order={detail} onClose={() => setDetail(null)} onSaved={() => { setDetail(null); load(); }} />}
+      {detail && <OrderDetail order={detail} staff={staff} onClose={() => setDetail(null)} onSaved={() => { setDetail(null); load(); }} />}
+      {csReport && <CsReport from={filters.from} to={filters.to} onClose={() => setCsReport(false)} />}
       {creating && <InputOrder onClose={() => setCreating(false)} onDone={() => { setCreating(false); load(); }} />}
     </div>
   );
@@ -359,7 +373,7 @@ function KiriminAjaInfo({ o, onCancelled }: { o: Order; onCancelled: () => void 
   );
 }
 
-function OrderDetail({ order, onClose, onSaved }: { order: Order; onClose: () => void; onSaved: () => void }) {
+function OrderDetail({ order, staff, onClose, onSaved }: { order: Order; staff: CsOption[]; onClose: () => void; onSaved: () => void }) {
   const [o, setO] = useState(order);
   const [templates, setTemplates] = useState<{ event: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
@@ -382,10 +396,17 @@ function OrderDetail({ order, onClose, onSaved }: { order: Order; onClose: () =>
     }
   }
 
+  async function setCs(patch: { cs_staff_id?: number | null; contacted?: boolean }) {
+    try {
+      const r = await api<Order>(`/orders/${o.id}/cs`, { method: "PUT", json: patch });
+      setO({ ...o, cs_staff_id: r.cs_staff_id, cs_staff: r.cs_staff, cs_contacted_at: r.cs_contacted_at });
+    } catch (e) { showAlert(e instanceof ApiError ? e.message : "Gagal mengubah CS", "Gagal"); }
+  }
+
   async function followup(event: string) {
     const { url } = await api(`/orders/${o.id}/followup`, { method: "POST", json: { event } });
     window.open(url, "_blank");
-    set("followup_count", o.followup_count + 1);
+    setO((x) => ({ ...x, followup_count: x.followup_count + 1, cs_contacted_at: x.cs_contacted_at ?? new Date().toISOString() }));
   }
 
   async function ban() {
@@ -502,6 +523,18 @@ function OrderDetail({ order, onClose, onSaved }: { order: Order; onClose: () =>
               <p className="text-xs text-slate-500">Menandai <b>Paid</b> pada pesanan Pending otomatis memindahkannya ke <b>Processing</b>. Cancelled/Refunded mengembalikan stok.</p>
               <Field label="Catatan Internal"><textarea className="textarea" rows={2} value={o.notes ?? ""} onChange={(e) => set("notes", e.target.value)} /></Field>
             </>
+          )}
+          {staff.length > 0 && !o.is_abandoned && (
+            <div className="rounded-xl bg-slate-50 p-3">
+              <label className="label">CS penanggung jawab</label>
+              <div className="flex flex-wrap items-center gap-3">
+                <Select className="input w-48" value={o.cs_staff_id ? String(o.cs_staff_id) : ""} onChange={(e) => setCs({ cs_staff_id: e.target.value ? Number(e.target.value) : null })}>
+                  <option value="">Belum ada CS</option>{staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </Select>
+                <label className="flex items-center gap-1.5 text-sm text-slate-600"><input type="checkbox" className="accent-brand-600" checked={!!o.cs_contacted_at} onChange={(e) => setCs({ contacted: e.target.checked })} />Pembeli sudah dihubungi</label>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">Otomatis tercentang saat CS mengirim follow up WhatsApp dari sini.</p>
+            </div>
           )}
           <div>
             <label className="label">Follow Up WhatsApp ({o.followup_count}× terkirim)</label>
@@ -724,4 +757,39 @@ function BookCourierModal({ order, busy, onClose, onSubmit }: {
 
 export default function Page() {
   return <Suspense><Orders /></Suspense>;
+}
+
+/** Kinerja CS: orders handled per CS in the chosen period, how many were contacted and paid (closing rate). */
+function CsReport({ from, to, onClose }: { from: string; to: string; onClose: () => void }) {
+  type Row = { id: number | null; name: string; orders: number; paid: number; contacted: number; revenue: number; closing_rate: number };
+  const [rows, setRows] = useState<Row[] | null>(null);
+  useEffect(() => {
+    api<{ rows: Row[] }>(`/orders/cs-summary?${new URLSearchParams({ from, to })}`).then((r) => setRows(r.rows)).catch(() => setRows([]));
+  }, [from, to]);
+  return (
+    <Modal open onClose={onClose} title="Kinerja CS" wide>
+      <p className="mb-3 text-xs text-slate-500">Pesanan web yang dibagikan ke tiap CS pada periode filter tanggal. Closing rate = pesanan lunas ÷ pesanan yang dipegang.</p>
+      {!rows ? <p className="py-8 text-center text-sm text-slate-400">Memuat…</p> : !rows.length ? <p className="py-8 text-center text-sm text-slate-500">Belum ada pesanan di periode ini.</p> : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[560px] text-sm">
+            <thead className="text-left text-xs uppercase tracking-wide text-slate-500"><tr className="border-b border-slate-100">
+              <th className="py-2 pr-3">CS</th><th className="px-3 text-right">Pesanan</th><th className="px-3 text-right">Dihubungi</th><th className="px-3 text-right">Lunas</th><th className="px-3 text-right">Closing</th><th className="pl-3 text-right">Omzet lunas</th>
+            </tr></thead>
+            <tbody className="divide-y divide-slate-100">
+              {rows.map((r) => (
+                <tr key={r.id ?? "none"} className={r.id ? "" : "text-slate-500"}>
+                  <td className="py-2.5 pr-3 font-medium text-navy">{r.name}</td>
+                  <td className="px-3 text-right">{r.orders}</td>
+                  <td className="px-3 text-right">{r.id ? <>{r.contacted}<span className="text-xs text-slate-400"> ({r.orders ? Math.round((r.contacted / r.orders) * 100) : 0}%)</span></> : "-"}</td>
+                  <td className="px-3 text-right">{r.paid}</td>
+                  <td className="px-3 text-right font-semibold">{r.closing_rate}%</td>
+                  <td className="pl-3 text-right">{rupiah(r.revenue)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Modal>
+  );
 }
