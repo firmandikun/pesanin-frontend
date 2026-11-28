@@ -110,7 +110,7 @@ export default function Dashboard() {
       </section>
 
       {d && d.missing_cost_orders > 0 && (
-        <Link href="/marketplace/products?cost=empty" className="flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <Link href="/marketplace/products?cost=empty&bulk=1" className="flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <AlertTriangle size={16} className="shrink-0" />{d.missing_cost_orders} pesanan berisi produk tanpa HPP, jadi laba bersih terlihat lebih tinggi dari aslinya.<b className="ml-auto whitespace-nowrap">Isi HPP</b><ChevronRight size={15} />
         </Link>
       )}

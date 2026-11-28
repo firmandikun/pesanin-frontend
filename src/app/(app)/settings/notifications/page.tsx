@@ -15,6 +15,7 @@ const KINDS: { key: string; title: string; desc: string }[] = [
   { key: "ship_deadline", title: "Pesanan hampir lewat batas kirim Shopee", desc: "Dicek tiap 30 menit, supaya tidak kena poin penalti keterlambatan." },
   { key: "ads", title: "Iklan Shopee merugi atau boros", desc: "Setelah sinkron iklan: iklan yang ROAS-nya di bawah titik impas atau belum menghasilkan penjualan." },
   { key: "restock", title: "SKU perlu restock", desc: "Setiap pagi jam 07.30: SKU yang habis atau akan habis sebelum stok baru datang." },
+  { key: "missing_hpp", title: "Produk terjual tapi HPP belum diisi", desc: "Setiap Senin jam 09.00: produk yang laku minggu lalu tanpa HPP, supaya laba bersih tidak terlihat terlalu tinggi." },
   { key: "money_check", title: "Dana Shopee perlu dicek / diklaim", desc: "Setiap pagi jam 08.30: dana tertahan, retur, atau kompensasi yang perlu ditindaklanjuti." },
 ];
 

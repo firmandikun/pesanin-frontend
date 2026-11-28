@@ -170,7 +170,8 @@ function Products() {
   const [perPage, setPerPage] = useState(10);
   const [d, setD] = useState<Data | null>(null);
   const [shops, setShops] = useState<{ id: number; shop_name: string; status?: string }[]>([]);
-  const [bulk, setBulk] = useState(false);
+  // ?bulk=1 (dashboard banner, weekly HPP reminder) opens the bulk HPP dialog straight away.
+  const [bulk, setBulk] = useState(() => sp.get("bulk") === "1");
   const [syncing, setSyncing] = useState(false);
   const [notice, setNotice] = useState("");
   // Expanded variation lists (by default show up to 3 SKU variations per product, like Shopee Seller Centre).
@@ -342,7 +343,7 @@ function Products() {
           <button onClick={() => setSelected([])} className="ml-auto flex h-8 items-center gap-1 rounded-lg px-2 text-white/80 hover:text-white"><X size={14} />Batal</button>
         </div>
       )}
-      {bulk && <BulkCostDialog onClose={() => setBulk(false)} onSaved={(m) => { setBulk(false); setNotice(m); load(); }} />}
+      {bulk && <BulkCostDialog onlyEmptyFirst={sp.get("cost") === "empty"} onClose={() => setBulk(false)} onSaved={(m) => { setBulk(false); setNotice(m); load(); }} />}
 
       <Panel className="overflow-hidden p-0">
         {/* Top Status Tabs (Semua / Live / Perlu Tindakan / Sedang Ditinjau Shopee / Belum Ditampilkan) */}
