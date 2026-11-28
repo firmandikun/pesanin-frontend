@@ -207,7 +207,8 @@ function Step({ n, title, done, active, children }: { n: number; title: string; 
 /** Problems sellers actually hit, with the fix. */
 function Troubleshoot() {
   const items: [string, string][] = [
-    ["Muncul \"Tidak ada nomor WhatsApp Business yang diizinkan\"", "Saat login, di langkah izin pastikan akun WhatsApp Business DAN nomornya dicentang. Klik Masuk dengan Facebook lagi lalu pilih \"Edit akses\" jika ditawarkan."],
+    ["\"Belum ada nomor telepon\" / \"belum ada akun WhatsApp Business\"", "Akun WhatsApp Business-mu belum punya nomor. Buka WhatsApp Manager (business.facebook.com/wa/manage/phone-numbers) → Tambah nomor telepon → isi nama tampilan & nomor → verifikasi kode SMS/telepon. Setelah nomor muncul di daftar, kembali ke sini dan klik Masuk dengan Facebook lagi."],
+    ["\"Izin WhatsApp belum diberikan\"", "Di jendela login, jangan hapus centang izin. Jika Meta menampilkan \"Edit akses\" / \"Pilih yang ingin diakses\", centang akun WhatsApp Business DAN nomornya, lalu Lanjutkan."],
     ["Nomor ditolak karena sudah terdaftar di WhatsApp", "Nomor masih aktif di aplikasi WhatsApp/WhatsApp Business. Hapus akun WhatsApp di HP untuk nomor itu, tunggu beberapa menit, lalu ulangi login. Atau pakai nomor lain."],
     ["Kode verifikasi tidak masuk", "Pilih verifikasi lewat telepon, pastikan nomor aktif dan ada sinyal. Tunggu 1–2 menit sebelum meminta kode lagi."],
     ["Pesan tes gagal: template tidak ditemukan", "Akun lama kadang tidak punya template \"hello_world\". Koneksi tetap jalan; buat template sendiri di Broadcast → Template, lalu tunggu disetujui Meta."],
