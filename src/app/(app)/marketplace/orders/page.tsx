@@ -6,6 +6,7 @@ import { askConfirm } from "@/components/Dialogs";
 import { TrackingModal } from "@/components/TrackingModal";
 import { ShipModal } from "@/components/marketplace/ShipModal";
 import { openShopeeAwb, openShopeeAwbMerged, type AwbResult } from "@/lib/awb";
+import { PrintJobPanel, rememberedPrintJob, rememberPrintJob, startPrintJob } from "@/components/marketplace/PrintJobPanel";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -37,6 +38,8 @@ const TABS: { key: string; label: string; count: boolean }[] = [
 // "Tertunda": paid orders Shopee is still reviewing (PENDING); shown only while there are any, like Seller Centre.
 const SUB: [string, string][] = [["perlu_kirim", "Semua"], ["to_ship", "Perlu diproses"], ["processed", "Telah diproses"], ["in_cancel", "Pembatalan Diajukan"], ["pending", "Tertunda"]];
 const WITH_KILAT = ["", "perlu_kirim", "to_ship", "processed", "shipping"];
+/** More labels than this are printed by the server in the background (one PDF, notification when ready). */
+const BACKGROUND_FROM = 150;
 const SEARCH_BY: [string, string][] = [["sn", "No. Pesanan"], ["buyer", "Nama/username pembeli"], ["product", "Produk / SKU"], ["resi", "No. Resi"]];
 
 /** "Pengiriman Kilat": a delivery van with speed lines (fast, Shopee-arranged fulfilment). */
@@ -163,6 +166,12 @@ export default function ShopeeOrders() {
   const [selectedBk, setSelectedBk] = useState<number[]>([]);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState("");
+  // Background print in progress / finished: from the notification link (?print_job=) or the last one started here.
+  const [printJobId, setPrintJobId] = useState<number | null>(null);
+  useEffect(() => {
+    const fromUrl = Number(new URLSearchParams(window.location.search).get("print_job")) || null;
+    setPrintJobId(fromUrl ?? rememberedPrintJob());
+  }, []);
   const [shipTarget, setShipTarget] = useState<{ orders: number[]; bookings: number[] } | null>(null);
   const [track, setTrack] = useState<Order | null>(null);
   const router = useRouter();
@@ -291,8 +300,18 @@ export default function ShopeeOrders() {
     try { afterPrint(await openShopeeAwb(list)); } catch (e) { afterPrint(null, e); } finally { setBusy(""); }
   }
   /** Print orders and Pengiriman Kilat reservations together in one merged PDF. */
+  /** Big batches go to the server ("cetak di latar belakang"): the browser would have to format every page itself. */
+  async function printInBackground(scope: "selected" | "new", ords: Order[] = [], bks: Booking[] = []) {
+    setBusy("print"); setNotice("");
+    try {
+      const job = await startPrintJob(scope, ords.map((o) => o.id), bks.map((b) => b.id));
+      setPrintJobId(job.id); rememberPrintJob(job.id);
+      setSelected([]); setSelectedBk([]);
+    } catch (e) { setNotice(e instanceof ApiError ? e.message : "Cetak di latar belakang gagal dimulai."); } finally { setBusy(""); }
+  }
   async function printMixed(ords: Order[], bks: Booking[]) {
     if (!ords.length && !bks.length) return;
+    if (ords.length + bks.length > BACKGROUND_FROM) return printInBackground("selected", ords, bks);
     setBusy("print"); setNotice("");
     try {
       afterPrint(await openShopeeAwbMerged({ orders: ords, bookings: bks.map(bookingAwb) }));
@@ -370,6 +389,7 @@ export default function ShopeeOrders() {
 
       {shops && !shops.length && <Panel className="flex items-center gap-3 p-5 text-sm text-slate-600"><Store size={18} />Belum ada toko Shopee terhubung. <Link href="/marketplace/shops" className="font-semibold text-brand-600">Hubungkan toko</Link></Panel>}
       {notice && <div className="flex items-start gap-2 rounded-xl bg-brand-50 p-3 text-sm text-brand-800"><Info size={16} className="mt-0.5 shrink-0" />{notice}</div>}
+      {printJobId && <PrintJobPanel key={printJobId} id={printJobId} onClose={() => { setPrintJobId(null); rememberPrintJob(null); }} onFinished={() => load(true)} />}
 
       <Panel className="px-5 pb-5 sm:px-6">
         {/* Status tabs */}
@@ -501,7 +521,10 @@ export default function ShopeeOrders() {
             <button onClick={() => setShipTarget({ orders: rows.filter(needsShipping).map((o) => o.id), bookings: shippableBk.map((b) => b.id) })} className="flex h-9 items-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700"><Truck size={15} />Atur Pengiriman Massal</button>
           )}
           {(state === "processed" || state === "advance" || (state === "perlu_kirim" && kind === "kilat")) && (rows.some(canPrint) || printableBk.length > 0) && (
-            <button onClick={() => printMixed(rows.filter(canPrint), printableBk)} disabled={!!busy} className="flex h-9 items-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">{busy === "print" ? <Loader2 size={15} className="animate-spin" /> : <Printer size={15} />}Cetak Resi Massal</button>
+            <>
+              <button onClick={() => printInBackground("new")} disabled={!!busy} title="Semua resi Shopee yang siap cetak dan belum pernah dicetak, di semua halaman. Diproses server; PDF siap diunduh saat selesai." className="flex h-9 items-center gap-2 rounded-lg border border-brand-200 bg-white px-4 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-60"><Printer size={15} />Cetak semua yang belum dicetak</button>
+              <button onClick={() => printMixed(rows.filter(canPrint), printableBk)} disabled={!!busy} className="flex h-9 items-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60">{busy === "print" ? <Loader2 size={15} className="animate-spin" /> : <Printer size={15} />}Cetak Resi Massal</button>
+            </>
           )}
         </div>
 

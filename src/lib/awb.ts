@@ -1,6 +1,6 @@
 "use client";
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
-import { redrawItemTable, type SkuRow, type TextItem } from "@/lib/awbTable";
+import { PDFDocument } from "pdf-lib";
+import { formatAwbPart, type AwbLabel, type PdfJs } from "@/lib/awbFormat";
 import { getCachedPrintSettings, type PrintSettings } from "@/lib/printSettings";
 import { API_URL, getToken } from "@/lib/api";
 import { getDirectPrefs, LABEL_MM, printPdfDirect } from "@/lib/thermal";
@@ -27,76 +27,76 @@ async function fetchAwb(ids: number[], kind: "order" | "booking" = "order"): Pro
   return { bytes: new Uint8Array(await res.arrayBuffer()), skipped };
 }
 
-/** What a print left out: parcels already shipped (skipped) and groups that failed (errors). */
-export type AwbResult = { skipped: string[]; errors: string[]; printed?: number };
+/** Shopee's limit of labels per shipping document. */
+const AWB_CHUNK = 50;
+/** Documents fetched at the same time (each one makes Shopee build a PDF). */
+const AWB_PARALLEL = 3;
+
+/** Run `fn` over `items` with at most `limit` running at once; results keep the input order. */
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
+
+/** Browser side: the numbers on an order's label and its "SKU | Variasi | Qty" rows. */
+function toLabel(o: AwbOrder): AwbLabel {
+  return {
+    sns: [o.external_order_sn, o.booking_sn, o.order_sn, o.tracking_number].filter((sn): sn is string => !!sn),
+    rows: (o.items ?? []).map((it) => ({
+      parent: (it.item_sku ?? it.sku ?? "") || "-", variant: (it.model_sku ?? "") || "-",
+      name: it.name ?? undefined, varName: it.variant ?? undefined, qty: it.qty ?? 1,
+    })),
+  };
+}
+
+let pdfjsBrowser: Promise<PdfJs> | null = null;
+function loadPdfJs(): Promise<PdfJs> {
+  return (pdfjsBrowser ??= import("pdfjs-dist").then((m) => { m.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs"; return m as unknown as PdfJs; }));
+}
 
 /**
- * Remove product names from Shopee's AWB: the item table is redrawn as "# | SKU | Variasi | Qty"
- * (see awbTable.ts). If a page's layout isn't recognised, the name column is covered instead.
+ * Show a PDF in a tab opened earlier (from the click, so it isn't blocked as a pop-up) with "Cetak" and "Unduh" buttons.
+ * Chrome's PDF viewer can't download a navigated blob: URL, hence the HTML wrapper with an <a download>.
  */
-async function hideProductNames(bytes: Uint8Array, group: AwbOrder[] = [], printSettings?: PrintSettings): Promise<{ doc: PDFDocument; cropBottoms: number[] }> {
-  const pdfjs = await import("pdfjs-dist");
-  pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-  const doc = await pdfjs.getDocument({ data: bytes.slice() }).promise;
-  const out = await PDFDocument.load(bytes);
-  const fonts = { regular: await out.embedFont(StandardFonts.Helvetica), bold: await out.embedFont(StandardFonts.HelveticaBold) };
-  const cropBottoms: number[] = [];
-  const skuRows = (o: AwbOrder): SkuRow[] => (o.items ?? []).map((it) => ({
-    parent: (it.item_sku ?? it.sku ?? "") || "-", variant: (it.model_sku ?? "") || "-",
-    name: it.name ?? undefined, varName: it.variant ?? undefined,
-    qty: it.qty ?? 1,
-  }));
-  // Shopee doesn't always return pages in the order requested, so find each page's order by the number printed on it.
-  const keyed = group.flatMap((o) => [o.external_order_sn, o.booking_sn, o.order_sn, o.tracking_number].filter((sn): sn is string => !!sn).map((sn) => [sn.toUpperCase(), o] as const));
-
-  const pagesData: { items: TextItem[]; minY: number; match?: AwbOrder }[] = [];
-  for (let i = 0; i < doc.numPages; i++) {
-    const items = (await (await doc.getPage(i + 1)).getTextContent()).items.filter((it): it is TextItem & typeof it => "str" in it) as unknown as TextItem[];
-    const ys = items.filter((it) => it.str.trim()).map((it) => it.transform[5]);
-    const minY = ys.length ? Math.min(...ys) : 0;
-    const text = items.map((it) => it.str).join("").replace(/\s+/g, "").toUpperCase();
-    const match = keyed.find(([sn]) => text.includes(sn))?.[1] ?? (group.length === doc.numPages ? group[i] : undefined);
-    pagesData.push({ items, minY, match });
-  }
-
-  const offsetByOrder = new Map<AwbOrder, number>();
-  let outIdx = 0;
-
-  for (let i = 0; i < pagesData.length; i++) {
-    const { items, minY, match } = pagesData[i];
-    cropBottoms.push(Math.max(0, minY - 12));
-    const startIndex = match ? (offsetByOrder.get(match) ?? 0) : 0;
-    const hasNextPage = !!match && pagesData.slice(i + 1).some((p) => p.match === match);
-    const res = redrawItemTable(out.getPage(outIdx), items, fonts, match ? skuRows(match) : undefined, printSettings, { startIndex, hasNextPage });
-    outIdx++;
-    if (res.ok) {
-      if (match) offsetByOrder.set(match, startIndex + res.renderedCount);
-      if (res.drawOverflow) {
-        const orderSn = match?.external_order_sn ?? match?.order_sn ?? match?.booking_sn ?? undefined;
-        const added = res.drawOverflow(out, outIdx, orderSn);
-        for (let k = 0; k < added; k++) cropBottoms.push(0);
-        outIdx += added;
-      }
-      continue;
-    }
-    const header = items.find((it) => /^Nama\s*Produk/i.test(it.str.trim()) || /^Product\s*Name/i.test(it.str.trim()));
-    if (!header) continue;
-    if (printSettings?.product_text_mode === "name_only") continue; // Never cover names when name_only mode is chosen
-    const hy = header.transform[5];
-    const sku = items.find((it) => it.str.trim() === "SKU" && Math.abs(it.transform[5] - hy) < 12);
-    if (!sku) continue; // Never erase product names when there is no SKU on the label
-    const x0 = header.transform[4] - 1;
-    const x1 = sku.transform[4] - 2;
-    const page = out.getPage(outIdx - 1);
-    for (const it of items) {
-      const [, , , d, x, y] = it.transform;
-      if (!it.str.trim() || x < x0 || x >= x1 || y > hy + 1) continue;
-      const h = it.height || Math.abs(d) || 8;
-      page.drawRectangle({ x: x - 0.5, y: y - h * 0.3, width: Math.min(it.width, x1 - x) + 1, height: h * 1.4, color: rgb(1, 1, 1) });
-    }
-  }
-  return { doc: out, cropBottoms };
+export function showPdfViewer(win: Window, url: string, filename: string, pages: number): void {
+  win.document.open();
+  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${filename}</title><style>
+    *{box-sizing:border-box}html,body{margin:0;height:100%;font-family:system-ui,-apple-system,sans-serif;background:#1e293b;display:flex;flex-direction:column}
+    .bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 18px;background:#0f172a;color:#f8fafc;border-bottom:1px solid #334155}
+    .brand{display:flex;align-items:center;gap:10px;min-width:0}
+    .badge{background:rgba(238,77,45,.18);color:#ff7a5c;font-size:11px;font-weight:700;padding:3px 8px;border-radius:9999px;white-space:nowrap}
+    .title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .actions{display:flex;gap:8px;flex-shrink:0}
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 15px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;cursor:pointer;border:0;transition:background .15s}
+    .dl{background:#ee4d2d;color:#fff}.dl:hover{background:#d73211}
+    .pr{background:#334155;color:#f8fafc}.pr:hover{background:#475569}
+    iframe{flex:1;width:100%;border:0;background:#334155}
+  </style></head><body>
+    <div class="bar">
+      <div class="brand">
+        <span class="badge">${pages} halaman</span>
+        <div class="title">Resi Shopee · ${filename}</div>
+      </div>
+      <div class="actions">
+        <button class="btn pr" onclick="document.getElementById('pdf').contentWindow.print()">Cetak Sekarang</button>
+        <a class="btn dl" href="${url}" download="${filename}">Unduh PDF</a>
+      </div>
+    </div>
+    <iframe id="pdf" src="${url}"></iframe>
+  </body></html>`);
+  win.document.close();
 }
+
+/** What a print left out: parcels already shipped (skipped) and groups that failed (errors). */
+export type AwbResult = { skipped: string[]; errors: string[]; printed?: number };
 
 /**
  * Print Shopee AWBs straight away: one request per shop+courier (Shopee can't mix couriers in one
@@ -126,90 +126,46 @@ export async function openShopeeAwbMerged({ orders = [], bookings = [], settings
       .spin{width:38px;height:38px;margin:0 auto 14px;border:3px solid rgba(238,77,45,.2);border-top-color:#ee4d2d;border-radius:9999px;animation:s .8s linear infinite}
       @keyframes s{to{transform:rotate(360deg)}}
       h1{margin:0 0 6px;font-size:15px;font-weight:700}p{margin:0;font-size:12px;color:#64748b}
-    </style></head><body><div class="card"><div class="spin"></div><h1>Menyiapkan Resi Shopee…</h1><p>Menggabungkan &amp; memformat label pengiriman Anda.</p></div></body></html>`);
+    </style></head><body><div class="card"><div class="spin"></div><h1>Menyiapkan Resi Shopee…</h1><p id="progress">Menggabungkan &amp; memformat label pengiriman Anda.</p></div></body></html>`);
   }
   try {
     const merged = await PDFDocument.create();
-    // Shopee can't mix couriers in one document, so group each kind by shop + courier.
+    const progress = (text: string) => { const el = win?.document.getElementById("progress"); if (el) el.textContent = text; };
+    // Shopee can't mix couriers in one document and takes at most 50 labels per document: group each kind by
+    // shop + courier, then split every group into chunks of 50.
+    const tasks: { kind: "order" | "booking"; group: AwbOrder[] }[] = [];
     for (const [kind, list] of [["order", orders], ["booking", bookings]] as const) {
       const groups = Object.values(list.reduce<Record<string, AwbOrder[]>>((acc, o) => {
         (acc[`${o.marketplace_shop_id}|${o.courier}`] ??= []).push(o);
         return acc;
       }, {}));
       for (const group of groups) {
-        try {
-          const { bytes, skipped } = await fetchAwb(group.map((o) => o.id), kind);
-          result.skipped.push(...skipped);
-          const { doc: src, cropBottoms } = await hideProductNames(bytes, group, printSettings);
-          if (printSettings.paper_size === "78x100") {
-            const targetW = 221.10; // 78 mm
-            const targetH = 283.46; // 100 mm
-            const srcPages = src.getPages();
-            for (let idx = 0; idx < srcPages.length; idx++) {
-              const srcPage = srcPages[idx];
-              const origW = srcPage.getWidth();
-              const origH = srcPage.getHeight();
-              const bot = Math.min(cropBottoms[idx] ?? 0, origH * 0.35);
-              const embedded = await merged.embedPage(srcPage, { left: 0, right: origW, bottom: bot, top: origH });
-              const page = merged.addPage([targetW, targetH]);
-              const cw = embedded.width;
-              const ch = embedded.height;
-              const scale = Math.min((targetW - 6) / cw, (targetH - 6) / ch);
-              const w = cw * scale;
-              const h = ch * scale;
-              page.drawPage(embedded, {
-                x: (targetW - w) / 2,
-                y: (targetH - h) / 2,
-                width: w,
-                height: h,
-              });
-            }
-          } else if (printSettings.paper_size === "100x100") {
-            const targetW = 283.46;
-            const targetH = 283.46;
-            const srcPages = src.getPages();
-            for (let idx = 0; idx < srcPages.length; idx++) {
-              const srcPage = srcPages[idx];
-              const origW = srcPage.getWidth();
-              const origH = srcPage.getHeight();
-              const bot = Math.min(cropBottoms[idx] ?? 0, origH * 0.35);
-              const embedded = await merged.embedPage(srcPage, { left: 0, right: origW, bottom: bot, top: origH });
-              const page = merged.addPage([targetW, targetH]);
-              const cw = embedded.width;
-              const ch = embedded.height;
-              const scale = Math.min((targetW - 6) / cw, (targetH - 6) / ch);
-              const w = cw * scale;
-              const h = ch * scale;
-              page.drawPage(embedded, {
-                x: (targetW - w) / 2,
-                y: (targetH - h) / 2,
-                width: w,
-                height: h,
-              });
-            }
-          } else if (printSettings.paper_size === "a4") {
-            const targetW = 595.28;
-            const targetH = 841.89;
-            for (const srcPage of src.getPages()) {
-              const embedded = await merged.embedPage(srcPage);
-              const page = merged.addPage([targetW, targetH]);
-              const origW = srcPage.getWidth();
-              const origH = srcPage.getHeight();
-              page.drawPage(embedded, {
-                x: 42,
-                y: targetH - origH - 42,
-                width: origW,
-                height: origH,
-              });
-            }
-          } else {
-            // Default 100x150 mm
-            const pages = await merged.copyPages(src, src.getPageIndices());
-            pages.forEach((p) => merged.addPage(p));
-          }
-        } catch (e) {
-          result.errors.push((e as Error).message);
-        }
+        for (let i = 0; i < group.length; i += AWB_CHUNK) tasks.push({ kind, group: group.slice(i, i + AWB_CHUNK) });
+      }
+    }
+    // Download a few chunks at a time (Shopee prepares each document on its side), keeping the original order.
+    let done = 0;
+    const total = tasks.reduce((t, x) => t + x.group.length, 0);
+    progress(`Mengambil ${total} resi dari Shopee…`);
+    const fetched = await mapLimit(tasks, AWB_PARALLEL, async (t) => {
+      try {
+        return await fetchAwb(t.group.map((o) => o.id), t.kind);
+      } catch (e) {
+        return e as Error;
+      } finally {
+        done += t.group.length;
+        progress(`Mengambil resi dari Shopee… ${done}/${total}`);
+      }
+    });
+    for (let i = 0; i < tasks.length; i++) {
+      const r = fetched[i];
+      if (r instanceof Error) { result.errors.push(r.message); continue; }
+      result.skipped.push(...r.skipped);
+      progress(`Memformat label… ${i + 1}/${tasks.length}`);
+      try {
+        await formatAwbPart(merged, r.bytes, tasks[i].group.map(toLabel), printSettings, await loadPdfJs());
+      } catch (e) {
+        result.errors.push((e as Error).message);
       }
     }
     if (!merged.getPageCount()) throw new Error(result.errors.join(" ") || "Tidak ada resi yang bisa dicetak.");
@@ -223,34 +179,7 @@ export async function openShopeeAwbMerged({ orders = [], bookings = [], settings
     const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
     const filename = `resi-shopee-${stamp}.pdf`;
     if (win) {
-      // Wrap the blob PDF in an HTML page with a direct <a download> button: Chrome's built-in PDF viewer
-      // fails with "Check internet connection" when downloading a navigated blob: URL directly.
-      win.document.open();
-      win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${filename}</title><style>
-        *{box-sizing:border-box}html,body{margin:0;height:100%;font-family:system-ui,-apple-system,sans-serif;background:#1e293b;display:flex;flex-direction:column}
-        .bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 18px;background:#0f172a;color:#f8fafc;border-bottom:1px solid #334155}
-        .brand{display:flex;align-items:center;gap:10px;min-width:0}
-        .badge{background:rgba(238,77,45,.18);color:#ff7a5c;font-size:11px;font-weight:700;padding:3px 8px;border-radius:9999px;white-space:nowrap}
-        .title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .actions{display:flex;gap:8px;flex-shrink:0}
-        .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 15px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;cursor:pointer;border:0;transition:background .15s}
-        .dl{background:#ee4d2d;color:#fff}.dl:hover{background:#d73211}
-        .pr{background:#334155;color:#f8fafc}.pr:hover{background:#475569}
-        iframe{flex:1;width:100%;border:0;background:#334155}
-      </style></head><body>
-        <div class="bar">
-          <div class="brand">
-            <span class="badge">${merged.getPageCount()} halaman</span>
-            <div class="title">Resi Shopee · ${filename}</div>
-          </div>
-          <div class="actions">
-            <button class="btn pr" onclick="document.getElementById('pdf').contentWindow.print()">Cetak Sekarang</button>
-            <a class="btn dl" href="${url}" download="${filename}">Unduh PDF</a>
-          </div>
-        </div>
-        <iframe id="pdf" src="${url}"></iframe>
-      </body></html>`);
-      win.document.close();
+      showPdfViewer(win, url, filename, merged.getPageCount());
     } else {
       const a = document.createElement("a");
       a.href = url;

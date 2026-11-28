@@ -9,7 +9,7 @@ const OWNER_ONLY = ["/settings/billing", "/settings/integrations", "/settings/ac
 const ROLE_PAGES: Record<Member["role"], string[]> = {
   admin: [],
   cs: ["/chat", "/customers", "/orders", "/products", "/dropship", "/marketplace/orders", "/marketplace/products", "/others/inventory", "/others/payments", "/whatsapp-rotator/chats"],
-  gudang: ["/orders", "/products", "/marketplace/orders", "/marketplace/scan-out", "/marketplace/products", "/others/inventory", "/others/transactions"],
+  gudang: ["/orders", "/products", "/marketplace/orders", "/marketplace/scan-out", "/marketplace/products", "/others/inventory", "/others/transactions", "/purchases", "/suppliers"],
   advertiser: ["/broadcast", "/customers", "/reports", "/landing-pages", "/marketplace/ads", "/marketplace/promotions", "/settings/tracking", "/products", "/dropship", "/affiliate", "/others/coupons", "/others/product-reports", "/whatsapp-rotator"],
 };
 

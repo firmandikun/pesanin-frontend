@@ -20,7 +20,8 @@ export default function BroadcastPage() {
   const [tab, setTab] = useState<"active" | "history">("active");
   const [page, setPage] = useState(1);
   const [list, setList] = useState<Paginated<BroadcastRow> | null>(null);
-  const [create, setCreate] = useState(false);
+  // ?audience=reorder (from Pelanggan → Waktunya Beli Lagi) opens the form with that segment.
+  const [create, setCreate] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("audience") === "reorder");
   const [detail, setDetail] = useState<number | null>(null);
 
   const loadStatus = useCallback(() => {
@@ -139,7 +140,8 @@ function CreateBroadcast({ status, templates, onClose, onCreated }: { status: Br
   const [tplKey, setTplKey] = useState(templates[0] ? `${templates[0].name}|${templates[0].language}` : "");
   const tpl = templates.find((t) => `${t.name}|${t.language}` === tplKey);
   const [vars, setVars] = useState<{ mode: "text" | "name"; value: string }[]>([]);
-  const [source, setSource] = useState<"customers" | "manual">("customers");
+  const [source, setSource] = useState<"customers" | "manual" | "reorder">(() =>
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("audience") === "reorder" ? "reorder" : "customers");
   const [label, setLabel] = useState("");
   const [optIn, setOptIn] = useState(true);
   const [numbers, setNumbers] = useState("");
@@ -153,7 +155,7 @@ function CreateBroadcast({ status, templates, onClose, onCreated }: { status: Br
   useEffect(() => { api<{ data: ChatLabel[] }>("/chat-labels").then((r) => setLabels(r.data)).catch(() => {}); }, []);
   // One input per {{n}}; the first one defaults to the customer's name.
   useEffect(() => { setVars(Array.from({ length: tpl?.variables ?? 0 }, (_, i) => (i === 0 ? { mode: "name", value: "Kak" } : { mode: "text", value: "" }))); }, [tplKey]); // eslint-disable-line react-hooks/exhaustive-deps
-  const audience = useMemo(() => (source === "customers" ? { source, label: label || null, opt_in_only: optIn } : { source, numbers }), [source, label, optIn, numbers]);
+  const audience = useMemo(() => (source === "customers" ? { source, label: label || null, opt_in_only: optIn } : source === "reorder" ? { source } : { source, numbers }), [source, label, optIn, numbers]);
   useEffect(() => {
     if (source === "manual" && !numbers.trim()) { setCount(0); return; }
     const t = setTimeout(() => api<{ count: number }>("/broadcasts/preview", { method: "POST", json: { audience } }).then((r) => setCount(r.count)).catch(() => setCount(null)), 300);
@@ -202,11 +204,13 @@ function CreateBroadcast({ status, templates, onClose, onCreated }: { status: Br
             <div>
               <FieldLabel>Penerima</FieldLabel>
               <div className="mb-3 flex gap-2">
-                {([["customers", "Dari daftar pelanggan"], ["manual", "Tempel nomor"]] as const).map(([id, l]) => (
+                {([["customers", "Dari daftar pelanggan"], ["reorder", "Waktunya beli lagi"], ["manual", "Tempel nomor"]] as const).map(([id, l]) => (
                   <button key={id} type="button" onClick={() => setSource(id)} className={`h-9 flex-1 rounded-lg text-sm font-semibold ${source === id ? "bg-navy text-white" : "bg-slate-100 text-slate-600"}`}>{l}</button>
                 ))}
               </div>
-              {source === "customers" ? (
+              {source === "reorder" ? (
+                <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">Pembeli yang pesanan terakhirnya sudah lewat satu siklus beli dan belum pesan lagi (atur di <Link href="/customers/reorder" className="font-semibold text-brand-600">Pelanggan → Waktunya Beli Lagi</Link>). Pakai template promosi yang sudah disetujui Meta.</p>
+              ) : source === "customers" ? (
                 <div className="space-y-3">
                   <Select className="input" value={label} onChange={(e) => setLabel(e.target.value)}><option value="">Semua pelanggan</option>{labels.map((l) => <option key={l.id} value={l.name}>Label: {l.name}</option>)}</Select>
                   <label className="flex items-center justify-between gap-3 text-sm"><span><b className="block text-slate-700">Hanya yang setuju menerima promosi</b><span className="text-xs text-slate-500">Disarankan. Mengirim promo ke yang tidak setuju bisa menurunkan kualitas nomor.</span></span><Toggle checked={optIn} onChange={setOptIn} /></label>

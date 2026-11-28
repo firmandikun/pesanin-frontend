@@ -1,5 +1,5 @@
 "use client";
-import { BarChart3, BookOpen, Boxes, ChevronDown, ClipboardCheck, Gift, LayoutDashboard, LogOut, Maximize2, Megaphone, Menu, MessageCircle, MessageSquareMore, Package, Settings, Store, User, Wallet } from "lucide-react";
+import { BarChart3, BookOpen, Boxes, ChevronDown, ClipboardCheck, Gift, LayoutDashboard, LogOut, Maximize2, Megaphone, Menu, MessageCircle, MessageSquareMore, Package, Settings, Store, Truck, User, Wallet } from "lucide-react";
 import { AlertTriangle, Crown } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
@@ -30,6 +30,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Gift,
   Settings,
   BookOpen,
+  Truck,
 };
 
 

@@ -1,5 +1,5 @@
 import { PDFDocument, PDFFont, PDFPage, rgb } from "pdf-lib";
-import { type PrintSettings } from "@/lib/printSettings";
+import { type PrintSettings } from "./printSettings";
 
 export type TextItem = { str: string; transform: number[]; width: number; height: number };
 type Fonts = { regular: PDFFont; bold: PDFFont };
