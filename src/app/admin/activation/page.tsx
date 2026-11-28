@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Panel } from "@/components/kit";
 import { Select } from "@/components/Select";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 
 type Report = {
   days: number; track: "marketplace" | "social"; signups: number; complete: number;
@@ -24,10 +24,12 @@ export default function ActivationPage() {
   const [days, setDays] = useState("30");
   const [track, setTrack] = useState<"marketplace" | "social">("marketplace");
   const [r, setR] = useState<Report | null>(null);
+  const [err, setErr] = useState("");
 
   useEffect(() => {
-    setR(null);
-    api<Report>(`/admin/activation?days=${days}&track=${track}`).then(setR).catch(() => setR(null));
+    setR(null); setErr("");
+    api<Report>(`/admin/activation?days=${days}&track=${track}`).then(setR)
+      .catch((e) => setErr(e instanceof ApiError ? `${e.status}: ${e.message}` : "Gagal memuat data aktivasi."));
   }, [days, track]);
 
   const total = Math.max(1, r?.signups ?? 0);
@@ -54,6 +56,7 @@ export default function ActivationPage() {
         </div>
       </div>
 
+      {err && <p className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">Gagal memuat data aktivasi ({err}). Pastikan backend sudah di-deploy (git pull + php artisan route:cache bila memakai cache rute).</p>}
       <div className="grid gap-4 sm:grid-cols-3">
         <Panel className="p-4"><p className="text-xs font-medium text-slate-500">Seller daftar</p><p className="mt-1 text-2xl font-bold text-slate-900">{r?.signups ?? "…"}</p></Panel>
         <Panel className="p-4"><p className="text-xs font-medium text-slate-500">Selesai semua langkah</p><p className="mt-1 text-2xl font-bold text-emerald-600">{r ? `${r.complete} (${Math.round((r.complete / total) * 100)}%)` : "…"}</p></Panel>
@@ -62,7 +65,7 @@ export default function ActivationPage() {
 
       <Panel className="p-5">
         <h2 className="mb-4 font-semibold text-slate-900">Funnel langkah awal</h2>
-        {!r ? <p className="text-sm text-slate-400">Memuat…</p> : !r.signups ? <p className="text-sm text-slate-500">Belum ada seller baru di jalur ini pada periode ini.</p> : (
+        {!r ? <p className="text-sm text-slate-400">{err ? "Tidak ada data." : "Memuat…"}</p> : !r.signups ? <p className="text-sm text-slate-500">Belum ada seller baru di jalur ini pada periode ini.</p> : (
           <div className="space-y-2.5">
             {steps.map((s, i) => {
               const pct = Math.round((s.users / total) * 100);
