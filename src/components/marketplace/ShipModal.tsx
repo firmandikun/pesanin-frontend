@@ -95,7 +95,9 @@ export function ShipModal({ orderIds = [], bookingIds = [], onClose, onDone }: {
         }));
       });
       const chunks: (typeof items)[] = [];
-      const chunkSize = items.length > 6 ? 4 : items.length;
+      // 20 per request: the backend ships them with Shopee's mass API (one call per courier), and a request that falls
+      // back to one-by-one still finishes well within the proxy timeout. 3 requests run side by side.
+      const chunkSize = Math.min(20, items.length);
       for (let i = 0; i < items.length; i += chunkSize) {
         chunks.push(items.slice(i, i + chunkSize));
       }

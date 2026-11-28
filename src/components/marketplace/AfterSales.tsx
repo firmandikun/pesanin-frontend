@@ -1,7 +1,7 @@
 "use client";
-import { CheckCircle2, Loader2, PackageX, RotateCcw, Scale, StickyNote } from "lucide-react";
+import { CheckCircle2, ImagePlus, Loader2, PackageX, RotateCcw, Scale, StickyNote, Truck } from "lucide-react";
 import { useEffect, useState } from "react";
-import { askConfirm, showAlert } from "@/components/Dialogs";
+import { askConfirm, askText, showAlert } from "@/components/Dialogs";
 import { Dialog } from "@/components/kit";
 import { api, ApiError, rupiah, type Order } from "@/lib/api";
 
@@ -92,7 +92,7 @@ export function ReturnDialog({ id, onClose, onDone }: { id: number; onClose: () 
               )}
               {mode === "dispute" && (
                 <div className="space-y-2 rounded-xl border border-rose-200 p-3">
-                  <p className="text-xs text-slate-500">Shopee akan meninjau bukti dari kedua pihak. Lampirkan foto/video bukti lewat Seller Centre bila diminta.</p>
+                  <p className="text-xs text-slate-500">Shopee akan meninjau bukti dari kedua pihak. Foto bukti (mis. potongan video packing) bisa dikirim di bagian Bukti Sengketa di bawah.</p>
                   {!d.dispute_reasons.length ? (
                     <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-800">
                       Shopee belum memberikan pilihan alasan sengketa untuk pengajuan ini{d.dispute_error ? ` (${d.dispute_error})` : ""}. Biasanya sengketa baru bisa diajukan pada tahap tertentu, misalnya setelah barang retur diterima. Ajukan lewat{" "}
@@ -112,9 +112,106 @@ export function ReturnDialog({ id, onClose, onDone }: { id: number; onClose: () 
               )}
             </>
           )}
+          {r.status !== "CLOSED" && r.status !== "CANCELLED" && <DisputeProof id={id} status={r.status} onDone={onDone} />}
         </div>
       )}
     </Dialog>
+  );
+}
+
+type Proof = {
+  images: { url: string; thumbnail: string }[]; videos: { url: string; thumbnail: string }[]; description: string | null;
+  shipping: { mandatory: boolean; uploaded: boolean; tracking_required: boolean; image_required: boolean; carriers: { id: number; name: string }[] } | null;
+};
+
+/** Seller's dispute proof on Shopee (photos + text), seller-arranged return shipping proof, and cancelling a compensation dispute. */
+function DisputeProof({ id, status, onDone }: { id: number; status: string; onDone: (msg: string) => void }) {
+  const [p, setP] = useState<Proof | null>(null);
+  const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [desc, setDesc] = useState("");
+  const [ship, setShip] = useState({ carrier_id: "", tracking_number: "", remarks: "" });
+  const [shipFiles, setShipFiles] = useState<File[]>([]);
+  const load = () => api<Proof>(`/marketplace/returns/${id}/proof`).then(setP).catch((e) => showAlert(errMsg(e, "Gagal mengambil bukti dari Shopee"), "Gagal"));
+  useEffect(() => { if (show && !p) load(); }, [show]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const send = async () => {
+    setBusy("proof");
+    try {
+      const fd = new FormData();
+      files.forEach((f) => fd.append("photos[]", f));
+      if (desc.trim()) fd.append("description", desc.trim());
+      const r = await api<{ message: string }>(`/marketplace/returns/${id}/proof`, { method: "POST", body: fd });
+      setFiles([]); setDesc(""); load(); showAlert(r.message, "Bukti terkirim");
+    } catch (e) { showAlert(errMsg(e, "Gagal mengirim bukti"), "Gagal"); } finally { setBusy(""); }
+  };
+  const sendShip = async () => {
+    setBusy("ship");
+    try {
+      const fd = new FormData();
+      const c = p?.shipping?.carriers.find((x) => String(x.id) === ship.carrier_id);
+      fd.append("carrier_id", ship.carrier_id);
+      if (c) fd.append("carrier_name", c.name);
+      if (ship.tracking_number) fd.append("tracking_number", ship.tracking_number);
+      if (ship.remarks) fd.append("remarks", ship.remarks);
+      shipFiles.forEach((f) => fd.append("photos[]", f));
+      const r = await api<{ message: string }>(`/marketplace/returns/${id}/shipping-proof`, { method: "POST", body: fd });
+      load(); showAlert(r.message, "Terkirim");
+    } catch (e) { showAlert(errMsg(e, "Gagal mengirim bukti pengiriman"), "Gagal"); } finally { setBusy(""); }
+  };
+  const cancelDispute = async () => {
+    const email = (await askText("Email untuk catatan Shopee", "", "Shopee mencatat email operator yang membatalkan sengketa."))?.trim();
+    if (!email) return;
+    setBusy("cancel");
+    try {
+      const r = await api<{ message: string }>(`/marketplace/returns/${id}/act`, { method: "POST", json: { action: "cancel_dispute", email } });
+      onDone(r.message);
+    } catch (e) { showAlert(errMsg(e, "Gagal membatalkan sengketa"), "Gagal"); } finally { setBusy(""); }
+  };
+
+  return (
+    <div className="rounded-xl border border-slate-200 p-3">
+      <button onClick={() => setShow(!show)} className="flex w-full items-center justify-between text-xs font-semibold text-navy"><span className="flex items-center gap-1.5"><ImagePlus size={14} />Bukti Sengketa dari Penjual</span><span className="text-slate-400">{show ? "Tutup" : "Buka"}</span></button>
+      {show && (!p ? <p className="flex items-center gap-2 pt-3 text-xs text-slate-500"><Loader2 size={13} className="animate-spin" />Mengambil bukti dari Shopee…</p> : (
+        <div className="space-y-3 pt-3">
+          {(p.images.length > 0 || p.videos.length > 0) ? (
+            <div>
+              <p className="mb-1.5 text-xs text-slate-500">Sudah terkirim ke Shopee</p>
+              <div className="flex flex-wrap gap-2">
+                {p.images.map((x) => <a key={x.url} href={x.url} target="_blank" rel="noopener noreferrer"><img src={x.thumbnail} alt="" className="h-16 w-16 rounded-lg border border-slate-200 object-cover" /></a>)}
+                {p.videos.map((x, i) => <a key={x.url} href={x.url} target="_blank" rel="noopener noreferrer" className="flex h-16 w-16 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-[11px] font-semibold text-sky-600">Video {i + 1}</a>)}
+              </div>
+              {p.description && <p className="mt-1.5 text-xs text-slate-600">“{p.description}”</p>}
+            </div>
+          ) : <p className="text-xs text-slate-500">Belum ada bukti dari penjual.</p>}
+          <div className="space-y-2">
+            <input type="file" accept="image/jpeg,image/png" multiple onChange={(e) => setFiles(Array.from(e.target.files ?? []).slice(0, 9))} className="block w-full text-xs" />
+            <textarea className="input min-h-[70px] w-full py-2 text-xs" placeholder="Keterangan bukti (mis. foto dari video packing menunjukkan barang lengkap)" value={desc} onChange={(e) => setDesc(e.target.value)} />
+            <p className="text-[11px] text-slate-500">Shopee hanya menerima foto JPG/PNG (maks. 10 MB, hingga 9 foto) lewat API. Video bukti tetap diunggah lewat Seller Centre.</p>
+            <div className="flex justify-end"><button onClick={send} disabled={!!busy || !files.length} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-navy px-4 text-xs font-semibold text-white disabled:opacity-50">{busy === "proof" ? <Loader2 size={14} className="animate-spin" /> : <ImagePlus size={14} />}Kirim {files.length || ""} Foto Bukti</button></div>
+          </div>
+          {p.shipping && p.shipping.carriers.length > 0 && !p.shipping.uploaded && (
+            <div className="space-y-2 border-t border-slate-100 pt-3">
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-navy"><Truck size={14} />Bukti pengiriman retur oleh penjual{p.shipping.mandatory ? " (wajib)" : ""}</p>
+              <select className="input h-9 w-full text-xs" value={ship.carrier_id} onChange={(e) => setShip({ ...ship, carrier_id: e.target.value })}>
+                <option value="">Pilih ekspedisi…</option>
+                {p.shipping.carriers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <input className="input h-9 w-full text-xs" placeholder={`No. resi${p.shipping.tracking_required ? " (wajib)" : ""}`} value={ship.tracking_number} onChange={(e) => setShip({ ...ship, tracking_number: e.target.value })} />
+              <input type="file" accept="image/jpeg,image/png" multiple onChange={(e) => setShipFiles(Array.from(e.target.files ?? []).slice(0, 3))} className="block w-full text-xs" />
+              <div className="flex justify-end"><button onClick={sendShip} disabled={!!busy || !ship.carrier_id || (p.shipping.tracking_required && !ship.tracking_number) || (p.shipping.image_required && !shipFiles.length)}
+                className="h-9 rounded-lg bg-navy px-4 text-xs font-semibold text-white disabled:opacity-50">{busy === "ship" ? <Loader2 size={14} className="animate-spin" /> : "Kirim Bukti Pengiriman"}</button></div>
+            </div>
+          )}
+          {(status === "JUDGING" || status === "SELLER_DISPUTE") && (
+            <div className="border-t border-slate-100 pt-3 text-right">
+              <button onClick={cancelDispute} disabled={!!busy} className="text-xs font-semibold text-rose-600 hover:underline disabled:opacity-50">{busy === "cancel" ? "Membatalkan…" : "Batalkan sengketa (khusus sengketa kompensasi)"}</button>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }
 

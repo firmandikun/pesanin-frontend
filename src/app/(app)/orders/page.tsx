@@ -15,6 +15,7 @@ import {
   PAYMENT_LABEL, Product, rupiah, SHIPPING_LABEL, STATUS_COLOR, STATUS_LABEL,
 } from "@/lib/api";
 import { CheckoutExtras, CheckoutForm, Store } from "@/components/CheckoutForm";
+import { FollowupQueue } from "@/components/FollowupQueue";
 import { Empty, Field, Modal, Pagination, StatCard, Tabs } from "@/components/ui";
 import { Select } from "@/components/Select";
 import { askConfirm, askText, showAlert } from "@/components/Dialogs";
@@ -80,6 +81,7 @@ function Orders() {
   const [notice, setNotice] = useState("");
   const [staff, setStaff] = useState<CsOption[]>([]);
   const [csReport, setCsReport] = useState(false);
+  const [fuQueue, setFuQueue] = useState(false);
   useEffect(() => { api<{ data: CsOption[] }>("/r/staff?per_page=100").then((r) => setStaff(r.data ?? [])).catch(() => {}); }, []);
 
   const query = useCallback(() => new URLSearchParams({ view, type, ...filters, page: String(page), per_page: String(perPage) }).toString(), [view, type, filters, page, perPage]);
@@ -138,8 +140,8 @@ function Orders() {
   const selectedOrders = data?.orders.data.filter((o) => selected.includes(o.id)) ?? [];
 
   async function followup(o: Order, event = suggestedTemplate(o)) {
-    const { url } = await api(`/orders/${o.id}/followup`, { method: "POST", json: { event } });
-    window.open(url, "_blank");
+    const r = await api<{ via: "api" | "manual"; url: string | null }>(`/orders/${o.id}/followup`, { method: "POST", json: { event } });
+    if (r.url) window.open(r.url, "_blank"); else setNotice(`${o.code}: follow up terkirim otomatis lewat WhatsApp bisnis (gratis, pembeli chat dalam 24 jam terakhir).`);
     load();
   }
 
@@ -152,6 +154,7 @@ function Orders() {
           {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </Select>
         <DateRangePicker value={{ from: filters.from, to: filters.to }} onChange={(r) => { setFilters({ ...filters, from: r.from, to: r.to }); setPage(1); }} />
+        {view === "all" && <button className="btn-outline" onClick={() => setFuQueue(true)} title="Kirim follow up WhatsApp satu per satu, pesan sudah terisi"><MessageCircle size={16} />Antrean Follow Up</button>}
         {view === "all" && staff.length > 0 && <button className="btn-outline" onClick={() => setCsReport(true)}><BarChart3 size={16} />Kinerja CS</button>}
         {view === "all" && <button className="btn-primary" onClick={() => setCreating(true)}><Plus size={16} />Input Order</button>}
       </div>
@@ -324,6 +327,7 @@ function Orders() {
       {track && <TrackingModal orderId={track.id} title={`Lacak resi · ${track.code}`} onClose={() => setTrack(null)} />}
       {bookTarget && <BookCourierModal order={bookTarget} busy={shipping.includes(bookTarget.id)} onClose={() => setBookTarget(null)} onSubmit={(extra) => bookCourier([bookTarget.id], extra)} />}
       {detail && <OrderDetail order={detail} staff={staff} onClose={() => setDetail(null)} onSaved={() => { setDetail(null); load(); }} />}
+      {fuQueue && <FollowupQueue onClose={() => setFuQueue(false)} onSent={load} />}
       {csReport && <CsReport from={filters.from} to={filters.to} onClose={() => setCsReport(false)} />}
       {creating && <InputOrder onClose={() => setCreating(false)} onDone={() => { setCreating(false); load(); }} />}
     </div>
@@ -430,8 +434,8 @@ function OrderDetail({ order, staff, onClose, onSaved }: { order: Order; staff: 
   }
 
   async function followup(event: string) {
-    const { url } = await api(`/orders/${o.id}/followup`, { method: "POST", json: { event } });
-    window.open(url, "_blank");
+    const r = await api<{ via: "api" | "manual"; url: string | null }>(`/orders/${o.id}/followup`, { method: "POST", json: { event } });
+    if (r.url) window.open(r.url, "_blank"); else showAlert("Terkirim otomatis lewat WhatsApp bisnis (gratis, pembeli chat dalam 24 jam terakhir).", "Follow up terkirim");
     setO((x) => ({ ...x, followup_count: x.followup_count + 1, cs_contacted_at: x.cs_contacted_at ?? new Date().toISOString() }));
   }
 
