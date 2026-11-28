@@ -206,16 +206,16 @@ function Shell({ children }: { children: React.ReactNode }) {
             {collapsed && <span className="hidden lg:block"><LogoMark /></span>}
           </Link>
         </div>
-        <button onClick={toggleSidebar} className="ml-1 rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-[#ee4d2d]" aria-label="Menu"><Menu size={20} /></button>
+        <button onClick={toggleSidebar} className="ml-1 rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-[#FE551B]" aria-label="Menu"><Menu size={20} /></button>
         <div className="ml-auto flex items-center gap-4 text-sm">
           <span className={pathname?.startsWith("/chat") ? "" : "sm:hidden"}><NotificationBell /></span>
-          {!member && <Link href="/settings/billing" className="hidden items-center gap-1.5 rounded-full bg-orange-50 py-1 pl-1 pr-3 text-xs font-semibold text-[#ee4d2d] ring-1 ring-orange-200/70 transition hover:bg-orange-100 md:flex">
-            <span className="flex items-center gap-1 rounded-full bg-[#ee4d2d] px-2 py-0.5 text-white"><Crown size={12} />{PLAN_NAME[user!.active_plan ?? "gratis"]}{sub?.status === "trial" && " · Trial"}</span>
+          {!member && <Link href="/settings/billing" className="hidden items-center gap-1.5 rounded-full bg-[#FFF1EB] py-1 pl-1 pr-3 text-xs font-semibold text-[#FE551B] ring-1 ring-orange-200/70 transition hover:bg-orange-100 md:flex">
+            <span className="flex items-center gap-1 rounded-full bg-[#FE551B] px-2 py-0.5 text-white"><Crown size={12} />{PLAN_NAME[user!.active_plan ?? "gratis"]}{sub?.status === "trial" && " · Trial"}</span>
             {sub?.status === "trial" ? `${sub.days_left} hari lagi` : user!.active_plan === "pro" ? "Kelola paket" : "Upgrade"}
           </Link>}
           {!member && <HeaderBalance />}
           <div className="relative">
-            <button onClick={() => setMenu(!menu)} className="flex items-center gap-2 font-medium text-slate-700 hover:text-[#ee4d2d]"><User size={19} className="rounded-full border border-slate-300 p-0.5 text-slate-600" /><span className="hidden sm:inline">{member?.name ?? user!.name}</span><ChevronDown size={15} className="text-slate-400" /></button>
+            <button onClick={() => setMenu(!menu)} className="flex items-center gap-2 font-medium text-slate-700 hover:text-[#FE551B]"><User size={19} className="rounded-full border border-slate-300 p-0.5 text-slate-600" /><span className="hidden sm:inline">{member?.name ?? user!.name}</span><ChevronDown size={15} className="text-slate-400" /></button>
             {menu && (
               <div className="absolute right-0 mt-3 w-52 rounded-xl border border-slate-200 bg-white p-1 text-sm text-slate-700 shadow-xl" onMouseLeave={() => setMenu(false)}>
                 <div className="border-b border-slate-100 px-3 py-2"><b className="block text-slate-800">{user!.store_name}</b>
@@ -232,7 +232,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <aside className={`app-shell-chrome no-scrollbar fixed bottom-0 left-0 top-14 z-30 overflow-y-auto bg-white pb-24 pt-3 transition-[width,transform] duration-300 ease-out
+      <aside className={`app-shell-chrome no-scrollbar fixed bottom-0 left-0 top-14 z-30 overflow-y-auto bg-[#FE551B] pb-24 pt-3 transition-[width,transform] duration-300 ease-out
         ${mobile ? "translate-x-0 shadow-xl" : "-translate-x-full"} lg:translate-x-0 lg:shadow-none ${collapsed ? "w-[68px]" : "w-[230px]"}`}>
         <nav className={`space-y-0.5 text-[13px] transition-[padding] duration-300 ${collapsed ? "px-2.5" : "px-3"}`}>
           {NAV.map((item) => {
@@ -241,10 +241,10 @@ function Shell({ children }: { children: React.ReactNode }) {
             const active = item.href ? isActive(item.href) : false;
             const isOpen = open[item.label] ?? true;
             const row = (
-              <span className={`group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 font-medium transition-colors ${active ? "bg-orange-50 text-[#ee4d2d]" : childActive ? "text-[#ee4d2d]" : "text-slate-700 hover:bg-slate-50 hover:text-[#ee4d2d]"}`}>
-                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors ${active ? "text-[#ee4d2d]" : childActive ? "text-[#ee4d2d]" : "text-slate-500 group-hover:text-[#ee4d2d]"}`}><Icon size={17} strokeWidth={1.8} /></span>
+              <span className={`group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 font-medium transition-colors ${active ? "bg-white/20 text-white" : childActive ? "text-white" : "text-white/90 hover:bg-white/10 hover:text-white"}`}>
+                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors ${active ? "text-white" : childActive ? "text-white" : "text-white/80 group-hover:text-white"}`}><Icon size={17} strokeWidth={1.8} /></span>
                 {!collapsed && <span className="flex-1 truncate leading-tight">{item.label}</span>}
-                {!collapsed && item.children && <ChevronDown size={14} className={`text-slate-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />}
+                {!collapsed && item.children && <ChevronDown size={14} className={`text-white/70 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />}
               </span>
             );
             return (
@@ -260,7 +260,7 @@ function Shell({ children }: { children: React.ReactNode }) {
                           const on = isActive(c.href);
                           return (
                             <Link key={c.href} href={c.href} onClick={() => setMobile(false)} tabIndex={isOpen && !collapsed ? 0 : -1}
-                              className={`flex items-center rounded-md px-2.5 py-1.5 text-[13px] transition-colors ${on ? "bg-orange-50/80 font-semibold text-[#ee4d2d]" : "text-slate-600 hover:bg-slate-50 hover:text-[#ee4d2d]"}`}>
+                              className={`flex items-center rounded-md px-2.5 py-1.5 text-[13px] transition-colors ${on ? "bg-white/20 font-medium text-white" : "text-white/85 hover:bg-white/10 hover:text-white"}`}>
                               {c.label}
                               {c.lock && <span title={`Tersedia mulai paket ${c.lock}`} className="ml-auto rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200">{c.lock}</span>}
                             </Link>
@@ -273,8 +273,8 @@ function Shell({ children }: { children: React.ReactNode }) {
               </div>
             );
           })}
-          <button onClick={() => setWide(!wide)} className="group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-[#ee4d2d]" title="Wide Screen">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center text-slate-500 group-hover:text-[#ee4d2d]"><Maximize2 size={17} strokeWidth={1.8} /></span>{!collapsed && "Wide Screen"}
+          <button onClick={() => setWide(!wide)} className="group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 font-medium text-white/90 transition-colors hover:bg-white/10 hover:text-white" title="Wide Screen">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center text-white/80 group-hover:text-white"><Maximize2 size={17} strokeWidth={1.8} /></span>{!collapsed && "Wide Screen"}
           </button>
         </nav>
       </aside>

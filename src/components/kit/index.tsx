@@ -136,7 +136,7 @@ export function Pager({ page, last, onPage, perPage, onPerPage, total, loading }
       </div>
       {onPerPage ? (
         <label className="flex items-center gap-2">Per halaman
-          <Select disabled={loading} className="h-8 w-20 rounded-lg px-2" value={String(perPage ?? PER_PAGE)} onChange={(e) => { onPerPage(Number(e.target.value)); onPage(1); }}>{[10, 50, 500, 1000].map((n) => <option key={n} value={n}>{n}</option>)}</Select>
+          <Select disabled={loading} className="h-8 w-20 rounded-lg px-2" value={String(perPage ?? PER_PAGE)} onChange={(e) => { onPerPage(Number(e.target.value)); onPage(1); }}>{[10, 50, 100, 500, 1000].map((n) => <option key={n} value={n}>{n}</option>)}</Select>
         </label>
       ) : <span className="hidden sm:block" />}
     </div>
