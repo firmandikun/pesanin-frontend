@@ -12,9 +12,9 @@ import { TelegramConnect, type TelegramState } from "@/components/TelegramConnec
 /** One scheduled send: the time (WIB) and which labels — only unprinted ones, or every ready label. */
 type AwbSlot = { time: string; scope: "new" | "all" };
 type Automation = { auto_ship: boolean; auto_ship_cod: boolean; auto_ship_shopee: boolean; auto_ship_shopee_method: "auto" | "pickup" | "dropoff"; awb_schedule: boolean; awb_times: string[]; awb_slots: AwbSlot[] | null; digital_email: boolean; digital_wa_template: { name: string; language: string; variables: number } | null;
-  cod_confirm: boolean; cod_confirm_template: { name: string; language: string; variables: number } | null; cod_confirm_level: "all" | "medium" | "high"; cod_confirm_hours: number };
+  cod_confirm: boolean; cod_confirm_template: { name: string; language: string; variables: number } | null; cod_confirm_level: "all" | "medium" | "high"; cod_confirm_hours: number; cod_confirm_chat: boolean; cod_confirm_wait: number };
 const DEFAULTS: Automation = { auto_ship: false, auto_ship_cod: false, auto_ship_shopee: false, auto_ship_shopee_method: "auto", awb_schedule: false, awb_times: ["08:00"], awb_slots: null, digital_email: true, digital_wa_template: null,
-  cod_confirm: false, cod_confirm_template: null, cod_confirm_level: "all", cod_confirm_hours: 12 };
+  cod_confirm: false, cod_confirm_template: null, cod_confirm_level: "all", cod_confirm_hours: 12, cod_confirm_chat: true, cod_confirm_wait: 15 };
 
 /** Scheduled Shopee AWB PDF → the seller's own Telegram bot (the same connection as Pengaturan → Notifikasi). */
 function TelegramAwbPanel({ a, save }: { a: Automation; save: (next: Automation) => void }) {
@@ -169,6 +169,21 @@ export default function AutomationSettings() {
                       {!codUsable.length && <p className="text-xs text-slate-500">Belum ada template yang cocok. <Link href="/broadcast/templates" className="font-semibold text-brand-600">Buat template</Link> kategori Utilitas, mis. “Halo {"{{1}}"}, pesanan {"{{2}}"} ({"{{3}}"}) total {"{{4}}"} dibayar saat paket tiba (COD). Balas YA untuk kami kirim, atau BATAL jika tidak jadi.”</p>}
                     </>
                   )}
+                </div>
+                <div className="space-y-2 rounded-lg bg-emerald-50 p-3 text-sm">
+                  <label className="flex items-center justify-between gap-3">
+                    <span><b className="block text-emerald-900">Hemat biaya: konfirmasi lewat chat</b>
+                      <span className="text-xs text-emerald-800">Setelah checkout, pembeli COD diarahkan ke WhatsApp toko dengan pesan &quot;konfirmasi pesanan … YA, kirim&quot; yang sudah terisi. Begitu dikirim, pesanan langsung terkonfirmasi <b>gratis</b>. Template berbayar hanya dipakai kalau pembeli tidak chat.</span></span>
+                    <Toggle checked={a.cod_confirm_chat} onChange={(v) => save({ ...a, cod_confirm_chat: v })} />
+                  </label>
+                  {a.cod_confirm_chat && (
+                    <label className="flex flex-wrap items-center justify-between gap-2 border-t border-emerald-100 pt-2"><span className="text-xs text-emerald-800">Tunggu chat pembeli sebelum mengirim template berbayar</span>
+                      <Select className="input w-32 bg-white" value={String(a.cod_confirm_wait)} onChange={(e) => save({ ...a, cod_confirm_wait: Number(e.target.value) })}>
+                        {[5, 15, 30, 60].map((m) => <option key={m} value={m}>{m} menit</option>)}
+                      </Select>
+                    </label>
+                  )}
+                  <p className="text-[11px] text-emerald-700">Kalau pembeli sudah chat dalam 24 jam terakhir, konfirmasi dikirim sebagai pesan biasa (gratis), bukan template.</p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="block rounded-lg bg-slate-50 p-3 text-sm"><b className="mb-1 block text-slate-700">Kirim ke</b>

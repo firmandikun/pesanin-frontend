@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, Copy, ExternalLink, Link2, Loader2, Refres
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
+import { BrandIcon } from "@/components/BrandIcon";
 import { ShopeeMark } from "@/components/ChannelBadge";
 import { PageHead, Pager, Panel, PER_PAGE } from "@/components/kit";
 import { Select } from "@/components/Select";
@@ -10,10 +11,13 @@ import { api, ApiError } from "@/lib/api";
 import { askConfirm } from "@/components/Dialogs";
 
 type Shop = {
-  id: number; shop_id: number; shop_name: string; status: "active" | "expired" | "disconnected"; is_demo: boolean; region: string;
+  id: number; platform: "shopee" | "tiktok"; shop_id: number | string; shop_name: string; status: "active" | "expired" | "disconnected"; is_demo: boolean; region: string;
   products_synced_at: string | null; orders_synced_at: string | null; last_error: string | null; listings_count: number; orders_count: number; orders_today_count: number;
 };
-type Data = { shops: Shop[]; configured: boolean; environment: "sandbox" | "live"; redirect_url: string; push_url: string | null; can_demo: boolean };
+type Data = { shops: Shop[]; configured: boolean; environment: "sandbox" | "live"; redirect_url: string; push_url: string | null; can_demo: boolean;
+  tiktok: { enabled: boolean; configured: boolean; redirect_url: string } };
+
+const ShopMark = ({ s, size }: { s: Shop; size: number }) => (s.platform === "tiktok" ? <BrandIcon name="tiktok" size={size} /> : <ShopeeMark size={size} />);
 
 const ago = (s: string | null) => {
   if (!s) return "belum pernah";
@@ -36,6 +40,38 @@ function CopyField({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** "Hubungkan TikTok Shop": one TikTok Shop Partner app covers TikTok Shop and Tokopedia shops. */
+function TikTokCard({ d, busy, onConnect, count }: { d: Data; busy: string; onConnect: () => void; count: number }) {
+  const ok = d.tiktok.configured;
+  return (
+    <Panel className="p-5">
+      <div className="flex flex-wrap items-start gap-4">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100"><BrandIcon name="tiktok" size={24} /></span>
+        <div className="min-w-[220px] flex-1">
+          <h2 className="flex flex-wrap items-center gap-2 font-bold text-navy">TikTok Shop &amp; Tokopedia
+            <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[11px] font-semibold text-sky-700">Beta</span>
+            {count > 0 && <span className="text-xs font-medium text-slate-500">{count} toko terhubung</span>}</h2>
+          <p className="mt-1 text-sm text-slate-600">Hubungkan toko lewat API resmi TikTok Shop Partner Center. Toko Tokopedia yang sudah bergabung ke TikTok Shop ikut terhubung dalam satu otorisasi. Sinkron pesanan, produk, dan stok menyusul.</p>
+        </div>
+        <button onClick={onConnect} disabled={!!busy || !ok} title={ok ? undefined : "Kredensial TikTok Shop belum diisi di server"} className="flex h-10 items-center gap-2 rounded-lg bg-black px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600">
+          {busy === "tiktok" ? <Loader2 size={16} className="animate-spin" /> : <Link2 size={16} />}{ok ? "Hubungkan TikTok Shop" : "Belum dikonfigurasi"}
+        </button>
+      </div>
+      {!ok && (
+        <div className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
+          <p className="font-semibold">TikTok Shop belum dikonfigurasi</p>
+          <ol className="mt-2 space-y-1.5">
+            <li><b>1.</b> Di partner.tiktokshop.com buat <b>Public app</b> (ISV, market Indonesia) lalu salin <b>App key</b>, <b>App secret</b>, dan <b>Service ID</b>.</li>
+            <li><b>2.</b> Isi <code className="rounded bg-white/70 px-1">TIKTOK_APP_KEY</code>, <code className="rounded bg-white/70 px-1">TIKTOK_APP_SECRET</code>, <code className="rounded bg-white/70 px-1">TIKTOK_SERVICE_ID</code> di <code className="rounded bg-white/70 px-1">backend/.env</code>, lalu restart backend.</li>
+            <li><b>3.</b> Daftarkan Redirect URL di bawah pada pengaturan app.</li>
+          </ol>
+          <div className="mt-3 max-w-xl"><CopyField label="Redirect URL (callback otorisasi TikTok Shop)" value={d.tiktok.redirect_url} /></div>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 function Shops() {
   const sp = useSearchParams();
   const [d, setD] = useState<Data | null>(null);
@@ -45,7 +81,8 @@ function Shops() {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(PER_PAGE);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(
-    sp.get("connected") ? { ok: true, text: "Toko Shopee berhasil dihubungkan. Produk, pesanan, dan biaya iklan sedang disinkronkan otomatis; tunggu beberapa menit lalu refresh." }
+    sp.get("tiktok_connected") ? { ok: true, text: "Toko TikTok Shop berhasil dihubungkan. Sinkron produk dan pesanan TikTok menyusul di tahap berikutnya." }
+      : sp.get("connected") ? { ok: true, text: "Toko Shopee berhasil dihubungkan. Produk, pesanan, dan biaya iklan sedang disinkronkan otomatis; tunggu beberapa menit lalu refresh." }
       : sp.get("error") ? { ok: false, text: sp.get("error")! } : null,
   );
   const load = useCallback(() => api<Data>("/marketplace/shops").then(setD), []);
@@ -65,6 +102,21 @@ function Shops() {
     const { url } = await api("/marketplace/shopee/connect", { method: "POST" });
     if (tab) tab.location.href = url; else window.open(url, "_blank");
     setPasting(true); setPasted("");
+  });
+  // TikTok Shop (and Tokopedia): official Partner Center OAuth, opens in a new tab and lands on /tiktok-terhubung.
+  const connectTiktok = () => run("tiktok", async () => {
+    const tab = window.open("", "_blank");
+    const { url } = await api<{ url: string }>("/marketplace/tiktok/connect", { method: "POST" });
+    if (tab) tab.location.href = url; else window.open(url, "_blank");
+    setTtPaste("");
+  });
+  // If the registered Redirect URL can't finish the flow (local dev), paste the address TikTok sent the browser to.
+  const [ttPaste, setTtPaste] = useState<string | null>(null);
+  const completeTiktok = () => run("tiktok-complete", async () => {
+    const r = await api<{ shops: { shop_name: string }[] }>("/marketplace/tiktok/complete", { method: "POST", json: { url: (ttPaste ?? "").trim() } });
+    setTtPaste(null);
+    setMsg({ ok: true, text: `Toko TikTok ${r.shops.map((x) => x.shop_name).join(", ")} berhasil dihubungkan.` });
+    load();
   });
   // The Shopee login is often held by someone else (the shop owner, on their own laptop): send them a link.
   const [share, setShare] = useState<{ url: string; copied: boolean } | null>(null);
@@ -101,7 +153,7 @@ function Shops() {
 
   return (
     <div className="space-y-5">
-      <PageHead title="Toko Shopee" tutorial={false} crumbs={[["Marketplace"], ["Toko Shopee"]]}>
+      <PageHead title="Daftar Toko" tutorial={false} crumbs={[["Marketplace"], ["Daftar Toko"]]}>
         <button onClick={connect} disabled={!!busy || !d.configured} className="flex h-10 items-center gap-2 rounded-lg bg-[#ee4d2d] px-4 text-sm font-semibold text-white hover:bg-[#d73f22] disabled:opacity-50">
           {busy === "connect" ? <Loader2 size={16} className="animate-spin" /> : <Link2 size={16} />}Hubungkan Toko Shopee
         </button>
@@ -178,10 +230,29 @@ function Shops() {
         </div>
       )}
 
+      {d.tiktok.enabled && <TikTokCard d={d} busy={busy} onConnect={connectTiktok} count={active.filter((s) => s.platform === "tiktok").length} />}
+
+      {ttPaste !== null && (
+        <Panel className="space-y-3 p-5">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100"><BrandIcon name="tiktok" size={18} /></span>
+            <div className="text-sm">
+              <b className="block text-navy">Login dan setujui akses di tab TikTok Shop yang baru terbuka</b>
+              <span className="text-slate-500">TikTok lalu mengarahkan ke halaman Pesanin. Kalau halaman itu tidak terbuka atau error (mis. server lokal), salin seluruh alamat dari address bar tab tersebut dan tempel di sini.</span>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <input className="input h-10 min-w-[260px] flex-1 font-mono text-xs" placeholder="https://…/api/tiktok/callback?code=…&state=…" value={ttPaste} onChange={(e) => setTtPaste(e.target.value)} />
+            <button onClick={completeTiktok} disabled={!ttPaste.includes("code=") || !!busy} className="flex h-10 items-center gap-2 rounded-lg bg-black px-4 text-sm font-semibold text-white disabled:opacity-50">{busy === "tiktok-complete" && <Loader2 size={15} className="animate-spin" />}Selesaikan</button>
+            <button onClick={() => setTtPaste(null)} className="h-10 rounded-lg bg-slate-100 px-4 text-sm font-semibold text-slate-600">Tutup</button>
+          </div>
+        </Panel>
+      )}
+
       {active.length === 0 ? (
         <Panel className="flex flex-col items-center px-6 py-16 text-center">
           <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fff1ee]"><ShopeeMark size={30} /></span>
-          <h2 className="mt-4 text-lg font-bold text-navy">Belum ada toko Shopee terhubung</h2>
+          <h2 className="mt-4 text-lg font-bold text-navy">Belum ada toko terhubung</h2>
           <p className="mt-1 max-w-md text-sm text-slate-500">Hubungkan satu atau beberapa toko. Produk, pesanan, potongan admin, dan biaya Shopee Ads akan masuk ke Pesanin, terpisah dari pesanan website dan medsos.</p>
         </Panel>
       ) : (
@@ -211,11 +282,11 @@ function Shops() {
                   <tr key={s.id} className="align-middle">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <ShopeeMark size={32} />
+                        <ShopMark s={s} size={32} />
                         <div className="min-w-0">
                           <p className="flex items-center gap-2"><b className="max-w-[260px] truncate text-navy" title={s.shop_name}>{s.shop_name}</b>
                             {s.is_demo && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700">Data contoh</span>}</p>
-                          <p className="text-xs text-slate-500">Shop ID {s.shop_id} · {s.region}</p>
+                          <p className="text-xs text-slate-500">{s.platform === "tiktok" ? "TikTok Shop · " : ""}Shop ID {s.shop_id} · {s.region}</p>
                           {s.last_error && <p className="mt-0.5 max-w-[320px] truncate text-xs text-rose-600" title={s.last_error}>{s.last_error}</p>}
                         </div>
                       </div>
@@ -228,7 +299,7 @@ function Shops() {
                       <div className="flex justify-end gap-1.5">
                         {s.status === "active"
                           ? <button onClick={() => sync(s)} disabled={!!busy} title="Sinkronkan produk, pesanan & iklan" className="flex h-8 items-center gap-1.5 rounded-lg bg-navy px-3 text-xs font-semibold text-white hover:bg-navy-700 disabled:opacity-50">{busy === `sync-${s.id}` ? <Loader2 size={14} className="animate-spin" /> : <RefreshCcw size={14} />}Sinkronkan</button>
-                          : <button onClick={connect} className="flex h-8 items-center gap-1.5 rounded-lg bg-[#ee4d2d] px-3 text-xs font-semibold text-white"><Link2 size={14} />Hubungkan ulang</button>}
+                          : <button onClick={s.platform === "tiktok" ? connectTiktok : connect} className={`flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-white ${s.platform === "tiktok" ? "bg-black" : "bg-[#ee4d2d]"}`}><Link2 size={14} />Hubungkan ulang</button>}
                         <Link href={`/marketplace/shops/${s.id}`} className="flex h-8 items-center gap-1.5 rounded-lg bg-slate-100 px-3 text-xs font-semibold text-navy hover:bg-slate-200"><Store size={14} />Dashboard</Link>
                         <button onClick={() => disconnect(s)} disabled={!!busy} title={s.is_demo ? "Hapus toko contoh" : "Putuskan toko"} aria-label={s.is_demo ? "Hapus" : "Putuskan"} className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600">
                           {s.is_demo ? <Trash2 size={15} /> : <Unplug size={15} />}
