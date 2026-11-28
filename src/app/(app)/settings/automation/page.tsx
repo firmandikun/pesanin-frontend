@@ -1,5 +1,5 @@
 "use client";
-import { AlertTriangle, CheckCircle2, FileDown, Loader2, Plus, Send, Truck, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FileDown, MessageCircleMore, Loader2, Plus, Send, Truck, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PageHead, Panel, Toggle } from "@/components/kit";
@@ -11,8 +11,10 @@ import { TelegramConnect, type TelegramState } from "@/components/TelegramConnec
 
 /** One scheduled send: the time (WIB) and which labels — only unprinted ones, or every ready label. */
 type AwbSlot = { time: string; scope: "new" | "all" };
-type Automation = { auto_ship: boolean; auto_ship_cod: boolean; auto_ship_shopee: boolean; auto_ship_shopee_method: "auto" | "pickup" | "dropoff"; awb_schedule: boolean; awb_times: string[]; awb_slots: AwbSlot[] | null; digital_email: boolean; digital_wa_template: { name: string; language: string; variables: number } | null };
-const DEFAULTS: Automation = { auto_ship: false, auto_ship_cod: false, auto_ship_shopee: false, auto_ship_shopee_method: "auto", awb_schedule: false, awb_times: ["08:00"], awb_slots: null, digital_email: true, digital_wa_template: null };
+type Automation = { auto_ship: boolean; auto_ship_cod: boolean; auto_ship_shopee: boolean; auto_ship_shopee_method: "auto" | "pickup" | "dropoff"; awb_schedule: boolean; awb_times: string[]; awb_slots: AwbSlot[] | null; digital_email: boolean; digital_wa_template: { name: string; language: string; variables: number } | null;
+  cod_confirm: boolean; cod_confirm_template: { name: string; language: string; variables: number } | null; cod_confirm_level: "all" | "medium" | "high"; cod_confirm_hours: number };
+const DEFAULTS: Automation = { auto_ship: false, auto_ship_cod: false, auto_ship_shopee: false, auto_ship_shopee_method: "auto", awb_schedule: false, awb_times: ["08:00"], awb_slots: null, digital_email: true, digital_wa_template: null,
+  cod_confirm: false, cod_confirm_template: null, cod_confirm_level: "all", cod_confirm_hours: 12 };
 
 /** Scheduled Shopee AWB PDF → the seller's own Telegram bot (the same connection as Pengaturan → Notifikasi). */
 function TelegramAwbPanel({ a, save }: { a: Automation; save: (next: Automation) => void }) {
@@ -109,6 +111,8 @@ export default function AutomationSettings() {
   };
   // Templates usable for the access message: approved, text only, at most 3 variables ({{1}} nama, {{2}} link, {{3}} produk).
   const usable = (templates ?? []).filter((t) => t.status === "APPROVED" && t.supported && t.variables >= 2 && t.variables <= 3);
+  // Konfirmasi COD: approved templates with up to 4 variables (nama, no. pesanan, produk, total).
+  const codUsable = (templates ?? []).filter((t) => t.status === "APPROVED" && t.supported && t.variables >= 1 && t.variables <= 4);
   const tplKey = a?.digital_wa_template ? `${a.digital_wa_template.name}|${a.digital_wa_template.language}` : "";
 
   const Warn = ({ children }: { children: React.ReactNode }) => <p className="flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-800"><AlertTriangle size={15} className="mt-0.5 shrink-0" /><span>{children}</span></p>;
@@ -137,6 +141,51 @@ export default function AutomationSettings() {
             {a.auto_ship && !ready.delivery && <Warn>Layanan pesan kurir Pesanin sedang belum aktif, resi belum bisa terbit otomatis. Sementara isi resi manual di Pesanan.</Warn>}
             {a.auto_ship && !ready.pickup && <Warn>Alamat pickup belum diisi. <Link href="/settings/addresses" className="font-semibold underline">Tambah alamat</Link>.</Warn>}
             {a.auto_ship && ready.delivery && ready.pickup && <p className="flex items-center gap-1.5 text-xs text-emerald-700"><CheckCircle2 size={14} />Siap. Pesanan lunas diproses dalam ±30 detik. Jika gagal dicoba 3 kali, lalu kamu diberi notifikasi.</p>}
+          </Panel>
+          )}
+
+          {showSocial && (
+          <Panel className="space-y-4 p-5">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600"><MessageCircleMore size={20} /></span>
+              <div className="flex-1"><b className="text-slate-800">Konfirmasi COD otomatis via WhatsApp</b>
+                <p className="text-sm text-slate-500">Setiap pesanan COD baru, pembeli dikirimi WhatsApp &quot;balas YA untuk konfirmasi&quot;. Paket ditahan (resi otomatis menunggu) sampai pembeli membalas YA. Kalau pembeli membalas BATAL atau tidak membalas, kamu dan CS diberi notifikasi. Mengurangi paket COD yang ditolak (RTS).</p></div>
+              <Toggle checked={a.cod_confirm} onChange={(v) => save({ ...a, cod_confirm: v })} />
+            </div>
+            {a.cod_confirm && (
+              <>
+                <div className="space-y-2 rounded-lg bg-slate-50 p-3 text-sm">
+                  <b className="block text-slate-700">Template WhatsApp</b>
+                  <span className="block text-xs text-slate-500">Variabel: <b>{"{{1}}"} nama</b>, <b>{"{{2}}"} no. pesanan</b>, <b>{"{{3}}"} produk</b>, <b>{"{{4}}"} total</b> (pakai sebagian juga boleh). Tambahkan tombol balasan cepat <b>&quot;Ya, kirim&quot;</b> dan <b>&quot;Batalkan&quot;</b> agar pembeli tinggal tekan.</span>
+                  {!ready.whatsapp ? <Warn>WhatsApp belum terhubung. <Link href="/settings/whatsapp" className="font-semibold underline">Hubungkan WhatsApp</Link>.</Warn> : templates === null ? <p className="text-xs text-slate-400">Memuat template…</p> : (
+                    <>
+                      <Select className="input bg-white" value={a.cod_confirm_template ? `${a.cod_confirm_template.name}|${a.cod_confirm_template.language}` : ""} onChange={(e) => {
+                        const t = codUsable.find((x) => `${x.name}|${x.language}` === e.target.value);
+                        save({ ...a, cod_confirm_template: t ? { name: t.name, language: t.language, variables: t.variables } : null });
+                      }}>
+                        <option value="">Pilih template</option>
+                        {codUsable.map((t) => <option key={`${t.name}|${t.language}`} value={`${t.name}|${t.language}`}>{t.name} ({t.language})</option>)}
+                      </Select>
+                      {!codUsable.length && <p className="text-xs text-slate-500">Belum ada template yang cocok. <Link href="/broadcast/templates" className="font-semibold text-brand-600">Buat template</Link> kategori Utilitas, mis. “Halo {"{{1}}"}, pesanan {"{{2}}"} ({"{{3}}"}) total {"{{4}}"} dibayar saat paket tiba (COD). Balas YA untuk kami kirim, atau BATAL jika tidak jadi.”</p>}
+                    </>
+                  )}
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block rounded-lg bg-slate-50 p-3 text-sm"><b className="mb-1 block text-slate-700">Kirim ke</b>
+                    <Select className="input w-full bg-white" value={a.cod_confirm_level} onChange={(e) => save({ ...a, cod_confirm_level: e.target.value as Automation["cod_confirm_level"] })}>
+                      <option value="all">Semua pesanan COD</option><option value="medium">Risiko COD sedang & tinggi</option><option value="high">Hanya risiko COD tinggi</option>
+                    </Select>
+                    <span className="mt-1 block text-xs text-slate-500">Pelanggan setia (risiko rendah) bisa dilewati agar tidak terganggu.</span></label>
+                  <label className="block rounded-lg bg-slate-50 p-3 text-sm"><b className="mb-1 block text-slate-700">Tandai &quot;tidak membalas&quot; setelah</b>
+                    <Select className="input w-full bg-white" value={String(a.cod_confirm_hours)} onChange={(e) => save({ ...a, cod_confirm_hours: Number(e.target.value) })}>
+                      {[2, 6, 12, 24, 48].map((h) => <option key={h} value={h}>{h} jam</option>)}
+                    </Select>
+                    <span className="mt-1 block text-xs text-slate-500">Lalu kamu dapat notifikasi untuk menelepon pembeli.</span></label>
+                </div>
+                {ready.whatsapp && a.cod_confirm_template && <p className="flex items-center gap-1.5 text-xs text-emerald-700"><CheckCircle2 size={14} />Aktif. Pesanan COD baru dikirimi konfirmasi dalam ±30 detik; status terlihat di menu Pesanan dan bisa diubah manual oleh CS.</p>}
+                {!a.cod_confirm_template && ready.whatsapp && <Warn>Pilih template dulu. Selama belum ada template, pesanan COD tidak ditahan.</Warn>}
+              </>
+            )}
           </Panel>
           )}
 
@@ -179,7 +228,7 @@ export default function AutomationSettings() {
             <div className="space-y-2 rounded-lg bg-slate-50 p-3 text-sm">
               <b className="block text-slate-700">Kirim lewat WhatsApp</b>
               <span className="block text-xs text-slate-500">WhatsApp mewajibkan template yang disetujui Meta. Pakai template dengan variabel <b>{"{{1}}"} nama pembeli</b>, <b>{"{{2}}"} link akses</b>, dan (opsional) <b>{"{{3}}"} nama produk</b>.</span>
-              {!ready.whatsapp ? <Warn>WhatsApp belum terhubung. <Link href="/settings/integrations#whatsapp" className="font-semibold underline">Hubungkan WhatsApp</Link>.</Warn> : templates === null ? <p className="text-xs text-slate-400">Memuat template…</p> : (
+              {!ready.whatsapp ? <Warn>WhatsApp belum terhubung. <Link href="/settings/whatsapp" className="font-semibold underline">Hubungkan WhatsApp</Link>.</Warn> : templates === null ? <p className="text-xs text-slate-400">Memuat template…</p> : (
                 <>
                   <Select className="input bg-white" value={tplKey} onChange={(e) => {
                     const t = usable.find((x) => `${x.name}|${x.language}` === e.target.value);

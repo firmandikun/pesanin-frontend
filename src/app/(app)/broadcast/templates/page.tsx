@@ -32,7 +32,7 @@ export default function Templates() {
       </PageHead>
       <p className="flex items-start gap-2 rounded-xl bg-sky-50 p-3 text-sm text-sky-800"><Info size={16} className="mt-0.5 shrink-0" />
         <span>Pesan pertama ke pelanggan (dan pesan setelah lewat 24 jam) wajib memakai template yang disetujui Meta. Review biasanya beberapa menit, paling lama 24 jam. Template <b>Marketing</b> untuk promo, <b>Utilitas</b> untuk info pesanan.</span></p>
-      {err && <p className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{err} {err.includes("Integrasi") && <Link href="/settings/integrations#whatsapp" className="font-semibold underline">Buka Integrasi</Link>}</p>}
+      {err && <p className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{err} {err.includes("Integrasi") && <Link href="/settings/whatsapp" className="font-semibold underline">Buka Integrasi</Link>}</p>}
       <Panel>
         {!rows ? <p className="p-8 text-center text-sm text-slate-400">Memuat template dari Meta…</p> : !rows.length ? <EmptyState text="Belum ada template" sub="Buat template pertama, misalnya info promo atau konfirmasi pesanan." /> : (
           <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">

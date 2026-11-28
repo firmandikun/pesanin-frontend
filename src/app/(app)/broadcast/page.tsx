@@ -41,7 +41,7 @@ export default function BroadcastPage() {
   const approved = (templates ?? []).filter((t) => t.status === "APPROVED");
   const usable = approved.filter((t) => t.supported);
   const steps = [
-    { n: 1, icon: Plug, title: "Hubungkan Nomor WhatsApp Resmi", text: "Nomor WhatsApp Business harus aktif di Cloud API Meta.", done: !!status?.connected, href: "/settings/integrations#whatsapp", cta: "Hubungkan Nomor" },
+    { n: 1, icon: Plug, title: "Hubungkan Nomor WhatsApp Resmi", text: "Nomor WhatsApp Business harus aktif di Cloud API Meta.", done: !!status?.connected, href: "/settings/whatsapp", cta: "Hubungkan Nomor" },
     { n: 2, icon: FileText, title: "Siapkan & Ajukan Template Meta", text: status?.connected ? `${approved.length} template disetujui.` : "Broadcast wajib memakai template yang disetujui Meta.", done: usable.length > 0, href: "/broadcast/templates", cta: "Buat Template" },
     { n: 3, icon: Users, title: "Siapkan Daftar Kontak / Label", text: status ? `${status.customers_with_phone} pelanggan punya nomor, ${status.opted_in} setuju promosi.` : "Kelompokkan pelanggan dengan label.", done: (status?.opted_in ?? 0) > 0, href: "/customers", cta: "Kelola Kontak" },
   ];
@@ -60,7 +60,7 @@ export default function BroadcastPage() {
         <div className="flex flex-wrap items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-700">
           <AlertTriangle size={18} className="mt-0.5 shrink-0" />
           <div className="flex-1"><b className="block">WhatsApp Belum Terhubung</b><span className="text-sm">Hubungkan WhatsApp Business Account untuk mulai mengirim broadcast.</span></div>
-          <Link href="/settings/integrations#whatsapp" className="flex h-9 items-center gap-2 rounded-lg bg-white px-3 text-sm font-semibold text-rose-700 ring-1 ring-rose-200"><Plug size={15} />Hubungkan WhatsApp</Link>
+          <Link href="/settings/whatsapp" className="flex h-9 items-center gap-2 rounded-lg bg-white px-3 text-sm font-semibold text-rose-700 ring-1 ring-rose-200"><Plug size={15} />Hubungkan WhatsApp</Link>
         </div>
       )}
       {status?.error && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">{status.error}</p>}

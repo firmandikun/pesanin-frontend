@@ -142,6 +142,8 @@ export type Order = {
   courier?: string; courier_service?: string; courier_code?: string | null; external_note?: string | null; shipping_ref?: string | null; shipping_provider?: string | null; shipping_etd?: string; shipping_status: string; tracking_number?: string; auto_ship_error?: string | null; digital_token?: string | null; digital_sent_at?: string | null; digital_error?: string | null;
   notes?: string; utm_source?: string; utm_medium?: string; utm_campaign?: string; source: string;
   /** CS penanggung jawab (assigned in turn at checkout) and when they first followed up the buyer. */
+  /** Konfirmasi COD otomatis (WhatsApp "balas YA"). */
+  cod_confirm_status?: "skipped" | "waiting" | "confirmed" | "declined" | "no_reply" | "failed" | null; cod_confirmed_at?: string | null;
   cs_staff_id?: number | null; cs_staff?: { id: number; name: string; phone: string } | null; cs_contacted_at?: string | null;
   followup_count: number; created_at: string; paid_at?: string; shipped_at?: string; archived_at?: string | null; is_abandoned: boolean;
   product?: { id: number; name: string; type?: string } | null;

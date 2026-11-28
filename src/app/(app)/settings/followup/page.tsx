@@ -40,7 +40,7 @@ export default function FollowUp() {
         <Art />
         <div className="flex-1"><div className="flex items-center gap-2 font-semibold text-slate-800">WhatsApp Notifications <span className="rounded bg-rose-500 px-1.5 text-[10px] text-white">Gratis</span></div>
           <p className="text-sm text-slate-600">Hubungkan WhatsApp-mu agar bisa otomatis mengirim pesan ke penerima dari saat pesanan masuk hingga pesanan selesai.</p></div>
-        <Link href="/settings/integrations#whatsapp" className="flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white">Hubungkan WhatsApp<ArrowRight size={15} /></Link>
+        <Link href="/settings/whatsapp" className="flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white">Hubungkan WhatsApp<ArrowRight size={15} /></Link>
       </Panel>
       <Panel className="flex flex-wrap items-center gap-3 px-4 py-3">
         <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-50 text-brand-600"><ClipboardList size={18} /></span>

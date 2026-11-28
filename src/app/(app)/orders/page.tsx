@@ -32,6 +32,20 @@ const labelUrl = (ids: number[]) => `/orders/labels?ids=${ids.join(",")}&auto=1`
 const TITLES: Record<string, string> = { all: "Pesanan Media Sosial", abandoned: "Checkout Ditinggalkan", archived: "Pesanan Diarsipkan" };
 const COURIERS = ["JNE", "SiCepat", "SAP", "iDexpress", "J&T", "Lion Parcel", "SPX Express"];
 
+/** Konfirmasi COD status: label and badge colour. */
+const COD_CONFIRM: Record<string, [string, string]> = {
+  waiting: ["Menunggu konfirmasi", "bg-amber-50 text-amber-700"], confirmed: ["COD dikonfirmasi", "bg-emerald-50 text-emerald-700"],
+  declined: ["Pembeli batal", "bg-rose-50 text-rose-700"], no_reply: ["Tidak membalas", "bg-rose-50 text-rose-700"],
+  failed: ["WA gagal terkirim", "bg-slate-100 text-slate-600"], skipped: ["Tanpa konfirmasi", "bg-slate-100 text-slate-500"],
+};
+
+function CodConfirmBadge({ o, always }: { o: Order; always?: boolean }) {
+  const c = o.cod_confirm_status ? COD_CONFIRM[o.cod_confirm_status] : null;
+  if (!c) return always ? <span className="badge bg-slate-100 text-slate-500">Belum dikonfirmasi</span> : null;
+  if (o.cod_confirm_status === "skipped" && !always) return null;
+  return <span className={`mt-1 inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold ${c[1]}`}>{c[0]}</span>;
+}
+
 type CsOption = { id: number; name: string; is_active?: boolean };
 
 /** Which follow-up template fits the order's current state. */
@@ -49,7 +63,7 @@ function Orders() {
   const [type, setType] = useState<"physical" | "digital">("physical");
   const [filters, setFilters] = useState({
     search: sp.get("search") ?? "", product_id: "", status: sp.get("status") ?? "", payment_status: sp.get("payment_status") ?? "",
-    payment_method: sp.get("payment_method") ?? "", courier: "", pickup: "", duplicates: "", cs_staff_id: "",
+    payment_method: sp.get("payment_method") ?? "", courier: "", pickup: "", duplicates: "", cs_staff_id: "", cod_confirm: sp.get("cod_confirm") ?? "",
     channel: sp.get("channel") ?? "", marketplace_shop_id: "", traffic: "",
     ...todayRange(),
   });
@@ -205,6 +219,11 @@ function Orders() {
                   </Select>
                 </>
               )}
+              {filters.payment_method === "cod" && (
+                <Select className="input w-44" value={filters.cod_confirm} onChange={(e) => f("cod_confirm", e.target.value)}>
+                  <option value="">Konfirmasi COD</option>{Object.entries(COD_CONFIRM).filter(([k]) => k !== "skipped").map(([k, [l]]) => <option key={k} value={k}>{l}</option>)}
+                </Select>
+              )}
               {staff.length > 0 && (
                 <Select className="input w-40" value={filters.cs_staff_id} onChange={(e) => f("cs_staff_id", e.target.value)}>
                   <option value="">Semua CS</option>{staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}<option value="none">Tanpa CS</option>
@@ -271,7 +290,7 @@ function Orders() {
                     : <>{o.product?.name}{o.variant ? ` (${o.variant})` : ""} × {o.quantity}</>}</td>
                   <td className="td font-medium">{rupiah(o.total)}</td>
                   <td className="td">{o.is_abandoned ? <span className="badge bg-orange-100 text-orange-700">Abandoned</span> : <span className={`badge ${STATUS_COLOR[o.status]}`}>{STATUS_LABEL[o.status]}</span>}</td>
-                  <td className="td"><span className={`badge ${PAY_STATUS_COLOR[o.payment_status]}`}>{PAY_STATUS_LABEL[o.payment_status]}</span><div className="text-xs text-slate-500">{o.payment_method ? PAYMENT_LABEL[o.payment_method] : "-"}</div>{o.cod_risk && o.cod_risk.level !== "low" && <CodRiskBadge risk={o.cod_risk} />}</td>
+                  <td className="td"><span className={`badge ${PAY_STATUS_COLOR[o.payment_status]}`}>{PAY_STATUS_LABEL[o.payment_status]}</span><div className="text-xs text-slate-500">{o.payment_method ? PAYMENT_LABEL[o.payment_method] : "-"}</div>{o.cod_risk && o.cod_risk.level !== "low" && <CodRiskBadge risk={o.cod_risk} />}{o.payment_method === "cod" && <CodConfirmBadge o={o} />}</td>
                   {type === "physical" && (
                     <td className="td" onClick={(e) => e.stopPropagation()}>
                       {o.courier ? <ShippingStatus status={o.shipping_status} compact /> : <span className="text-xs text-slate-400">-</span>}
@@ -403,6 +422,13 @@ function OrderDetail({ order, staff, onClose, onSaved }: { order: Order; staff: 
     } catch (e) { showAlert(e instanceof ApiError ? e.message : "Gagal mengubah CS", "Gagal"); }
   }
 
+  async function setCod(status: "confirmed" | "declined") {
+    try {
+      const r = await api<Pick<Order, "cod_confirm_status" | "cod_confirmed_at">>(`/orders/${o.id}/cod-confirm`, { method: "PUT", json: { status } });
+      setO((x) => ({ ...x, ...r }));
+    } catch (e) { showAlert(e instanceof ApiError ? e.message : "Gagal menyimpan", "Gagal"); }
+  }
+
   async function followup(event: string) {
     const { url } = await api(`/orders/${o.id}/followup`, { method: "POST", json: { event } });
     window.open(url, "_blank");
@@ -523,6 +549,17 @@ function OrderDetail({ order, staff, onClose, onSaved }: { order: Order; staff: 
               <p className="text-xs text-slate-500">Menandai <b>Paid</b> pada pesanan Pending otomatis memindahkannya ke <b>Processing</b>. Cancelled/Refunded mengembalikan stok.</p>
               <Field label="Catatan Internal"><textarea className="textarea" rows={2} value={o.notes ?? ""} onChange={(e) => set("notes", e.target.value)} /></Field>
             </>
+          )}
+          {o.payment_method === "cod" && !o.is_abandoned && (
+            <div className="rounded-xl bg-slate-50 p-3">
+              <label className="label">Konfirmasi COD</label>
+              <div className="flex flex-wrap items-center gap-2">
+                <CodConfirmBadge o={o} always />
+                {o.cod_confirm_status !== "confirmed" && <button className="btn-outline btn-sm text-emerald-700" onClick={() => setCod("confirmed")}><CheckCircle2 size={13} />Tandai dikonfirmasi</button>}
+                {o.cod_confirm_status !== "declined" && <button className="btn-ghost btn-sm text-rose-600" onClick={() => setCod("declined")}>Pembeli batal</button>}
+              </div>
+              <p className="mt-1 text-xs text-slate-500">Resi otomatis untuk COD menunggu sampai dikonfirmasi (jika Konfirmasi COD otomatis aktif di Pengaturan → Otomatisasi Pesanan).</p>
+            </div>
           )}
           {staff.length > 0 && !o.is_abandoned && (
             <div className="rounded-xl bg-slate-50 p-3">

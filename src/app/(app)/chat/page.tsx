@@ -255,7 +255,7 @@ function Chat() {
   );
   const meta = list?.meta;
   const canConnect = (ch: Channel) => !preview && (ch === "whatsapp" ? !list?.whatsapp?.connected : !!meta?.configured && !meta.connected && (ch === "facebook" || ch === "instagram"));
-  const connectChannel = (ch: Channel) => (ch === "whatsapp" ? (window.location.href = "/settings/integrations#whatsapp") : connectMeta());
+  const connectChannel = (ch: Channel) => (ch === "whatsapp" ? (window.location.href = "/settings/whatsapp") : connectMeta());
   const connectMeta = async () => {
     try { const { url } = await api<{ url: string }>("/meta-chat/connect", { method: "POST" }); window.location.href = url; }
     catch (e) { setNotice({ ok: false, text: e instanceof ApiError ? e.message : "Gagal memulai login Facebook" }); }

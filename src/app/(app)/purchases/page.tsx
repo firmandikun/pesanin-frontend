@@ -1,5 +1,6 @@
 "use client";
-import { AlertTriangle, PackageOpen, ShoppingBag, Wallet } from "lucide-react";
+import { AlertTriangle, PackageOpen, PackageSearch, ShoppingBag, Wallet } from "lucide-react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { EmptyState, PageHead, Pager, Panel, PrimaryBtn, SearchBox } from "@/components/kit";
@@ -40,6 +41,7 @@ function Purchases() {
   return (
     <div className="space-y-5">
       <PageHead title="Pembelian (PO)" tutorial={false} crumbs={[["Pembelian"], ["Pembelian (PO)"]]}>
+        {canManage && <Link href="/purchases/restock" className="flex h-10 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-navy hover:bg-slate-50"><PackageSearch size={16} />Saran Restock</Link>}
         {canManage && <PrimaryBtn onClick={() => setForm({})}>Buat PO</PrimaryBtn>}
       </PageHead>
 
